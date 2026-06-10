@@ -27,11 +27,18 @@ Populate the date folder with outlet screenshots, the corrected briefing `.txt`,
 
 ## Source of Truth Rules
 
-- `radar-beirut-intro.html` — current shared intro reference for all formats
+- `radar-beirut-intro.html` (root) — current shared intro reference for all formats
 - `templates/radar-beirut-briefing-template.html` and `templates/radar-beirut-quote-duel-template.html` — active HTML shells used by builders
-- `briefings/YYYY-MM-DD/output/` — daily generated artifacts; these are the current living outputs (local only)
+- `templates/radar-beirut-intro.html` — older intro reference kept for comparison; not the active input
+- `briefings/YYYY-MM-DD/output/` — daily generated artifacts; these are the current living outputs (local only, gitignored)
 - `src/BriefingVideo.jsx` — legacy; do not treat as current production reference
 - `src/ProductionBriefingVideo.jsx` — current Remotion production composition
+
+## What Is and Isn't Committed
+
+**Committed (source files):** `package.json`, `package-lock.json`, `briefing-formats.json`, `radar-beirut-intro.html`, `templates/`, `scripts/`, `src/`, `audio/`
+
+**Gitignored (local only):** `briefings/` (all daily data), root-level generated HTMLs (`radar-beirut-briefing.html`, `radar-beirut-fault-line-map.html`, `radar-beirut-keyword-radar.html`, `radar-beirut-quote-duel.html`), `*.mp4`, `*.wav`, `node_modules/`
 
 ## Directory Layout
 
