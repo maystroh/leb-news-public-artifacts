@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "sourcePath": "C:\\Users\\HassanAlhajj\\Desktop\\MyProjects\\video-animations\\briefings\\2026-06-01\\briefing_2026-06-01.txt",
+    "generatedAt": "2026-06-03T16:41:58.441Z",
+    "dateLabel": "2026-06-01",
+    "mode": "fault-line-map",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "خريطة الانقسام",
+    "subtitle": "",
+    "durationSeconds": 8
+  },
+  "axis": {
+    "id": "open-escalation-vs-diplomatic-containment",
+    "label": "الخريطة الأيديولوجية لليوم",
+    "headline": "خط التوتر بين التصعيد المفتوح والاحتواء الدبلوماسي",
+    "leftPole": "التصعيد المفتوح",
+    "rightPole": "الاحتواء الدبلوماسي",
+    "leftColor": "#cd7f32",
+    "rightColor": "#67bfd8"
+  },
+  "entries": [
+    {
+      "id": "fault-line-1",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "headline": "إيران مفتاح الحل",
+      "rationale": "تضع إيران والمقاومة في موقع الفاعل المنظم للحل، وتهاجم شرعية المؤسسات الرسمية.",
+      "quote": "وقف الحرب في لبنان شرط لازم للاتفاق",
+      "stanceLabel": "محور المقاومة",
+      "position": 0.08,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-2",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "headline": "تعبئة كاملة",
+      "rationale": "تعامل التصعيد كمرحلة حتمية قبل نصر قادم، وترفض التفاوض بوصفه خيارا خاطئا.",
+      "quote": "التحرير الثالث",
+      "stanceLabel": "تعبئة مقاومة",
+      "position": 0.12,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-3",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "headline": "نقد مزدوج",
+      "rationale": "تدين العقيدة الإسرائيلية في التدمير كما تنتقد انفصال حزب الله عن الكارثة الإنسانية.",
+      "quote": "عقيدة الركام",
+      "stanceLabel": "نقد مزدوج",
+      "position": 0.38,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-4",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "headline": "تحييد الحكومة",
+      "rationale": "تتحرك نحو دعم المرجعية التفاوضية من دون الذهاب إلى خطاب سيادي صدامي كامل.",
+      "quote": "الأرض مقابل السلاح",
+      "stanceLabel": "براغماتية حذرة",
+      "position": 0.58,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-5",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "headline": "واقعية باردة",
+      "rationale": "تعرض المشهد كمسار تفاوضي أقل كلفة، وتقدم حزب الله كطرف بلا خيارات أكثر من كونه محور خلاص.",
+      "quote": "أقل تكلفة من الخيارات الأخرى",
+      "stanceLabel": "واقعية باردة",
+      "position": 0.62,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-6",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "headline": "تحالف الركام",
+      "rationale": "تربط بين نتنياهو وإيران على أنقاض الدولة اللبنانية، وتدفع باتجاه استعادة مركزية الدولة.",
+      "quote": "إمارة الركام",
+      "stanceLabel": "دولة ضد الركام",
+      "position": 0.7,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-7",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "headline": "دبلوماسية أولاً",
+      "rationale": "تعطي الشرعية للمسار العربي والدولي ولرئاسة الجمهورية بوصفهما مدخل الحل.",
+      "quote": "الدعم السعودي والفرنسي كضمانة",
+      "stanceLabel": "دبلوماسية سيادية",
+      "position": 0.74,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-8",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "headline": "صرخة للدولة",
+      "rationale": "تقرأ دعوات انتشار الجيش اللبناني كدليل على تآكل سردية السلاح داخل البيئة الجنوبية.",
+      "quote": "هل يحق لإيران ما لا يحق للدولة اللبنانية؟",
+      "stanceLabel": "دولة أولا",
+      "position": 0.82,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-9",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "headline": "إسقاط أخلاقي",
+      "rationale": "تنزع الشرعية الوطنية عن الحزب وتعيد توصيف المعركة كامتداد مباشر لطهران.",
+      "quote": "إسناد خامنئي",
+      "stanceLabel": "سيادي صدامي",
+      "position": 0.94,
+      "durationSeconds": 5
+    }
+  ],
+  "synthesis": {
+    "headline": "الصحف اتفقت على الحدث واختلفت على شرعيته",
+    "summary": "الخلاف اليوم لم يكن على الحدث فقط، بل على ما إذا كان المشهد يدفع نحو تعبئة مفتوحة أم نحو احتواء تفاوضي.",
+    "durationSeconds": 5,
+    "leftMostOutlet": "الأخبار",
+    "rightMostOutlet": "نداء الوطن",
+    "bridgeOutlet": "الديار"
+  },
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "هل يبقى هذا الانقسام عند توصيف الحدث، أم يتحول إلى صراع مفتوح على شرعية الدولة نفسها؟",
+    "durationSeconds": 5
+  }
+}

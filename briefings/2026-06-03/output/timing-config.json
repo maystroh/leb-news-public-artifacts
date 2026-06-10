@@ -1,0 +1,59 @@
+{
+  "briefing": {
+    "introSeconds": 8,
+    "introTextRevealSeconds": 6,
+    "scenes": {
+      "scene-2": 6,
+      "scene-3": 6,
+      "scene-4": 6,
+      "scene-5": 6,
+      "scene-6": 6,
+      "scene-7": 6,
+      "scene-8": 6,
+      "scene-9": 6,
+      "scene-10": 6,
+      "scene-11": 7
+    },
+    "outroSeconds": 6
+  },
+  "quoteDuel": {
+    "introSeconds": null,
+    "introTextRevealSeconds": 6,
+    "scenes": {},
+    "outroSeconds": null
+  },
+  "faultLineMap": {
+    "introSeconds": 8,
+    "introTextRevealSeconds": 6,
+    "scenes": {
+      "scene-3": 5,
+      "scene-9": 5,
+      "scene-10": 5,
+      "scene-2": 5,
+      "scene-7": 5,
+      "scene-5": 5,
+      "scene-8": 5,
+      "scene-6": 5,
+      "scene-4": 5
+    },
+    "synthesisSeconds": 5,
+    "outroSeconds": 5
+  },
+  "keywordRadar": {
+    "introSeconds": 8,
+    "introTextRevealSeconds": 6,
+    "scenes": {
+      "scene-2": 6,
+      "scene-3": 6,
+      "scene-4": 6,
+      "scene-5": 6,
+      "scene-6": 6,
+      "scene-7": 6,
+      "scene-8": 6,
+      "scene-9": 6,
+      "scene-10": 6
+    },
+    "synthesisSeconds": 6,
+    "outroSeconds": 5
+  }
+}

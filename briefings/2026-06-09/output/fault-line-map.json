@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "sourcePath": "/mnt/c/Users/HassanAlhajj/Desktop/MyProjects/video-animations/briefings/2026-06-09/briefing_2026-06-09_corrected.txt",
+    "generatedAt": "2026-06-09T13:21:21.477Z",
+    "dateLabel": "2026-06-09",
+    "mode": "fault-line-map",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "خريطة الانقسام",
+    "subtitle": "",
+    "durationSeconds": 7.527,
+    "textRevealSeconds": 4.527
+  },
+  "axis": {
+    "id": "beirut-decision-vs-iranian-deterrence",
+    "label": "الخريطة الأيديولوجية لليوم",
+    "headline": "من يملك ورقة لبنان: قرار الدولة أم معادلة الردع الإيراني؟",
+    "leftPole": "معادلة الردع الإيراني",
+    "rightPole": "قرار الدولة اللبنانية",
+    "leftColor": "#cd7f32",
+    "rightColor": "#67bfd8"
+  },
+  "entries": [
+    {
+      "id": "fault-line-1",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "headline": "نصر المعادلة",
+      "rationale": "تحتفل بالرد الإيراني كإنجاز استراتيجي وتهاجم السلطة بوصفها خطراً على لبنان.",
+      "quote": "الانتصار الاستراتيجي",
+      "stanceLabel": "نصر المعادلة",
+      "position": 0.05,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-2",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "headline": "مبادرة الردع",
+      "rationale": "تعتبر الضربات إمساكاً بالمبادرة وأي إضعاف لطهران استهدافاً للمقاومة في لبنان.",
+      "quote": "إيران الجديدة",
+      "stanceLabel": "إيران الجديدة",
+      "position": 0.14,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-3",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "headline": "ردع ودولة",
+      "rationale": "تشرعن الردع الإيراني لكنها لا تسقط المسار التفاوضي لرئاسة الجمهورية.",
+      "quote": "شرعنة الردع الإيراني مع تأييد خيار الدولة",
+      "stanceLabel": "توازن مزدوج",
+      "position": 0.4,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-4",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "headline": "واقعية التجميد",
+      "rationale": "تبحث عن صيغة وسطية لتجميد السلاح وتحمّل إسرائيل مسؤولية تعطيل الدبلوماسية.",
+      "quote": "تجميد السلاح",
+      "stanceLabel": "تجميد واقعي",
+      "position": 0.58,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-5",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "headline": "حصر القرار",
+      "rationale": "تطلب فك الاستباحة الإيرانية وحصر السلاح والتفاوض بيد الدولة والجيش.",
+      "quote": "حصر السلاح والتفاوض بيد الدولة والجيش",
+      "stanceLabel": "دولة وجيش",
+      "position": 0.76,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-6",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "headline": "خيار الدولة",
+      "rationale": "تثبت أن لا مفاوض عن لبنان إلا الدولة وترى واشنطن مانعاً لربط البلد بالحرب.",
+      "quote": "واشنطن تمنع ربط لبنان بالحرب",
+      "stanceLabel": "خيار الدولة",
+      "position": 0.82,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-7",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "headline": "هزيمة الردع",
+      "rationale": "تقرأ حزب الله كفصيلاً مهزوماً وتدعو إلى إنهاء الثلاثية الكارثية.",
+      "quote": "الفصيل المهزوم",
+      "stanceLabel": "نهاية الثلاثية",
+      "position": 0.88,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-8",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "headline": "تفكيك الدويلة",
+      "rationale": "تجعل القليعات رمزاً لتفكيك الدويلة وفقدان إيران ورقة لبنان.",
+      "quote": "تفكيك الدويلة العميقة",
+      "stanceLabel": "فك الارتباط",
+      "position": 0.92,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-9",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "headline": "اتهام ثلاثي",
+      "rationale": "تتجاوز بري والحزب وتحوّل إيران وحزب الله والقرض الحسن إلى ملف اتهام واحد.",
+      "quote": "إيران المحتل، وحزب الله الميليشيا",
+      "stanceLabel": "قطيعة كاملة",
+      "position": 0.97,
+      "durationSeconds": 5
+    }
+  ],
+  "synthesis": {
+    "headline": "الدولة ليست كلمة واحدة",
+    "summary": "الخريطة تكشف أن الجميع يتحدث عن الدولة، لكن الخلاف هو هل تحكمها بيروت أم تحرسها معادلات طهران؟",
+    "durationSeconds": 5,
+    "leftMostOutlet": "البناء",
+    "rightMostOutlet": "نداء الوطن",
+    "bridgeOutlet": "المدن"
+  },
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "فهل تنجح \"المنطقة التجريبية\" في تحوّلها نموذجاً سيادياً قابلاً للتصدير، أم أن المعادلات الإيرانية-الإسرائيلية تُحدّد ما يُتاح للدبلوماسية قبل أن تبدأ؟",
+    "durationSeconds": 5
+  }
+}

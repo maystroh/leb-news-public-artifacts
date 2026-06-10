@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "sourcePath": "/mnt/c/users/hassanalhajj/desktop/myprojects/video-animations/briefings/2026-06-03/briefing_2026-06-03_corrected.txt",
+    "generatedAt": "2026-06-08T16:07:22.889Z",
+    "dateLabel": "2026-06-03",
+    "mode": "fault-line-map",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "خريطة خط الانقسام",
+    "subtitle": "",
+    "durationSeconds": 8,
+    "textRevealSeconds": 6
+  },
+  "axis": {
+    "id": "iranian-deterrence-vs-state-recovery",
+    "label": "الخريطة الأيديولوجية لليوم",
+    "headline": "من يرى واشنطن اعترافاً بقوة الردع ومن يراها فرصة لاستعادة الدولة؟",
+    "leftPole": "اعتراف بقوة الردع",
+    "rightPole": "استعادة الدولة",
+    "leftColor": "#cd7f32",
+    "rightColor": "#67bfd8"
+  },
+  "entries": [
+    {
+      "id": "fault-line-1",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "headline": "إسناد مباشر",
+      "rationale": "تقرأ فيتو ترامب كتراجع إسرائيلي وتعلن نهاية زمن الصبر الإيراني وبداية الإسناد.",
+      "quote": "طهران تودّع زمن الصبر",
+      "stanceLabel": "إسناد مباشر",
+      "position": 0.08,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-2",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "headline": "نصر الردع",
+      "rationale": "توسّع معادلة المقاومة إلى هرمز وباب المندب وتقدّمها كطريق إلى نصر استراتيجي.",
+      "quote": "النصر الاستراتيجي",
+      "stanceLabel": "نصر الردع",
+      "position": 0.12,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-3",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "headline": "ذاكرة مهددة",
+      "rationale": "تشرعن الردع الميداني لكنها توازنه بدعوة إلى حصر السلاح ضمن استراتيجية دفاعية وطنية.",
+      "quote": "حصر السلاح",
+      "stanceLabel": "ردع مضبوط",
+      "position": 0.43,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-4",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "headline": "ضبط أمريكي",
+      "rationale": "تمنح ترامب دور كابح نتنياهو وتتعامل مع إيران كطرف ينافس الدولة على فضل التهدئة.",
+      "quote": "مسابقة الدولة اللبنانية",
+      "stanceLabel": "ضبط أمريكي",
+      "position": 0.55,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-5",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "headline": "شرعية الاحتواء",
+      "rationale": "ترى أن الدولة خسرت ماء وجهها حين انتقلت من نزع السلاح إلى احتواء الحزب تفاوضياً.",
+      "quote": "كانت الخاسر الأكبر حفاظاً لماء الوجه",
+      "stanceLabel": "احتواء مرير",
+      "position": 0.59,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-6",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "headline": "اتفاق مبتور",
+      "rationale": "تحذّر من اتفاق مبتور وتدفع السقف إلى تفكيك بنى حزب الله المالية والإدارية.",
+      "quote": "الاتفاق المطروح مبتور",
+      "stanceLabel": "تفكيك مؤسسي",
+      "position": 0.72,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-7",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "headline": "قطيعة سنية",
+      "rationale": "تراجع سردية التحرير والممانعة من داخل الوسط السني التقليدي وتعيد فتح ملف الأسير.",
+      "quote": "السقوط المدوي",
+      "stanceLabel": "قطيعة سردية",
+      "position": 0.78,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-8",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "headline": "جلافة سيادية",
+      "rationale": "تحتفل بالاتفاق الأمريكي الإيراني كمرجعية إجماع وتدعو إلى جلافة سيادية في فرض السلطة.",
+      "quote": "الجلافة السيادية",
+      "stanceLabel": "خلاص الدولة",
+      "position": 0.86,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-9",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "headline": "سيادة هجومية",
+      "rationale": "تنزع الشرعية عن السلاح وتطالب بنقل التفاوض إلى رئاسة الجمهورية ومواجهة نفوذ الحزب من الداخل.",
+      "quote": "صفقة الضاحية تربك الميليشيا",
+      "stanceLabel": "سيادة صدامية",
+      "position": 0.94,
+      "durationSeconds": 5
+    }
+  ],
+  "synthesis": {
+    "headline": "واشنطن فجّرت سؤال الشرعية",
+    "summary": "الخلاف اليوم ليس على موقع المفاوضات بل على معناها: اعتراف بقوة الردع أم لحظة لاستعادة قرار الدولة؟",
+    "durationSeconds": 5,
+    "leftMostOutlet": "الأخبار",
+    "rightMostOutlet": "نداء الوطن",
+    "bridgeOutlet": "الشرق الأوسط"
+  },
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "ماذا عن الجنوب الذي يبدو خارج أي تهدئة شاملة في كل السيناريوهات؟",
+    "durationSeconds": 5
+  }
+}

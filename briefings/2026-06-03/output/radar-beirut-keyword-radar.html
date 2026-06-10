@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Beirut Keyword Radar</title>
+<style>
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Medium.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #050d14;
+    --bg-deep: #02080d;
+    --panel: rgba(7, 19, 30, 0.92);
+    --panel-strong: rgba(5, 13, 22, 0.96);
+    --line: rgba(120, 172, 205, 0.12);
+    --text: #f4efe5;
+    --muted: #9ab2c5;
+    --accent: #cd7f32;
+    --accent-soft: rgba(205, 127, 50, 0.18);
+    --cyan: #67bfd8;
+    --cyan-soft: rgba(103, 191, 216, 0.14);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+    --scan-sweep-duration: 3200ms;
+    --font-arabic: "Dubai", "Noto Naskh Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(205, 127, 50, 0.16), transparent 18%),
+      radial-gradient(circle at 80% 14%, rgba(103, 191, 216, 0.18), transparent 22%),
+      linear-gradient(180deg, #06131d, #03080d 72%);
+    color: var(--text);
+    overflow: hidden;
+    font-family: var(--font-arabic);
+    font-weight: 400;
+  }
+
+  #stage {
+    position: relative;
+    width: min(100vw, 405px);
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 24% 18%, rgba(205, 127, 50, 0.11), transparent 18%),
+      radial-gradient(circle at 74% 22%, rgba(103, 191, 216, 0.12), transparent 22%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg));
+    border: 1px solid rgba(205, 127, 50, 0.18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  }
+
+  #bg-photo,
+  #grid,
+  #ambient,
+  #scan-line,
+  #flash,
+  #vignette,
+  #bg-noise {
+    position: absolute;
+    inset: 0;
+  }
+
+  #bg-photo {
+    background: url('./../../../logos/video-front-page-3.png') center/cover no-repeat;
+    opacity: 0;
+    transform: scale(1.08);
+    transition: opacity 1.2s ease, transform 6s ease;
+  }
+
+  #bg-noise {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.26)),
+      radial-gradient(circle at 50% 120%, rgba(205, 127, 50, 0.14), transparent 30%);
+    opacity: 0.9;
+  }
+
+  #grid {
+    inset: -18%;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: rotate(-8deg) scale(1.08);
+    opacity: 0.7;
+    animation: driftGrid 22s linear infinite;
+  }
+
+  #ambient {
+    pointer-events: none;
+  }
+
+  #scan-line {
+    inset: 0 auto 0 -70%;
+    width: 64%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(205, 127, 50, 0.06) 36%,
+      rgba(205, 127, 50, 0.26) 50%,
+      rgba(205, 127, 50, 0.06) 64%,
+      transparent 100%
+    );
+    transform: skewX(-15deg);
+    opacity: 0;
+    pointer-events: none;
+    animation: scanSweepLoop var(--scan-sweep-duration) linear infinite;
+  }
+
+  #flash {
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #vignette {
+    background: radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none;
+  }
+
+  #radar-canvas {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    z-index: 2;
+  }
+
+  .ring {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    border-radius: 50%;
+    border: 2px solid rgba(205, 127, 50, 0.5);
+    opacity: 0;
+    transform: scale(0.86);
+    pointer-events: none;
+  }
+
+  .ring.is-live {
+    animation: ringPulse 2.6s ease-out infinite;
+  }
+
+  .bracket {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .bracket::before,
+  .bracket::after {
+    content: "";
+    position: absolute;
+    background: rgba(205, 127, 50, 0.9);
+    box-shadow: 0 0 8px rgba(205, 127, 50, 0.82);
+  }
+
+  .bracket::before {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+  }
+
+  .bracket::after {
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+  }
+
+  .bracket.tl { top: 10px; left: 10px; }
+  .bracket.tr { top: 10px; right: 10px; transform: scaleX(-1); }
+  .bracket.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+  .bracket.br { bottom: 10px; right: 10px; transform: scale(-1, -1); }
+
+  #map-canvas {
+    position: absolute;
+    top: 398px;
+    left: calc(50% + 62px);
+    width: 175px;
+    height: 120px;
+    margin-left: -87.5px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  #intro-copy {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20px 22px 30px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    z-index: 6;
+  }
+
+  #intro-eyebrow {
+    color: rgba(205, 127, 50, 0.92);
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 0;
+  }
+
+  #intro-title {
+    font-size: 46px;
+    line-height: 1.18;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  #intro-date {
+    color: rgba(205, 127, 50, 0.84);
+    font-family: var(--font-arabic);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+
+  #content {
+    position: absolute;
+    inset: 18px 18px 78px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    z-index: 7;
+  }
+
+  #content.is-visible {
+    opacity: 1;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(10, 28, 42, 0.9), var(--panel-strong));
+    border: 1px solid rgba(107, 162, 197, 0.16);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  #scene-date-box {
+    align-self: center;
+    border: 1px solid rgba(205, 127, 50, 0.24);
+    background: rgba(0, 0, 0, 0.42);
+    color: rgba(212, 222, 232, 0.9);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-arabic);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    direction: ltr;
+    backdrop-filter: blur(8px);
+    width: min(260px, calc(100% - 72px));
+    text-align: center;
+  }
+
+  #scene-card {
+    padding: 16px 16px 18px;
+    margin-top: 92px;
+  }
+
+  #scene-top {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  #outlet-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  #outlet-logo-box {
+    width: 96px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(244, 247, 250, 0.97);
+    border: 1px solid rgba(205, 127, 50, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  #outlet-logo {
+    max-width: 76px;
+    max-height: 30px;
+    object-fit: contain;
+  }
+
+  #outlet-name {
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #scene-label {
+    color: rgba(212, 222, 232, 0.74);
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  #term-grid {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .term-chip {
+    position: relative;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(205, 127, 50, 0.1);
+    background: linear-gradient(180deg, rgba(6, 20, 31, 0.94), rgba(5, 14, 23, 0.98));
+    text-align: center;
+    overflow: hidden;
+    opacity: 0.32;
+    transform: scale(0.96);
+    transition: opacity 0.28s ease, transform 0.28s ease, border-color 0.28s ease;
+  }
+
+  .term-chip::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(circle, rgba(205, 127, 50, 0.22), transparent 55%);
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  .term-chip.is-active {
+    opacity: 1;
+    transform: scale(1);
+    border-color: rgba(205, 127, 50, 0.34);
+    box-shadow: inset 0 0 0 1px rgba(205, 127, 50, 0.08), 0 0 28px rgba(205, 127, 50, 0.12);
+  }
+
+  .term-chip.is-active::before {
+    animation: chipPulse 900ms ease-out;
+  }
+
+  .term-chip.is-settled {
+    opacity: 0.84;
+    transform: scale(1);
+  }
+
+  .term-text {
+    position: relative;
+    z-index: 1;
+    font-size: 25px;
+    line-height: 1.34;
+    font-weight: 700;
+  }
+
+  #scene-summary {
+    color: rgba(212, 222, 232, 0.84);
+    font-size: 16px;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  #synthesis-card {
+    padding: 16px 16px 18px;
+  }
+
+  #synthesis-headline {
+    font-size: 28px;
+    line-height: 1.28;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  #synthesis-summary {
+    color: rgba(212, 222, 232, 0.86);
+    font-size: 17px;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  #cluster-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .legend-pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(212, 222, 232, 0.92);
+  }
+
+  #synthesis-radar {
+    position: relative;
+    height: 260px;
+    margin-top: 16px;
+    border-radius: 24px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at center, rgba(103, 191, 216, 0.08), transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  #synthesis-radar::before,
+  #synthesis-radar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid rgba(103, 191, 216, 0.12);
+  }
+
+  #synthesis-radar::before {
+    width: 72%;
+    height: 72%;
+  }
+
+  #synthesis-radar::after {
+    width: 42%;
+    height: 42%;
+  }
+
+  .crosshair {
+    position: absolute;
+    background: rgba(103, 191, 216, 0.12);
+  }
+
+  .crosshair-x {
+    left: 8%;
+    right: 8%;
+    top: 50%;
+    height: 1px;
+  }
+
+  .crosshair-y {
+    top: 8%;
+    bottom: 8%;
+    left: 50%;
+    width: 1px;
+  }
+
+  .cluster-node {
+    position: absolute;
+    width: 126px;
+    padding: 12px 12px 10px;
+    border-radius: 18px;
+    transform: translate(-50%, -50%) scale(0.94);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(5, 14, 23, 0.9);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .cluster-node.is-visible {
+    opacity: 1;
+    animation: clusterSettle 540ms cubic-bezier(0.2, 0.84, 0.24, 1) forwards;
+  }
+
+  .cluster-label {
+    font-size: 12px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+    color: rgba(244, 239, 229, 0.95);
+  }
+
+  .cluster-terms {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cluster-term {
+    font-size: 11px;
+    line-height: 1.35;
+    color: rgba(212, 222, 232, 0.84);
+  }
+
+  @keyframes driftGrid {
+    from { transform: rotate(-8deg) scale(1.08) translate3d(0, 0, 0); }
+    to { transform: rotate(-8deg) scale(1.08) translate3d(-24px, -18px, 0); }
+  }
+
+  @keyframes scanSweepLoop {
+    0% { transform: translateX(0) skewX(-15deg); }
+    100% { transform: translateX(290px) skewX(-15deg); }
+  }
+
+  @keyframes ringPulse {
+    0% {
+      opacity: 0.72;
+      transform: scale(0.86);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.24);
+    }
+  }
+
+  @keyframes chipPulse {
+    0% {
+      opacity: 0.8;
+      transform: scale(0.6);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.26);
+    }
+  }
+
+  @keyframes clusterSettle {
+    0% {
+      transform: translate(-50%, -50%) scale(0.82);
+    }
+    76% {
+      transform: translate(-50%, -50%) scale(1.02);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg-photo"></div>
+  <div id="bg-noise"></div>
+  <div id="grid"></div>
+  <div id="ambient"></div>
+  <div id="scan-line"></div>
+  <canvas id="radar-canvas" width="260" height="260"></canvas>
+  <canvas id="map-canvas" width="175" height="120"></canvas>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+  <div id="flash"></div>
+  <div id="vignette"></div>
+
+  <section id="intro-copy">
+    <div id="intro-eyebrow"></div>
+    <div id="intro-title"></div>
+    <div id="intro-date"></div>
+  </section>
+
+  <main id="content">
+    <div id="scene-date-box"></div>
+
+    <section id="scene-card" class="panel">
+      <div id="scene-top">
+        <div id="outlet-chip">
+          <div id="outlet-logo-box">
+            <img id="outlet-logo" alt="">
+          </div>
+          <div>
+            <div id="outlet-name"></div>
+            <div id="scene-label"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="term-grid"></div>
+      <div id="scene-summary"></div>
+    </section>
+
+    <section id="synthesis-card" class="panel hidden">
+      <div id="synthesis-headline"></div>
+      <div id="synthesis-summary"></div>
+      <div id="cluster-legend"></div>
+      <div id="synthesis-radar">
+        <div class="crosshair crosshair-x"></div>
+        <div class="crosshair crosshair-y"></div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<script id="keyword-radar-data" type="text/plain">ewogICJtZXRhIjogewogICAgInNvdXJjZVBhdGgiOiAiL21udC9jL3VzZXJzL2hhc3NhbmFsaGFqai9kZXNrdG9wL215cHJvamVjdHMvdmlkZW8tYW5pbWF0aW9ucy9icmllZmluZ3MvMjAyNi0wNi0wMy9icmllZmluZ18yMDI2LTA2LTAzX2NvcnJlY3RlZC50eHQiLAogICAgImdlbmVyYXRlZEF0IjogIjIwMjYtMDYtMDhUMTY6MDc6MjIuODg5WiIsCiAgICAiZGF0ZUxhYmVsIjogIjIwMjYtMDYtMDMiLAogICAgIm1vZGUiOiAia2V5d29yZC1yYWRhciIsCiAgICAidG90YWxFbnRyaWVzIjogOQogIH0sCiAgImludHJvIjogewogICAgImV5ZWJyb3ciOiAi2KfZhNi12K3Yp9mB2Kkg2KfZhNmK2YjZhSIsCiAgICAidGl0bGUiOiAi2LHYp9iv2KfYsSDYp9mE2YPZhNmF2KfYqiIsCiAgICAic3VidGl0bGUiOiAiIiwKICAgICJkdXJhdGlvblNlY29uZHMiOiA4LAogICAgInRleHRSZXZlYWxTZWNvbmRzIjogNgogIH0sCiAgImVudHJpZXMiOiBbCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTEiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS0yIiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogImFhd3NhdCIsCiAgICAgICAgIm5hbWUiOiAi2KfZhNi02LHZgiDYp9mE2KPZiNiz2LciLAogICAgICAgICJsb2dvRmlsZSI6ICJhYXdzYXQtbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2Fhd3NhdC1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTYttio2Lcg2KfZhNij2YXYsdmK2YPZiiIsCiAgICAgICJzdW1tYXJ5IjogItin2YTYtNix2YIg2KfZhNij2YjYs9i3INiq2KjZhtmKINmF2YHYsdiv2KfYqtmH2Kcg2K3ZiNmEINiq2LHYp9mF2Kgg2YPZgtmI2Kkg2LbYqNi3INmI2KXZitix2KfZhiDZg9mI2LHZgtipINi22LrYtyDYudmE2Ykg2KfZhNiv2YjZhNipINmI2KfZhNi32KfZgtipLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMi10ZXJtLTEiLAogICAgICAgICAgInRleHQiOiAi2YTYrNmFINmG2KrZhtmK2KfZh9mIIiwKICAgICAgICAgICJmYW1pbHkiOiAiYW1lcmljYW4tYXJiaXRyYXRpb24iLAogICAgICAgICAgIndlaWdodCI6IDAuOTUKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0yLXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYo9mG2YLYsCDYqNmK2LHZiNiqIiwKICAgICAgICAgICJmYW1pbHkiOiAiYW1lcmljYW4tYXJiaXRyYXRpb24iLAogICAgICAgICAgIndlaWdodCI6IDAuODgKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0yLXRlcm0tMyIsCiAgICAgICAgICAidGV4dCI6ICLYqtij2YXZitmFINmF2LbZitmCINmH2LHZhdiyIiwKICAgICAgICAgICJmYW1pbHkiOiAicmVnaW9uYWwtYmFyZ2FpbiIsCiAgICAgICAgICAid2VpZ2h0IjogMC44MgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTItdGVybS00IiwKICAgICAgICAgICJ0ZXh0IjogItmF2LPYp9io2YLYqSDYp9mE2K/ZiNmE2Kkg2KfZhNmE2KjZhtin2YbZitipIiwKICAgICAgICAgICJmYW1pbHkiOiAic3RhdGUtcmVjb3ZlcnkiLAogICAgICAgICAgIndlaWdodCI6IDAuNzgKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci0yIiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtMyIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhbGFraGJhciIsCiAgICAgICAgIm5hbWUiOiAi2KfZhNij2K7YqNin2LEiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbGFraGJhci1sb2dvLnBuZyIsCiAgICAgICAgImxvZ29QYXRoIjogIi9vdXRsZXQtbG9nb3MvYWxha2hiYXItbG9nby5wbmciCiAgICAgIH0sCiAgICAgICJzY2VuZUxhYmVsIjogItmE2LrYqSDYp9mE2KXYs9mG2KfYryIsCiAgICAgICJzdW1tYXJ5IjogItin2YTYo9iu2KjYp9ixINiq2LXZiNi6INin2YTZhdi02YfYryDZg9mE2K3YuNipINiu2LHZiNisINil2YrYsdin2YbZiiDZhdmGINin2YTYtdio2LEg2KXZhNmJINin2YTZgdi52YQg2KfZhNmF2KjYp9i02LEuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0zLXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYpdiz2YbYp9ivINmE2KjZhtin2YYiLAogICAgICAgICAgImZhbWlseSI6ICJyZXNpc3RhbmNlLWRldGVycmVuY2UiLAogICAgICAgICAgIndlaWdodCI6IDAuOTgKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0zLXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYstmF2YYg2KfZhNi12KjYsSIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtZGV0ZXJyZW5jZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMy10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2YHZitiq2Ygg2KrYsdin2YXYqCIsCiAgICAgICAgICAiZmFtaWx5IjogImFtZXJpY2FuLWFyYml0cmF0aW9uIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjc2CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMy10ZXJtLTQiLAogICAgICAgICAgInRleHQiOiAi2YXYs9mK2ZHYsdin2Kog2KfZhNmF2YLYp9mI2YXYqSIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtZGV0ZXJyZW5jZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC44NAogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTMiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS00IiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogIm5pZGFhLWFsLXdhdGFuIiwKICAgICAgICAibmFtZSI6ICLZhtiv2KfYoSDYp9mE2YjYt9mGIiwKICAgICAgICAibG9nb0ZpbGUiOiAibmlkYWFsd2F0YW4tbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL25pZGFhbHdhdGFuLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2YbYsti5INin2YTYtNix2LnZitipIiwKICAgICAgInN1bW1hcnkiOiAi2YbYr9in2KEg2KfZhNmI2LfZhiDYqti02K3ZhiDYrti32KfYqNmH2Kcg2KjZhdmB2LHYr9in2Kog2YXZitmE2YrYtNmK2KfZiNmK2Kkg2YjYr9iz2KrZiNix2YrYqSDZiNiq2LbYuSDYp9mE2LTZiti52Kkg2YHZiiDYrtin2YbYqSDYp9mE2LbYrdmK2KkuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS00LXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYqtix2KjZgyDYp9mE2YXZitmE2YrYtNmK2KciLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1zdHJpa2UiLAogICAgICAgICAgIndlaWdodCI6IDAuOTgKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS00LXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLZhtio2YrZhyDYqNix2YoiLAogICAgICAgICAgImZhbWlseSI6ICJpbnN0aXR1dGlvbmFsLWZpZ2h0IiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjcyCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNC10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2KrYr9ix2YrYqCDYo9mF2LHZitmD2YoiLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1zdHJpa2UiLAogICAgICAgICAgIndlaWdodCI6IDAuODIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS00LXRlcm0tNCIsCiAgICAgICAgICAidGV4dCI6ICLZhtmD2KjYqSDYtNmK2LnZitipIiwKICAgICAgICAgICJmYW1pbHkiOiAic292ZXJlaWdudHktc3RyaWtlIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjkyCiAgICAgICAgfQogICAgICBdLAogICAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogICAgfSwKICAgIHsKICAgICAgImlkIjogImtleXdvcmQtcmFkYXItNCIsCiAgICAgICJzY2VuZUlkIjogInNjZW5lLTUiLAogICAgICAib3V0bGV0IjogewogICAgICAgICJrZXkiOiAiYWxqb3VtaG91cmlhIiwKICAgICAgICAibmFtZSI6ICLYp9mE2KzZhdmH2YjYsdmK2KkiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbGpvdW1ob3VyaWEtbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2Fsam91bWhvdXJpYS1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTYp9iq2YHYp9mCINin2YTZhdio2KrZiNixIiwKICAgICAgInN1bW1hcnkiOiAi2KfZhNis2YXZh9mI2LHZitipINiq2LHZg9mR2LIg2LnZhNmJINit2K/ZiNivINin2YTYqtiz2YjZitipINmI2KrYrdmI2ZHZhCDYp9mE2LPZgtmBINmF2YYg2KfZhNin2YbYs9it2KfYqCDYpdmE2Ykg2KrZgdmD2YrZgyDYp9mE2KjZhtmK2KkuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS01LXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYp9iq2YHYp9mCINmF2KjYqtmI2LEiLAogICAgICAgICAgImZhbWlseSI6ICJzdGF0ZS1yZWNvdmVyeSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45NQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTUtdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItmK2KrYsdmDINin2YTYrNmG2YjYqCIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdXRoZXJuLWdhcCIsCiAgICAgICAgICAid2VpZ2h0IjogMC45CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNS10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2KrZgdmD2YrZgyDYp9mE2KjZhtmJIiwKICAgICAgICAgICJmYW1pbHkiOiAic3RhdGUtcmVjb3ZlcnkiLAogICAgICAgICAgIndlaWdodCI6IDAuOTIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS01LXRlcm0tNCIsCiAgICAgICAgICAidGV4dCI6ICLZiNmC2YEg2YbYp9ixINmF2KzYqtiy2KMiLAogICAgICAgICAgImZhbWlseSI6ICJzb3V0aGVybi1nYXAiLAogICAgICAgICAgIndlaWdodCI6IDAuODYKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci01IiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtNiIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhc2FzLW1lZGlhIiwKICAgICAgICAibmFtZSI6ICLYo9iz2KfYsyDZhdmK2K/ZitinIiwKICAgICAgICAibG9nb0ZpbGUiOiAiYXNhc21lZGlhLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9hc2FzbWVkaWEtbG9nby5wbmciCiAgICAgIH0sCiAgICAgICJzY2VuZUxhYmVsIjogItmE2LrYqSDYp9mE2K7ZhNin2LUg2KfZhNiz2YrYp9iv2YoiLAogICAgICAic3VtbWFyeSI6ICLYo9iz2KfYsyDZhdmK2K/ZitinINiq2YbZgtmEINiq2LHYp9mF2Kgg2YXZhiDYp9mE2LTZgyDYpdmE2Ykg2KfZhNmF2LHYrNi52YrYqSDZiNiq2LfZhNioINiz2YTYt9ipINiv2YjZhNipINiu2LTZhtipINmI2YjYp9i22K3YqS4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTYtdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogItiu2YTYp9i1INiv2YjZhNipINmE2KjZhtin2YYiLAogICAgICAgICAgImZhbWlseSI6ICJzdGF0ZS1yZWNvdmVyeSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45OAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTYtdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItmF2LHYrNi52YrYqSDYpdis2YXYp9i5INmI2LfZhtmKIiwKICAgICAgICAgICJmYW1pbHkiOiAic3RhdGUtcmVjb3ZlcnkiLAogICAgICAgICAgIndlaWdodCI6IDAuODgKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS02LXRlcm0tMyIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2KzZhNin2YHYqSDYp9mE2LPZitin2K/ZitipIiwKICAgICAgICAgICJmYW1pbHkiOiAic292ZXJlaWdudHktc3RyaWtlIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjk2CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNi10ZXJtLTQiLAogICAgICAgICAgInRleHQiOiAi2KrYotmD2YQg2KfZhNit2KfYttmG2KkiLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1zdHJpa2UiLAogICAgICAgICAgIndlaWdodCI6IDAuOAogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTYiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS03IiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogImFsbW9kb24iLAogICAgICAgICJuYW1lIjogItin2YTZhdiv2YYiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbG1vZG9uLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9hbG1vZG9uLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2KfZhNin2K3YqtmI2KfYoSIsCiAgICAgICJzdW1tYXJ5IjogItin2YTZhdiv2YYg2KrZg9i02YEg2YXZgdix2K/Yp9iqINmF2KPYstmCINin2YTYr9mI2YTYqSDYrdmK2YYg2KrYqtit2YjZhCDZhdmGINmG2LLYuSDYp9mE2LPZhNin2K0g2KXZhNmJINin2K3YqtmI2KfYoSDYp9mE2K3YstioLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNy10ZXJtLTEiLAogICAgICAgICAgInRleHQiOiAi2LTYsdi52YrYqSDYp9mG2KrYsti52YfYpyIsCiAgICAgICAgICAiZmFtaWx5IjogInJlZ2lvbmFsLWJhcmdhaW4iLAogICAgICAgICAgIndlaWdodCI6IDAuOTYKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS03LXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2K7Yp9iz2LEg2KfZhNij2YPYqNixIiwKICAgICAgICAgICJmYW1pbHkiOiAiaW5zdGl0dXRpb25hbC1maWdodCIsCiAgICAgICAgICAid2VpZ2h0IjogMC44OAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTctdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItmF2KfYoSDYp9mE2YjYrNmHIiwKICAgICAgICAgICJmYW1pbHkiOiAiaW5zdGl0dXRpb25hbC1maWdodCIsCiAgICAgICAgICAid2VpZ2h0IjogMC43OAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTctdGVybS00IiwKICAgICAgICAgICJ0ZXh0IjogItmE2LrYqSDYp9mE2KfYrdiq2YjYp9ihIiwKICAgICAgICAgICJmYW1pbHkiOiAicmVnaW9uYWwtYmFyZ2FpbiIsCiAgICAgICAgICAid2VpZ2h0IjogMC45CiAgICAgICAgfQogICAgICBdLAogICAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogICAgfSwKICAgIHsKICAgICAgImlkIjogImtleXdvcmQtcmFkYXItNyIsCiAgICAgICJzY2VuZUlkIjogInNjZW5lLTgiLAogICAgICAib3V0bGV0IjogewogICAgICAgICJrZXkiOiAiYWxpd2FhIiwKICAgICAgICAibmFtZSI6ICLYp9mE2YTZiNin2KEiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbGl3YTItbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2FsaXdhMi1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTZgti32YrYudipIiwKICAgICAgInN1bW1hcnkiOiAi2KfZhNmE2YjYp9ihINiq2LPYqtiu2K/ZhSDZhdmB2LHYr9in2Kog2LrZitixINmF2KPZhNmI2YHYqSDZgdmKINin2YTZiNiz2LfZitipINin2YTYs9mG2YrYqSDZiNiq2YHZg9mDINiw2KfZg9ix2Kkg2KfZhNiq2K3YsdmK2LEuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS04LXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYsdik2YrYqSDYpdmG2YLYp9iw2YrYqSIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdmVyZWlnbnR5LXN0cmlrZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC44NgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTgtdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItij2K3ZhdivINin2YTYo9iz2YrYsSIsCiAgICAgICAgICAiZmFtaWx5IjogImluc3RpdHV0aW9uYWwtZmlnaHQiLAogICAgICAgICAgIndlaWdodCI6IDAuODIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS04LXRlcm0tMyIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2LPZgtmI2Lcg2KfZhNmF2K/ZiNmKIiwKICAgICAgICAgICJmYW1pbHkiOiAic292ZXJlaWdudHktc3RyaWtlIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjk1CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtOC10ZXJtLTQiLAogICAgICAgICAgInRleHQiOiAi2YLYt9mK2LnYqSDYs9ix2K/ZitipIiwKICAgICAgICAgICJmYW1pbHkiOiAiaW5zdGl0dXRpb25hbC1maWdodCIsCiAgICAgICAgICAid2VpZ2h0IjogMC44OAogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTgiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS05IiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogImFsYmluYWEiLAogICAgICAgICJuYW1lIjogItin2YTYqNmG2KfYoSIsCiAgICAgICAgImxvZ29GaWxlIjogImFsYmluYTItbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2FsYmluYTItbG9nby5wbmciCiAgICAgIH0sCiAgICAgICJzY2VuZUxhYmVsIjogItmE2LrYqSDYp9mE2LHYr9i5INin2YTZiNin2LPYuSIsCiAgICAgICJzdW1tYXJ5IjogItin2YTYqNmG2KfYoSDYqtmI2LPZkdi5INmC2KfZhdmI2LMg2KfZhNmF2YLYp9mI2YXYqSDZhdmGINmE2KjZhtin2YYg2KXZhNmJINin2YTZhdmF2LHYp9iqINin2YTYqNit2LHZitipINmI2KfZhNi62LfYp9ihINin2YTYsdmI2K3Zii4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTktdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogItin2YTZhti12LEg2KfZhNin2LPYqtix2KfYqtmK2KzZiiIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtZGV0ZXJyZW5jZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45OAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTktdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItio2YbZiNivINmH2LHZhdiyIiwKICAgICAgICAgICJmYW1pbHkiOiAicmVnaW9uYWwtYmFyZ2FpbiIsCiAgICAgICAgICAid2VpZ2h0IjogMC44NgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTktdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItis2KfZh9iy2YrYqSDZhNmI2KzYs9iq2YrYqSIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtZGV0ZXJyZW5jZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtOS10ZXJtLTQiLAogICAgICAgICAgInRleHQiOiAi2KfZhNmC2YXYqSDYp9mE2LHZiNit2YrYqSIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtZGV0ZXJyZW5jZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC43NgogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTkiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS0xMCIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhbGRpeWFyIiwKICAgICAgICAibmFtZSI6ICLYp9mE2K/Zitin2LEiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbGRpeWFyLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9hbGRpeWFyLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2KfZhNiw2KfZg9ix2KkiLAogICAgICAic3VtbWFyeSI6ICLYp9mE2K/Zitin2LEg2KrYrNmF2Lkg2KjZitmGINin2YTYsdiv2Lkg2YjYrdi12LEg2KfZhNiz2YTYp9itINmI2KrYrdmI2ZHZhCDYp9iz2KrZh9iv2KfZgSDYp9mE2KLYq9in2LEg2KXZhNmJINit2LHYqCDYudmE2Ykg2KfZhNmH2YjZitipLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMTAtdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogItit2LXYsSDYp9mE2LPZhNin2K0iLAogICAgICAgICAgImZhbWlseSI6ICJzdGF0ZS1yZWNvdmVyeSIsCiAgICAgICAgICAid2VpZ2h0IjogMC44NgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTEwLXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYp9iz2KrYsdin2KrZitis2YrYqSDYr9mB2KfYudmK2KkiLAogICAgICAgICAgImZhbWlseSI6ICJzdGF0ZS1yZWNvdmVyeSIsCiAgICAgICAgICAid2VpZ2h0IjogMC44CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMTAtdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItmC2YTYudipINin2YTYtNmC2YrZgSIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdXRoZXJuLWdhcCIsCiAgICAgICAgICAid2VpZ2h0IjogMC44MgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTEwLXRlcm0tNCIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2LDYp9mD2LHYqSDYp9mE2KzZhdin2LnZitipIiwKICAgICAgICAgICJmYW1pbHkiOiAic291dGhlcm4tZ2FwIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjkyCiAgICAgICAgfQogICAgICBdLAogICAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogICAgfQogIF0sCiAgImNsdXN0ZXJzIjogWwogICAgewogICAgICAiaWQiOiAicmVzaXN0YW5jZS1kZXRlcnJlbmNlIiwKICAgICAgImxhYmVsIjogIti52KfYptmE2Kkg2KfZhNix2K/YuSDZiNin2YTYpdiz2YbYp9ivIiwKICAgICAgImNvbG9yIjogIiNjZDdmMzIiLAogICAgICAicG9zaXRpb24iOiB7CiAgICAgICAgIngiOiAwLjI0LAogICAgICAgICJ5IjogMC4zNAogICAgICB9CiAgICB9LAogICAgewogICAgICAiaWQiOiAic3RhdGUtcmVjb3ZlcnkiLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9iz2KrYudin2K/YqSDYp9mE2K/ZiNmE2KkiLAogICAgICAiY29sb3IiOiAiIzY3YmZkOCIsCiAgICAgICJwb3NpdGlvbiI6IHsKICAgICAgICAieCI6IDAuNzMsCiAgICAgICAgInkiOiAwLjM2CiAgICAgIH0KICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJzb3ZlcmVpZ250eS1zdHJpa2UiLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2LbYsdio2Kkg2KfZhNiz2YrYp9iv2YrYqSIsCiAgICAgICJjb2xvciI6ICIjZjA3ZDYyIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC42OCwKICAgICAgICAieSI6IDAuNjIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogInJlZ2lvbmFsLWJhcmdhaW4iLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2LXZgdmC2Kkg2KfZhNil2YLZhNmK2YXZitipIiwKICAgICAgImNvbG9yIjogIiM4OWQ1YmUiLAogICAgICAicG9zaXRpb24iOiB7CiAgICAgICAgIngiOiAwLjQ1LAogICAgICAgICJ5IjogMC43MgogICAgICB9CiAgICB9LAogICAgewogICAgICAiaWQiOiAiYW1lcmljYW4tYXJiaXRyYXRpb24iLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2KrYrdmD2YrZhSDYp9mE2KPZhdix2YrZg9mKIiwKICAgICAgImNvbG9yIjogIiNmMGIzNmYiLAogICAgICAicG9zaXRpb24iOiB7CiAgICAgICAgIngiOiAwLjUsCiAgICAgICAgInkiOiAwLjIyCiAgICAgIH0KICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJpbnN0aXR1dGlvbmFsLWZpZ2h0IiwKICAgICAgImxhYmVsIjogIti52KfYptmE2Kkg2KfZhNin2LTYqtio2KfZgyDYp9mE2YXYpNiz2LPZiiIsCiAgICAgICJjb2xvciI6ICIjOWViN2ZmIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC44MiwKICAgICAgICAieSI6IDAuNzgKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogInNvdXRoZXJuLWdhcCIsCiAgICAgICJsYWJlbCI6ICLYudin2KbZhNipINin2YTYrNmG2YjYqCDYp9mE2YXZgdiq2YjYrSIsCiAgICAgICJjb2xvciI6ICIjZDhjNTZhIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC4zLAogICAgICAgICJ5IjogMC44MgogICAgICB9CiAgICB9CiAgXSwKICAic3ludGhlc2lzIjogewogICAgImhlYWRsaW5lIjogItin2YTZg9mE2YXYp9iqINiq2YPYtNmBINin2YTZhdi52LHZg9ipINi52YTZiSDZhdi52YbZiSDZiNin2LTZhti32YYiLAogICAgInN1bW1hcnkiOiAi2KfZhNmF2LnYrNmFINin2YTYtdit2YHZiiDYqtmI2LLZkdi5INio2YrZhiDYp9mE2LHYr9i5INmI2KfZhNil2LPZhtin2K/YjCDYp9iz2KrYudin2K/YqSDYp9mE2K/ZiNmE2KnYjCDYp9mE2KrYrdmD2YrZhSDYp9mE2KPZhdix2YrZg9mK2Iwg2YjYp9mE2KzZhtmI2Kgg2KfZhNiw2Yog2KjZgtmKINiu2KfYsdisINin2YTYttmF2KfZhtipLiIsCiAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogIH0sCiAgIm91dHJvIjogewogICAgInRpdGxlIjogItiz2KTYp9mEINin2YTYutivIiwKICAgICJib2R5IjogItmF2KfYsNinINi52YYg2KfZhNis2YbZiNioINin2YTYsNmKINmK2KjYr9mIINiu2KfYsdisINij2Yog2KrZh9iv2KbYqSDYtNin2YXZhNipINmB2Yog2YPZhCDYp9mE2LPZitmG2KfYsdmK2YjZh9in2KrYnyIsCiAgICAiZHVyYXRpb25TZWNvbmRzIjogNQogIH0KfQ==</script>
+<script>
+  const BRIEFING = JSON.parse(
+    new TextDecoder().decode(
+      Uint8Array.from(
+        atob(document.getElementById('keyword-radar-data').textContent.trim()),
+        function (char) { return char.charCodeAt(0); }
+      )
+    )
+  );
+
+  const PLAYBACK_CONFIG = {
+    introMs: (BRIEFING.intro && BRIEFING.intro.durationSeconds ? BRIEFING.intro.durationSeconds : 8) * 1000,
+    introTextRevealMs: (
+      typeof (BRIEFING.intro && BRIEFING.intro.textRevealSeconds) === 'number'
+        ? BRIEFING.intro.textRevealSeconds * 1000
+        : Math.max(0, (((BRIEFING.intro && BRIEFING.intro.durationSeconds) || 8) - 2) * 1000)
+    ),
+    synthesisMs: (BRIEFING.synthesis.durationSeconds || 6) * 1000,
+    defaultEntryMs: 6000,
+    termRevealStepMs: 820,
+    ambientMotion: {
+      scanSweepDurationMs: 3200
+    }
+  };
+
+  const getEntryDurationMs = function (entry) {
+    return (entry.durationSeconds ? entry.durationSeconds * 1000 : null) || PLAYBACK_CONFIG.defaultEntryMs;
+  };
+
+  const stage = document.getElementById('stage');
+  stage.style.setProperty('--scan-sweep-duration', PLAYBACK_CONFIG.ambientMotion.scanSweepDurationMs + 'ms');
+
+  const flash = document.getElementById('flash');
+  const bgPhoto = document.getElementById('bg-photo');
+  const introCopy = document.getElementById('intro-copy');
+  const radarCanvas = document.getElementById('radar-canvas');
+  const mapCanvas = document.getElementById('map-canvas');
+  const scanLine = document.getElementById('scan-line');
+  const rings = Array.from(document.querySelectorAll('.ring'));
+  const brackets = Array.from(document.querySelectorAll('.bracket'));
+  const content = document.getElementById('content');
+  const sceneCard = document.getElementById('scene-card');
+  const synthesisCard = document.getElementById('synthesis-card');
+  const introEyebrow = document.getElementById('intro-eyebrow');
+  const introTitle = document.getElementById('intro-title');
+  const introDate = document.getElementById('intro-date');
+  const sceneDateBox = document.getElementById('scene-date-box');
+  const outletLogo = document.getElementById('outlet-logo');
+  const outletName = document.getElementById('outlet-name');
+  const sceneLabel = document.getElementById('scene-label');
+  const termGrid = document.getElementById('term-grid');
+  const sceneSummary = document.getElementById('scene-summary');
+  const synthesisHeadline = document.getElementById('synthesis-headline');
+  const synthesisSummary = document.getElementById('synthesis-summary');
+  const clusterLegend = document.getElementById('cluster-legend');
+  const synthesisRadar = document.getElementById('synthesis-radar');
+  let activeEntryIndex = -1;
+  let phaseStart = 0;
+  let phaseDuration = PLAYBACK_CONFIG.introMs;
+  let phaseType = 'intro';
+  let ended = false;
+  let synthesisNodes = [];
+  let termElements = [];
+
+  introEyebrow.textContent = '';
+  introTitle.textContent = BRIEFING.intro && BRIEFING.intro.title ? BRIEFING.intro.title : 'الصحافة اليوم';
+  introDate.textContent = BRIEFING.meta.dateLabel;
+  sceneDateBox.textContent = BRIEFING.meta.dateLabel;
+  synthesisHeadline.textContent = BRIEFING.synthesis.headline;
+  synthesisSummary.textContent = BRIEFING.synthesis.summary;
+
+  const mapPoints = [
+    {x: 0.42, y: 0.20, label: 'Hamra', offset: 0},
+    {x: 0.58, y: 0.18, label: 'Gemmayzeh', offset: 8},
+    {x: 0.65, y: 0.35, label: 'Achrafieh', offset: 18},
+    {x: 0.38, y: 0.38, label: 'Verdun', offset: 26},
+    {x: 0.28, y: 0.26, label: 'Mreisseh', offset: 34},
+    {x: 0.52, y: 0.55, label: 'Badaro', offset: 44},
+    {x: 0.70, y: 0.25, label: 'Mar Mikhael', offset: 52}
+  ];
+
+  function familyLabel(familyId) {
+    const family = BRIEFING.clusters.find(function (cluster) { return cluster.id === familyId; });
+    return family ? family.label : '';
+  }
+
+  function renderEntry(entry) {
+    outletLogo.src = './../../../public/outlet-logos/' + entry.outlet.logoFile;
+    outletLogo.alt = entry.outlet.name;
+    outletName.textContent = entry.outlet.name;
+    sceneLabel.textContent = entry.sceneLabel;
+    sceneSummary.textContent = entry.summary;
+    termGrid.innerHTML = '';
+
+    termElements = entry.terms.map(function (term) {
+      const chip = document.createElement('div');
+      chip.className = 'term-chip';
+
+      const text = document.createElement('div');
+      text.className = 'term-text';
+      text.textContent = term.text;
+
+      chip.appendChild(text);
+      termGrid.appendChild(chip);
+      return chip;
+    });
+  }
+
+  function renderSynthesisNodes() {
+    synthesisNodes.forEach(function (node) {
+      node.remove();
+    });
+    synthesisNodes = [];
+
+    const clustersById = new Map(
+      BRIEFING.clusters.map(function (cluster) { return [cluster.id, cluster]; })
+    );
+
+    const groupedTerms = new Map();
+
+    BRIEFING.entries.forEach(function (entry) {
+      entry.terms.forEach(function (term) {
+        if (!groupedTerms.has(term.family)) {
+          groupedTerms.set(term.family, []);
+        }
+
+        groupedTerms.get(term.family).push(term.text);
+      });
+    });
+
+    clusterLegend.innerHTML = '';
+
+    BRIEFING.clusters.forEach(function (cluster) {
+      if (!groupedTerms.has(cluster.id)) {
+        return;
+      }
+
+      const pill = document.createElement('div');
+      pill.className = 'legend-pill';
+      pill.textContent = cluster.label;
+      pill.style.borderColor = cluster.color + '40';
+      pill.style.background = cluster.color + '18';
+      clusterLegend.appendChild(pill);
+
+      const node = document.createElement('div');
+      node.className = 'cluster-node';
+      node.style.left = (cluster.position.x * 100) + '%';
+      node.style.top = (cluster.position.y * 100) + '%';
+      node.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.22), 0 0 0 1px ' + cluster.color + '22';
+      node.style.borderColor = cluster.color + '44';
+
+      const label = document.createElement('div');
+      label.className = 'cluster-label';
+      label.style.color = cluster.color;
+      label.textContent = cluster.label;
+      node.appendChild(label);
+
+      const termsWrap = document.createElement('div');
+      termsWrap.className = 'cluster-terms';
+
+      groupedTerms.get(cluster.id).slice(0, 4).forEach(function (termText) {
+        const term = document.createElement('div');
+        term.className = 'cluster-term';
+        term.textContent = termText;
+        termsWrap.appendChild(term);
+      });
+
+      node.appendChild(termsWrap);
+      synthesisRadar.appendChild(node);
+      synthesisNodes.push(node);
+    });
+  }
+
+  function showIntro() {
+    phaseType = 'intro';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.introMs;
+
+    flash.animate([{opacity: 0.42}, {opacity: 0}], {duration: 500, fill: 'forwards'});
+    bgPhoto.style.transition = 'none';
+    bgPhoto.style.opacity = '0';
+    bgPhoto.style.transform = 'scale(1.08)';
+    void bgPhoto.offsetWidth;
+    bgPhoto.style.transition = 'opacity 1.2s ease, transform 6s ease';
+    bgPhoto.style.opacity = '1';
+    bgPhoto.style.transform = 'scale(1)';
+    scanLine.style.opacity = '1';
+    setTimeout(function () { radarCanvas.style.opacity = '1'; }, 900);
+    setTimeout(function () {
+      rings.forEach(function (ring, index) {
+        ring.classList.add('is-live');
+        ring.style.animationDelay = index * 0.7 + 's';
+        ring.style.opacity = '1';
+      });
+    }, 1200);
+    setTimeout(function () {
+      brackets.forEach(function (bracket, index) {
+        setTimeout(function () { bracket.style.opacity = '1'; }, index * 90);
+      });
+    }, 1300);
+    setTimeout(function () { mapCanvas.style.opacity = '1'; }, 1900);
+    setTimeout(function () {
+      introCopy.style.opacity = '1';
+      introCopy.style.transform = 'translateY(0)';
+    }, PLAYBACK_CONFIG.introTextRevealMs);
+    content.classList.remove('is-visible');
+    sceneCard.classList.remove('hidden');
+    synthesisCard.classList.add('hidden');
+  }
+
+  function showEntry(index) {
+    const entry = BRIEFING.entries[index];
+    activeEntryIndex = index;
+    phaseType = 'entry';
+    phaseStart = performance.now();
+    phaseDuration = getEntryDurationMs(entry);
+    renderEntry(entry);
+
+    introCopy.style.opacity = '0';
+    introCopy.style.transform = 'translateY(20px)';
+    content.classList.add('is-visible');
+    sceneCard.classList.remove('hidden');
+    synthesisCard.classList.add('hidden');
+  }
+
+  function showSynthesis() {
+    phaseType = 'synthesis';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.synthesisMs;
+
+    sceneCard.classList.add('hidden');
+    synthesisCard.classList.remove('hidden');
+    renderSynthesisNodes();
+    synthesisNodes.forEach(function (node, index) {
+      window.setTimeout(function () {
+        node.classList.add('is-visible');
+      }, index * 180);
+    });
+
+  }
+
+  function updateTermReveal(elapsed) {
+    if (phaseType !== 'entry') return;
+
+    const revealCount = Math.min(
+      termElements.length,
+      Math.floor(elapsed / PLAYBACK_CONFIG.termRevealStepMs) + 1
+    );
+
+    termElements.forEach(function (element, index) {
+      element.classList.remove('is-active', 'is-settled');
+      if (index < revealCount - 1) {
+        element.classList.add('is-settled');
+      } else if (index === revealCount - 1) {
+        element.classList.add('is-active');
+      }
+    });
+  }
+
+  function drawRadar(now) {
+    const ctx = radarCanvas.getContext('2d');
+    const w = radarCanvas.width;
+    const h = radarCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = 114;
+    const sweep = ((now / 18) % 360) * Math.PI / 180;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.2)';
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i <= 4; i += 1) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (r / 4) * i, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx + r, cy);
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.stroke();
+
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    gradient.addColorStop(0, 'rgba(205, 127, 50, 0.2)');
+    gradient.addColorStop(1, 'rgba(205, 127, 50, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, sweep - 0.34, sweep + 0.06);
+    ctx.closePath();
+    ctx.fill();
+
+    if (phaseType === 'entry' && activeEntryIndex >= 0) {
+      const entry = BRIEFING.entries[activeEntryIndex];
+      entry.terms.forEach(function (term, index) {
+        const angle = (-90 + index * 34 + activeEntryIndex * 6) * Math.PI / 180;
+        const radius = 34 + (term.weight || 0.7) * 64;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const pulse = index === Math.min(termElements.length - 1, Math.floor((performance.now() - phaseStart) / PLAYBACK_CONFIG.termRevealStepMs))
+          ? 1
+          : 0.45;
+
+        ctx.fillStyle = 'rgba(205, 127, 50, ' + (0.4 + pulse * 0.45) + ')';
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2 + pulse * 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  function drawMap(now) {
+    const ctx = mapCanvas.getContext('2d');
+    const w = mapCanvas.width;
+    const h = mapCanvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.18)';
+    ctx.lineWidth = 1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(26, 62);
+    ctx.lineTo(46, 28);
+    ctx.lineTo(82, 18);
+    ctx.lineTo(128, 28);
+    ctx.lineTo(150, 56);
+    ctx.lineTo(138, 88);
+    ctx.lineTo(92, 104);
+    ctx.lineTo(56, 98);
+    ctx.closePath();
+    ctx.stroke();
+
+    mapPoints.forEach(function (point) {
+      const cycle = ((now / 28) + point.offset) % 90;
+      const progress = cycle / 90;
+      const rippleScale = 0.4 + progress * 1.6;
+      const rippleOpacity = Math.max(0, 0.7 - progress * 0.7);
+      const labelOpacity = Math.max(0, 1 - progress * 1.4);
+      const x = point.x * w;
+      const y = point.y * h;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(205,127,50,0.95)';
+      ctx.shadowColor = 'rgba(255,180,60,0.88)';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4 + rippleScale * 9, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(205,127,50,' + rippleOpacity + ')';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(180,220,255,' + labelOpacity + ')';
+      ctx.font = '8px Segoe UI';
+      ctx.fillText(point.label, x + 5, y - 4);
+    });
+  }
+
+  function tick(now) {
+    drawRadar(now);
+    drawMap(now);
+
+    if (!phaseStart) phaseStart = now;
+
+    const phaseElapsed = now - phaseStart;
+    updateTermReveal(phaseElapsed);
+
+    if (phaseType === 'intro' && phaseElapsed >= PLAYBACK_CONFIG.introMs) {
+      showEntry(0);
+    } else if (phaseType === 'entry' && phaseElapsed >= phaseDuration) {
+      const nextIndex = activeEntryIndex + 1;
+      if (nextIndex >= BRIEFING.entries.length) {
+        showSynthesis();
+      } else {
+        showEntry(nextIndex);
+      }
+    } else if (phaseType === 'synthesis' && phaseElapsed >= PLAYBACK_CONFIG.synthesisMs) {
+      ended = true;
+    }
+
+    if (!ended) requestAnimationFrame(tick);
+  }
+
+  showIntro();
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

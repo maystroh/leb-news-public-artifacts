@@ -1,0 +1,31 @@
+[
+  {
+    "id": "full-editorial-content",
+    "label": "full editorial content",
+    "htmlFile": "radar-beirut-briefing.html",
+    "description": "Paragraph-first editorial briefing with one dominant thesis per scene.",
+    "buildCommand": "node ./scripts/prepare-briefing.mjs; node ./scripts/build-full-editorial-html.mjs",
+    "default": true
+  },
+  {
+    "id": "quote-duel",
+    "label": "The Quote Duel",
+    "htmlFile": "radar-beirut-quote-duel.html",
+    "description": "Event-first briefing with two opposing direct quotes and no narration.",
+    "buildCommand": "node ./scripts/build-quote-duel-html.mjs"
+  },
+  {
+    "id": "fault-line-map",
+    "label": "Fault Line Map",
+    "htmlFile": "radar-beirut-fault-line-map.html",
+    "description": "Axis-first briefing that plots each outlet along the day's ideological line.",
+    "buildCommand": "node ./scripts/prepare-briefing.mjs; node ./scripts/build-fault-line-map-html.mjs"
+  },
+  {
+    "id": "keyword-radar",
+    "label": "The Keyword Radar",
+    "htmlFile": "radar-beirut-keyword-radar.html",
+    "description": "Term-first briefing that reveals each outlet through its most loaded phrases.",
+    "buildCommand": "node ./scripts/prepare-briefing.mjs; node ./scripts/build-keyword-radar-html.mjs"
+  }
+]

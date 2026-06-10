@@ -1,0 +1,59 @@
+{
+  "briefing": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-2": 49.987,
+      "scene-3": 33.09,
+      "scene-4": 47.571,
+      "scene-5": 50.936,
+      "scene-6": 6,
+      "scene-7": 6,
+      "scene-8": 6,
+      "scene-9": 6,
+      "scene-10": 6,
+      "scene-11": 7
+    },
+    "outroSeconds": 6
+  },
+  "quoteDuel": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {},
+    "outroSeconds": null
+  },
+  "faultLineMap": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-9": 5,
+      "scene-2": 5,
+      "scene-10": 5,
+      "scene-5": 5,
+      "scene-4": 5,
+      "scene-7": 5,
+      "scene-6": 5,
+      "scene-8": 5,
+      "scene-3": 5
+    },
+    "synthesisSeconds": 5,
+    "outroSeconds": 5
+  },
+  "keywordRadar": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-2": 6,
+      "scene-3": 6,
+      "scene-4": 6,
+      "scene-5": 6,
+      "scene-6": 6,
+      "scene-7": 6,
+      "scene-8": 6,
+      "scene-9": 6,
+      "scene-10": 6
+    },
+    "synthesisSeconds": 6,
+    "outroSeconds": 5
+  }
+}

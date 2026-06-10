@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Beirut Keyword Radar</title>
+<style>
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../fonts/Dubai-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../fonts/Dubai-Medium.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../fonts/Dubai-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #050d14;
+    --bg-deep: #02080d;
+    --panel: rgba(7, 19, 30, 0.92);
+    --panel-strong: rgba(5, 13, 22, 0.96);
+    --line: rgba(120, 172, 205, 0.12);
+    --text: #f4efe5;
+    --muted: #9ab2c5;
+    --accent: #cd7f32;
+    --accent-soft: rgba(205, 127, 50, 0.18);
+    --cyan: #67bfd8;
+    --cyan-soft: rgba(103, 191, 216, 0.14);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+    --scan-sweep-duration: 3200ms;
+    --font-arabic: "Dubai", "Noto Naskh Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(205, 127, 50, 0.16), transparent 18%),
+      radial-gradient(circle at 80% 14%, rgba(103, 191, 216, 0.18), transparent 22%),
+      linear-gradient(180deg, #06131d, #03080d 72%);
+    color: var(--text);
+    overflow: hidden;
+    font-family: var(--font-arabic);
+    font-weight: 400;
+  }
+
+  #stage {
+    position: relative;
+    width: min(100vw, 405px);
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 24% 18%, rgba(205, 127, 50, 0.11), transparent 18%),
+      radial-gradient(circle at 74% 22%, rgba(103, 191, 216, 0.12), transparent 22%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg));
+    border: 1px solid rgba(205, 127, 50, 0.18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  }
+
+  #bg-photo,
+  #grid,
+  #ambient,
+  #scan-line,
+  #flash,
+  #vignette,
+  #bg-noise {
+    position: absolute;
+    inset: 0;
+  }
+
+  #bg-photo {
+    background: url('./../../logos/video-front-page-3.png') center/cover no-repeat;
+    opacity: 0;
+    transform: scale(1.08);
+    transition: opacity 1.2s ease, transform 6s ease;
+  }
+
+  #bg-noise {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.26)),
+      radial-gradient(circle at 50% 120%, rgba(205, 127, 50, 0.14), transparent 30%);
+    opacity: 0.9;
+  }
+
+  #grid {
+    inset: -18%;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: rotate(-8deg) scale(1.08);
+    opacity: 0.7;
+    animation: driftGrid 22s linear infinite;
+  }
+
+  #ambient {
+    pointer-events: none;
+  }
+
+  #scan-line {
+    inset: 0 auto 0 -70%;
+    width: 64%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(205, 127, 50, 0.06) 36%,
+      rgba(205, 127, 50, 0.26) 50%,
+      rgba(205, 127, 50, 0.06) 64%,
+      transparent 100%
+    );
+    transform: skewX(-15deg);
+    opacity: 0;
+    pointer-events: none;
+    animation: scanSweepLoop var(--scan-sweep-duration) linear infinite;
+  }
+
+  #flash {
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #vignette {
+    background: radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none;
+  }
+
+  #radar-canvas {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    z-index: 2;
+  }
+
+  .ring {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    border-radius: 50%;
+    border: 2px solid rgba(205, 127, 50, 0.5);
+    opacity: 0;
+    transform: scale(0.86);
+    pointer-events: none;
+  }
+
+  .ring.is-live {
+    animation: ringPulse 2.6s ease-out infinite;
+  }
+
+  .bracket {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .bracket::before,
+  .bracket::after {
+    content: "";
+    position: absolute;
+    background: rgba(205, 127, 50, 0.9);
+    box-shadow: 0 0 8px rgba(205, 127, 50, 0.82);
+  }
+
+  .bracket::before {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+  }
+
+  .bracket::after {
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+  }
+
+  .bracket.tl { top: 10px; left: 10px; }
+  .bracket.tr { top: 10px; right: 10px; transform: scaleX(-1); }
+  .bracket.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+  .bracket.br { bottom: 10px; right: 10px; transform: scale(-1, -1); }
+
+  #map-canvas {
+    position: absolute;
+    top: 398px;
+    left: calc(50% + 62px);
+    width: 175px;
+    height: 120px;
+    margin-left: -87.5px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  #intro-copy {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20px 22px 30px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    z-index: 6;
+  }
+
+  #intro-eyebrow {
+    color: rgba(205, 127, 50, 0.92);
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 0;
+  }
+
+  #intro-title {
+    font-size: 46px;
+    line-height: 1.18;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  #intro-date {
+    color: rgba(205, 127, 50, 0.84);
+    font-family: var(--font-arabic);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+
+  #content {
+    position: absolute;
+    inset: 18px 18px 78px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    z-index: 7;
+  }
+
+  #content.is-visible {
+    opacity: 1;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(10, 28, 42, 0.9), var(--panel-strong));
+    border: 1px solid rgba(107, 162, 197, 0.16);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  #scene-date-box {
+    align-self: center;
+    border: 1px solid rgba(205, 127, 50, 0.24);
+    background: rgba(0, 0, 0, 0.42);
+    color: rgba(212, 222, 232, 0.9);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-arabic);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    direction: ltr;
+    backdrop-filter: blur(8px);
+    width: min(260px, calc(100% - 72px));
+    text-align: center;
+  }
+
+  #scene-card {
+    padding: 16px 16px 18px;
+    margin-top: 92px;
+  }
+
+  #scene-top {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  #outlet-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  #outlet-logo-box {
+    width: 96px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(244, 247, 250, 0.97);
+    border: 1px solid rgba(205, 127, 50, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  #outlet-logo {
+    max-width: 76px;
+    max-height: 30px;
+    object-fit: contain;
+  }
+
+  #outlet-name {
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  #scene-label {
+    color: rgba(212, 222, 232, 0.74);
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  #term-grid {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .term-chip {
+    position: relative;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(205, 127, 50, 0.1);
+    background: linear-gradient(180deg, rgba(6, 20, 31, 0.94), rgba(5, 14, 23, 0.98));
+    text-align: center;
+    overflow: hidden;
+    opacity: 0.32;
+    transform: scale(0.96);
+    transition: opacity 0.28s ease, transform 0.28s ease, border-color 0.28s ease;
+  }
+
+  .term-chip::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(circle, rgba(205, 127, 50, 0.22), transparent 55%);
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  .term-chip.is-active {
+    opacity: 1;
+    transform: scale(1);
+    border-color: rgba(205, 127, 50, 0.34);
+    box-shadow: inset 0 0 0 1px rgba(205, 127, 50, 0.08), 0 0 28px rgba(205, 127, 50, 0.12);
+  }
+
+  .term-chip.is-active::before {
+    animation: chipPulse 900ms ease-out;
+  }
+
+  .term-chip.is-settled {
+    opacity: 0.84;
+    transform: scale(1);
+  }
+
+  .term-text {
+    position: relative;
+    z-index: 1;
+    font-size: 25px;
+    line-height: 1.34;
+    font-weight: 700;
+  }
+
+  #scene-summary {
+    color: rgba(212, 222, 232, 0.84);
+    font-size: 16px;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  #synthesis-card {
+    padding: 16px 16px 18px;
+  }
+
+  #synthesis-headline {
+    font-size: 28px;
+    line-height: 1.28;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  #synthesis-summary {
+    color: rgba(212, 222, 232, 0.86);
+    font-size: 17px;
+    line-height: 1.65;
+    font-weight: 400;
+  }
+
+  #cluster-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .legend-pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(212, 222, 232, 0.92);
+  }
+
+  #synthesis-radar {
+    position: relative;
+    height: 260px;
+    margin-top: 16px;
+    border-radius: 24px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at center, rgba(103, 191, 216, 0.08), transparent 52%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.16));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  #synthesis-radar::before,
+  #synthesis-radar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid rgba(103, 191, 216, 0.12);
+  }
+
+  #synthesis-radar::before {
+    width: 72%;
+    height: 72%;
+  }
+
+  #synthesis-radar::after {
+    width: 42%;
+    height: 42%;
+  }
+
+  .crosshair {
+    position: absolute;
+    background: rgba(103, 191, 216, 0.12);
+  }
+
+  .crosshair-x {
+    left: 8%;
+    right: 8%;
+    top: 50%;
+    height: 1px;
+  }
+
+  .crosshair-y {
+    top: 8%;
+    bottom: 8%;
+    left: 50%;
+    width: 1px;
+  }
+
+  .cluster-node {
+    position: absolute;
+    width: 126px;
+    padding: 12px 12px 10px;
+    border-radius: 18px;
+    transform: translate(-50%, -50%) scale(0.94);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(5, 14, 23, 0.9);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .cluster-node.is-visible {
+    opacity: 1;
+    animation: clusterSettle 540ms cubic-bezier(0.2, 0.84, 0.24, 1) forwards;
+  }
+
+  .cluster-label {
+    font-size: 12px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+    color: rgba(244, 239, 229, 0.95);
+  }
+
+  .cluster-terms {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cluster-term {
+    font-size: 11px;
+    line-height: 1.35;
+    color: rgba(212, 222, 232, 0.84);
+  }
+
+  @keyframes driftGrid {
+    from { transform: rotate(-8deg) scale(1.08) translate3d(0, 0, 0); }
+    to { transform: rotate(-8deg) scale(1.08) translate3d(-24px, -18px, 0); }
+  }
+
+  @keyframes scanSweepLoop {
+    0% { transform: translateX(0) skewX(-15deg); }
+    100% { transform: translateX(290px) skewX(-15deg); }
+  }
+
+  @keyframes ringPulse {
+    0% {
+      opacity: 0.72;
+      transform: scale(0.86);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.24);
+    }
+  }
+
+  @keyframes chipPulse {
+    0% {
+      opacity: 0.8;
+      transform: scale(0.6);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.26);
+    }
+  }
+
+  @keyframes clusterSettle {
+    0% {
+      transform: translate(-50%, -50%) scale(0.82);
+    }
+    76% {
+      transform: translate(-50%, -50%) scale(1.02);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg-photo"></div>
+  <div id="bg-noise"></div>
+  <div id="grid"></div>
+  <div id="ambient"></div>
+  <div id="scan-line"></div>
+  <canvas id="radar-canvas" width="260" height="260"></canvas>
+  <canvas id="map-canvas" width="175" height="120"></canvas>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+  <div id="flash"></div>
+  <div id="vignette"></div>
+
+  <section id="intro-copy">
+    <div id="intro-eyebrow"></div>
+    <div id="intro-title"></div>
+    <div id="intro-date"></div>
+  </section>
+
+  <main id="content">
+    <div id="scene-date-box"></div>
+
+    <section id="scene-card" class="panel">
+      <div id="scene-top">
+        <div id="outlet-chip">
+          <div id="outlet-logo-box">
+            <img id="outlet-logo" alt="">
+          </div>
+          <div>
+            <div id="outlet-name"></div>
+            <div id="scene-label"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="term-grid"></div>
+      <div id="scene-summary"></div>
+    </section>
+
+    <section id="synthesis-card" class="panel hidden">
+      <div id="synthesis-headline"></div>
+      <div id="synthesis-summary"></div>
+      <div id="cluster-legend"></div>
+      <div id="synthesis-radar">
+        <div class="crosshair crosshair-x"></div>
+        <div class="crosshair crosshair-y"></div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+
+<script id="keyword-radar-data" type="text/plain">ewogICJtZXRhIjogewogICAgInNvdXJjZVBhdGgiOiAiQzpcXFVzZXJzXFxIYXNzYW5BbGhhampcXERlc2t0b3BcXE15UHJvamVjdHNcXHZpZGVvLWFuaW1hdGlvbnNcXGJyaWVmaW5nc1xcMjAyNi0wNi0wMVxcYnJpZWZpbmdfMjAyNi0wNi0wMV9jb3JyZWN0ZWQudHh0IiwKICAgICJnZW5lcmF0ZWRBdCI6ICIyMDI2LTA2LTA0VDE3OjAxOjUzLjg4NloiLAogICAgImRhdGVMYWJlbCI6ICIyMDI2LTA2LTAxIiwKICAgICJtb2RlIjogImtleXdvcmQtcmFkYXIiLAogICAgInRvdGFsRW50cmllcyI6IDkKICB9LAogICJpbnRybyI6IHsKICAgICJleWVicm93IjogItin2YTYtdit2KfZgdipINin2YTZitmI2YUiLAogICAgInRpdGxlIjogItix2KfYr9in2LEg2KfZhNmD2YTZhdin2KoiLAogICAgInN1YnRpdGxlIjogIiIsCiAgICAiZHVyYXRpb25TZWNvbmRzIjogNQogIH0sCiAgImVudHJpZXMiOiBbCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTEiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS0yIiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogImFhd3NhdCIsCiAgICAgICAgIm5hbWUiOiAi2KfZhNi02LHZgiDYp9mE2KPZiNiz2LciLAogICAgICAgICJsb2dvRmlsZSI6ICJhYXdzYXQtbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2Fhd3NhdC1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTZiNmC2KfYpti5INin2YTYqNin2LHYr9ipIiwKICAgICAgInN1bW1hcnkiOiAi2KrZgdmD2YMg2KfZhNit2K/YqyDYpdmE2Ykg2YTYutipINmD2YTZgdipINmI2KXYrtmE2KfYodin2Kog2YjYudis2LIg2KrZgdin2YjYttmKLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMi10ZXJtLTEiLAogICAgICAgICAgInRleHQiOiAi2KPZgtmEINiq2YPZhNmB2KkiLAogICAgICAgICAgImZhbWlseSI6ICJwcmFnbWF0aWMtc3RhdGUiLAogICAgICAgICAgIndlaWdodCI6IDAuODIKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0yLXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYqtmI2LPZiti5INin2YTYpdiu2YTYp9ih2KfYqiIsCiAgICAgICAgICAiZmFtaWx5IjogInByYWdtYXRpYy1zdGF0ZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC42NgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTItdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItin2YbYudiv2KfZhSDYrtmK2KfYsdin2KoiLAogICAgICAgICAgImZhbWlseSI6ICJwcmFnbWF0aWMtc3RhdGUiLAogICAgICAgICAgIndlaWdodCI6IDAuNzYKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci0yIiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtMyIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJuaWRhYS1hbC13YXRhbiIsCiAgICAgICAgIm5hbWUiOiAi2YbYr9in2KEg2KfZhNmI2LfZhiIsCiAgICAgICAgImxvZ29GaWxlIjogIm5pZGFhbHdhdGFuLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9uaWRhYWx3YXRhbi1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTYpdiz2YLYp9i3INmI2KfZhNin2KrZh9in2YUiLAogICAgICAic3VtbWFyeSI6ICLYqtiz2K3YqCDYp9mE2LTYsdi52YrYqSDZhdmGINin2YTYrdiy2Kgg2YjYqti52YrYryDYqti52LHZitmBINin2YTZhdi52LHZg9ipINmD2KfZhdiq2K/Yp9ivINmF2KjYp9i02LEg2YTYt9mH2LHYp9mGLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMy10ZXJtLTEiLAogICAgICAgICAgInRleHQiOiAi2KXYs9mG2KfYryDYrtin2YXZhtim2YoiLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1jYW1wIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjk5CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMy10ZXJtLTIiLAogICAgICAgICAgInRleHQiOiAi2KfZhNiz2YLZiNi3INin2YTYo9iu2YTYp9mC2YoiLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1jYW1wIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjk3CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMy10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2LbYqNin2Lcg2KXYs9ix2KfYptmK2YTZitmI2YYiLAogICAgICAgICAgImZhbWlseSI6ICJzb3ZlcmVpZ250eS1jYW1wIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjg4CiAgICAgICAgfQogICAgICBdLAogICAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogICAgfSwKICAgIHsKICAgICAgImlkIjogImtleXdvcmQtcmFkYXItMyIsCiAgICAgICJzY2VuZUlkIjogInNjZW5lLTQiLAogICAgICAib3V0bGV0IjogewogICAgICAgICJrZXkiOiAiYXNhcy1tZWRpYSIsCiAgICAgICAgIm5hbWUiOiAi2KPYs9in2LMg2YXZitiv2YrYpyIsCiAgICAgICAgImxvZ29GaWxlIjogImFzYXNtZWRpYS1sb2dvLnBuZyIsCiAgICAgICAgImxvZ29QYXRoIjogIi9vdXRsZXQtbG9nb3MvYXNhc21lZGlhLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2KfZhNiu2LHYp9ioINin2YTYqNmG2YrZiNmKIiwKICAgICAgInN1bW1hcnkiOiAi2KrYtdmBINin2YTYrNmF2YrYuSDZg9mF2LPYqtir2YXYsdmK2YYg2YHZiiDYp9mE2LHZg9in2YUg2YTYpyDZg9iu2LXZiNmFINmF2YbZgdi12YTZitmGINmB2YLYty4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTQtdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogItil2YXYp9ix2Kkg2KfZhNix2YPYp9mFIiwKICAgICAgICAgICJmYW1pbHkiOiAic3RhdGUtY29sbGFwc2UiLAogICAgICAgICAgIndlaWdodCI6IDAuOQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTQtdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItiq2YLYp9i32Lkg2KfZhNmF2LXYp9mE2K0iLAogICAgICAgICAgImZhbWlseSI6ICJzdGF0ZS1jb2xsYXBzZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC43NAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTQtdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItij2YbZgtin2LYg2KfZhNiv2YjZhNipIiwKICAgICAgICAgICJmYW1pbHkiOiAic3RhdGUtY29sbGFwc2UiLAogICAgICAgICAgIndlaWdodCI6IDAuOAogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJrZXl3b3JkLXJhZGFyLTQiLAogICAgICAic2NlbmVJZCI6ICJzY2VuZS01IiwKICAgICAgIm91dGxldCI6IHsKICAgICAgICAia2V5IjogImFsaXdhYSIsCiAgICAgICAgIm5hbWUiOiAi2KfZhNmE2YjYp9ihIiwKICAgICAgICAibG9nb0ZpbGUiOiAiYWxpd2EyLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9hbGl3YTItbG9nby5wbmciCiAgICAgIH0sCiAgICAgICJzY2VuZUxhYmVsIjogItmE2LrYqSDYp9mE2K/ZiNmE2Kkg2KfZhNio2K/ZitmE2KkiLAogICAgICAic3VtbWFyeSI6ICLYqtmC2LHYoyDYp9mE2KzZhtmI2Kgg2YPYqNmK2KbYqSDYqNiv2KPYqiDYqti12LHYriDZhNi12KfZhNitINin2YTYrNmK2LQg2YjYp9mE2K/ZiNmE2KkuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS01LXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2LXYsdiu2Kkg2KfZhNis2YbZiNio2YrYqSIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdmVyZWlnbnR5LWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuODQKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS01LXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYp9mG2KrYtNin2LEg2KfZhNis2YrYtCIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdmVyZWlnbnR5LWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuNzkKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS01LXRlcm0tMyIsCiAgICAgICAgICAidGV4dCI6ICLZiNit2K/YqSDYp9mE2LPYp9it2KfYqiIsCiAgICAgICAgICAiZmFtaWx5IjogInNvdmVyZWlnbnR5LWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuNjcKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci01IiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtNiIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhbGpvdW1ob3VyaWEiLAogICAgICAgICJuYW1lIjogItin2YTYrNmF2YfZiNix2YrYqSIsCiAgICAgICAgImxvZ29GaWxlIjogImFsam91bWhvdXJpYS1sb2dvLnBuZyIsCiAgICAgICAgImxvZ29QYXRoIjogIi9vdXRsZXQtbG9nb3MvYWxqb3VtaG91cmlhLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2KfZhNmF2LjZhNipINin2YTYr9io2YTZiNmF2KfYs9mK2KkiLAogICAgICAic3VtbWFyeSI6ICLYqtmF2YbYrSDYq9mC2YTYpyDZhNmE2K3ZhCDYp9mE2LnYsdio2Yog2YjYp9mE2K/ZiNmE2Yog2KjZiNi12YHZhyDYrti3INin2YTYtNix2LnZitipLiIsCiAgICAgICJ0ZXJtcyI6IFsKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNi10ZXJtLTEiLAogICAgICAgICAgInRleHQiOiAi2KrYq9io2YrYqiDZiNmC2YEg2KfZhNmG2KfYsSIsCiAgICAgICAgICAiZmFtaWx5IjogImRpcGxvbWF0aWMtdHJhY2siLAogICAgICAgICAgIndlaWdodCI6IDAuOAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTYtdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItin2YTYr9i52YUg2KfZhNiz2LnZiNiv2Yog2KfZhNmB2LHZhtiz2YoiLAogICAgICAgICAgImZhbWlseSI6ICJkaXBsb21hdGljLXRyYWNrIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjgzCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNi10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2KPYsNix2Lkg2KXZitix2KfZhiIsCiAgICAgICAgICAiZmFtaWx5IjogImRpcGxvbWF0aWMtdHJhY2siLAogICAgICAgICAgIndlaWdodCI6IDAuNzIKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci02IiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtNyIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhbG1vZG9uIiwKICAgICAgICAibmFtZSI6ICLYp9mE2YXYr9mGIiwKICAgICAgICAibG9nb0ZpbGUiOiAiYWxtb2Rvbi1sb2dvLnBuZyIsCiAgICAgICAgImxvZ29QYXRoIjogIi9vdXRsZXQtbG9nb3MvYWxtb2Rvbi1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTZhtmC2K8g2KfZhNmF2LLYr9mI2KwiLAogICAgICAic3VtbWFyeSI6ICLYqtiv2YrZhiDYp9mE2KrYr9mF2YrYsSDYp9mE2KXYs9ix2KfYptmK2YTZiiDZiNi52YXZiSDYp9mE2K3YstioINmB2Yog2KfZhNmI2YLYqiDZhtmB2LPZhy4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTctdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogIti52YLZitiv2Kkg2KfZhNix2YPYp9mFIiwKICAgICAgICAgICJmYW1pbHkiOiAiaHVtYW5pdGFyaWFuLWNyaXRpcXVlIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjg4CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtNy10ZXJtLTIiLAogICAgICAgICAgInRleHQiOiAi2LnZhdmJINin2YTYo9mK2K/ZitmI2YTZiNis2YrYpyIsCiAgICAgICAgICAiZmFtaWx5IjogImh1bWFuaXRhcmlhbi1jcml0aXF1ZSIsCiAgICAgICAgICAid2VpZ2h0IjogMC45MgogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTctdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItin2K3YqtmI2KfYoSDYp9mE2YXZg9mI2YYg2KfZhNi02YrYudmKIiwKICAgICAgICAgICJmYW1pbHkiOiAiaHVtYW5pdGFyaWFuLWNyaXRpcXVlIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjc4CiAgICAgICAgfQogICAgICBdLAogICAgICAiZHVyYXRpb25TZWNvbmRzIjogNgogICAgfSwKICAgIHsKICAgICAgImlkIjogImtleXdvcmQtcmFkYXItNyIsCiAgICAgICJzY2VuZUlkIjogInNjZW5lLTgiLAogICAgICAib3V0bGV0IjogewogICAgICAgICJrZXkiOiAiYWxha2hiYXIiLAogICAgICAgICJuYW1lIjogItin2YTYo9iu2KjYp9ixIiwKICAgICAgICAibG9nb0ZpbGUiOiAiYWxha2hiYXItbG9nby5wbmciLAogICAgICAgICJsb2dvUGF0aCI6ICIvb3V0bGV0LWxvZ29zL2FsYWtoYmFyLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2YbYsti5INin2YTYtNix2LnZitipIiwKICAgICAgInN1bW1hcnkiOiAi2KrYudmD2LMg2KfZhNmF2LTZh9ivINio2KfZhNmD2KfZhdmEINmI2KrYqtmH2YUg2YXYpNiz2LPYp9iqINin2YTYr9mI2YTYqSDZhtmB2LPZh9inINio2KfZhNiq2KjYudmK2Kkg2YTZhNin2K3YqtmE2KfZhC4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTgtdGVybS0xIiwKICAgICAgICAgICJ0ZXh0IjogItiz2YTYt9ipINin2YTYp9it2KrZhNin2YQiLAogICAgICAgICAgImZhbWlseSI6ICJyZXNpc3RhbmNlLWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuOTkKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS04LXRlcm0tMiIsCiAgICAgICAgICAidGV4dCI6ICLYudmF2YTYp9ihINmI2YLYqtmE2KkiLAogICAgICAgICAgImZhbWlseSI6ICJyZXNpc3RhbmNlLWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuOTYKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS04LXRlcm0tMyIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2YTZiNio2Yog2KfZhNmE2KjZhtin2YbZii3Yp9mE2KPZhdix2YrZg9mKIiwKICAgICAgICAgICJmYW1pbHkiOiAicmVzaXN0YW5jZS1jYW1wIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjkKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci04IiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtOSIsCiAgICAgICJvdXRsZXQiOiB7CiAgICAgICAgImtleSI6ICJhbGRpeWFyIiwKICAgICAgICAibmFtZSI6ICLYp9mE2K/Zitin2LEiLAogICAgICAgICJsb2dvRmlsZSI6ICJhbGRpeWFyLWxvZ28ucG5nIiwKICAgICAgICAibG9nb1BhdGgiOiAiL291dGxldC1sb2dvcy9hbGRpeWFyLWxvZ28ucG5nIgogICAgICB9LAogICAgICAic2NlbmVMYWJlbCI6ICLZhNi62Kkg2KfZhNmF2YLYp9mK2LbYqSDYp9mE2K3YsNix2KkiLAogICAgICAic3VtbWFyeSI6ICLYqtik2KzZhCDYp9mE2LXYr9in2YUg2KfZhNiv2KfYrtmE2Yog2YjYqtmF2YbYrSDYo9mI2YTZiNmK2Kkg2YTZhdix2KzYudmK2Kkg2KfZhNiq2YHYp9mI2LYuIiwKICAgICAgInRlcm1zIjogWwogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS05LXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYqtit2YrZitivINin2YTYrdmD2YjZhdipIiwKICAgICAgICAgICJmYW1pbHkiOiAiZGlwbG9tYXRpYy10cmFjayIsCiAgICAgICAgICAid2VpZ2h0IjogMC43NQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTktdGVybS0yIiwKICAgICAgICAgICJ0ZXh0IjogItin2YTYo9ix2LYg2YXZgtin2KjZhCDYp9mE2LPZhNin2K0iLAogICAgICAgICAgImZhbWlseSI6ICJkaXBsb21hdGljLXRyYWNrIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjg2CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtOS10ZXJtLTMiLAogICAgICAgICAgInRleHQiOiAi2KfZhNmF2LPYp9ixINin2YTYo9mF2YbZiiIsCiAgICAgICAgICAiZmFtaWx5IjogImRpcGxvbWF0aWMtdHJhY2siLAogICAgICAgICAgIndlaWdodCI6IDAuNjkKICAgICAgICB9CiAgICAgIF0sCiAgICAgICJkdXJhdGlvblNlY29uZHMiOiA2CiAgICB9LAogICAgewogICAgICAiaWQiOiAia2V5d29yZC1yYWRhci05IiwKICAgICAgInNjZW5lSWQiOiAic2NlbmUtMTAiLAogICAgICAib3V0bGV0IjogewogICAgICAgICJrZXkiOiAiYWxiaW5hYSIsCiAgICAgICAgIm5hbWUiOiAi2KfZhNio2YbYp9ihIiwKICAgICAgICAibG9nb0ZpbGUiOiAiYWxiaW5hMi1sb2dvLnBuZyIsCiAgICAgICAgImxvZ29QYXRoIjogIi9vdXRsZXQtbG9nb3MvYWxiaW5hMi1sb2dvLnBuZyIKICAgICAgfSwKICAgICAgInNjZW5lTGFiZWwiOiAi2YTYutipINin2YTYqti52KjYptipINin2YTZgti12YjZiSIsCiAgICAgICJzdW1tYXJ5IjogItiq2K3ZiNmEINin2YTYsNmD2LHZiSDYpdmE2Ykg2YXZhti12Kkg2KrYudio2KbYqSDZiNiq2KjYtNixINio2YXYsdit2YTYqSDYrdiz2YUg2KzYr9mK2K/YqS4iLAogICAgICAidGVybXMiOiBbCiAgICAgICAgewogICAgICAgICAgImlkIjogInNjZW5lLTEwLXRlcm0tMSIsCiAgICAgICAgICAidGV4dCI6ICLYp9mE2KrYrdix2YrYsSDYp9mE2KvYp9mE2KsiLAogICAgICAgICAgImZhbWlseSI6ICJyZXNpc3RhbmNlLWNhbXAiLAogICAgICAgICAgIndlaWdodCI6IDAuOTUKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICJpZCI6ICJzY2VuZS0xMC10ZXJtLTIiLAogICAgICAgICAgInRleHQiOiAi2KfZhNiu2YrYp9ixINin2YTYrti32YrYptipIiwKICAgICAgICAgICJmYW1pbHkiOiAicmVzaXN0YW5jZS1jYW1wIiwKICAgICAgICAgICJ3ZWlnaHQiOiAwLjg3CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAiaWQiOiAic2NlbmUtMTAtdGVybS0zIiwKICAgICAgICAgICJ0ZXh0IjogItin2YTYudiv2Ygg2KfZhNi12YfZitmILdij2YXYsdmK2YPZiiIsCiAgICAgICAgICAiZmFtaWx5IjogInJlc2lzdGFuY2UtY2FtcCIsCiAgICAgICAgICAid2VpZ2h0IjogMC45MQogICAgICAgIH0KICAgICAgXSwKICAgICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICAgIH0KICBdLAogICJjbHVzdGVycyI6IFsKICAgIHsKICAgICAgImlkIjogInJlc2lzdGFuY2UtY2FtcCIsCiAgICAgICJsYWJlbCI6ICLYudin2KbZhNipINin2YTYqti52KjYptipINmI2KfZhNmF2YLYp9mI2YXYqSIsCiAgICAgICJjb2xvciI6ICIjY2Q3ZjMyIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC4yOCwKICAgICAgICAieSI6IDAuMzQKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogInNvdmVyZWlnbnR5LWNhbXAiLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2LPZitin2K/YqSDZiNmG2LLYuSDYp9mE2LTYsdi52YrYqSIsCiAgICAgICJjb2xvciI6ICIjNjdiZmQ4IiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC43MywKICAgICAgICAieSI6IDAuMzQKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogImRpcGxvbWF0aWMtdHJhY2siLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2KrZgdin2YjYtiDZiNin2YTYr9mI2YTYqSIsCiAgICAgICJjb2xvciI6ICIjODlkNWJlIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC42MSwKICAgICAgICAieSI6IDAuNzIKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogImh1bWFuaXRhcmlhbi1jcml0aXF1ZSIsCiAgICAgICJsYWJlbCI6ICLYudin2KbZhNipINin2YTZhtmC2K8g2KfZhNil2YbYs9in2YbZiiIsCiAgICAgICJjb2xvciI6ICIjZjBiMzZmIiwKICAgICAgInBvc2l0aW9uIjogewogICAgICAgICJ4IjogMC4zOSwKICAgICAgICAieSI6IDAuNzQKICAgICAgfQogICAgfSwKICAgIHsKICAgICAgImlkIjogInN0YXRlLWNvbGxhcHNlIiwKICAgICAgImxhYmVsIjogIti52KfYptmE2Kkg2K7Ysdin2Kgg2KfZhNiv2YjZhNipIiwKICAgICAgImNvbG9yIjogIiNmMDdkNjIiLAogICAgICAicG9zaXRpb24iOiB7CiAgICAgICAgIngiOiAwLjUsCiAgICAgICAgInkiOiAwLjUzCiAgICAgIH0KICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJwcmFnbWF0aWMtc3RhdGUiLAogICAgICAibGFiZWwiOiAi2LnYp9im2YTYqSDYp9mE2YjYp9mC2LnZitipINin2YTYqNin2LHYr9ipIiwKICAgICAgImNvbG9yIjogIiNjN2Q0ZTUiLAogICAgICAicG9zaXRpb24iOiB7CiAgICAgICAgIngiOiAwLjgyLAogICAgICAgICJ5IjogMC41OAogICAgICB9CiAgICB9CiAgXSwKICAic3ludGhlc2lzIjogewogICAgImhlYWRsaW5lIjogItin2YTYrtix2YrYt9ipINmE2Kcg2KrYrNmF2Lkg2KfZhNi12K3ZgSDYudmE2Ykg2YXYudmG2Ykg2YjYp9it2K8iLAogICAgInN1bW1hcnkiOiAi2YPZhCDZhdis2YXZiNi52Kkg2YPZhNmF2KfYqiDYqtmD2LTZgSDYudin2KbZhNipINiu2LfYp9io2YrYqSDZhdiu2KrZhNmB2Kk6INiq2LnYqNim2KnYjCDYs9mK2KfYr9ip2Iwg2KrZgdin2YjYttiMINij2Ygg2YbZgtivINil2YbYs9in2YbZii4iLAogICAgImR1cmF0aW9uU2Vjb25kcyI6IDYKICB9Cn0=</script>
+<script>
+  const BRIEFING = JSON.parse(
+    new TextDecoder().decode(
+      Uint8Array.from(
+        atob(document.getElementById('keyword-radar-data').textContent.trim()),
+        function (char) { return char.charCodeAt(0); }
+      )
+    )
+  );
+
+  const PLAYBACK_CONFIG = {
+    introMs: 8000,
+    synthesisMs: (BRIEFING.synthesis.durationSeconds || 6) * 1000,
+    defaultEntryMs: 6000,
+    termRevealStepMs: 820,
+    ambientMotion: {
+      scanSweepDurationMs: 3200
+    }
+  };
+
+  const getEntryDurationMs = function (entry) {
+    return (entry.durationSeconds ? entry.durationSeconds * 1000 : null) || PLAYBACK_CONFIG.defaultEntryMs;
+  };
+
+  const stage = document.getElementById('stage');
+  stage.style.setProperty('--scan-sweep-duration', PLAYBACK_CONFIG.ambientMotion.scanSweepDurationMs + 'ms');
+
+  const flash = document.getElementById('flash');
+  const bgPhoto = document.getElementById('bg-photo');
+  const introCopy = document.getElementById('intro-copy');
+  const radarCanvas = document.getElementById('radar-canvas');
+  const mapCanvas = document.getElementById('map-canvas');
+  const scanLine = document.getElementById('scan-line');
+  const rings = Array.from(document.querySelectorAll('.ring'));
+  const brackets = Array.from(document.querySelectorAll('.bracket'));
+  const content = document.getElementById('content');
+  const sceneCard = document.getElementById('scene-card');
+  const synthesisCard = document.getElementById('synthesis-card');
+  const introEyebrow = document.getElementById('intro-eyebrow');
+  const introTitle = document.getElementById('intro-title');
+  const introDate = document.getElementById('intro-date');
+  const sceneDateBox = document.getElementById('scene-date-box');
+  const outletLogo = document.getElementById('outlet-logo');
+  const outletName = document.getElementById('outlet-name');
+  const sceneLabel = document.getElementById('scene-label');
+  const termGrid = document.getElementById('term-grid');
+  const sceneSummary = document.getElementById('scene-summary');
+  const synthesisHeadline = document.getElementById('synthesis-headline');
+  const synthesisSummary = document.getElementById('synthesis-summary');
+  const clusterLegend = document.getElementById('cluster-legend');
+  const synthesisRadar = document.getElementById('synthesis-radar');
+  let activeEntryIndex = -1;
+  let phaseStart = 0;
+  let phaseDuration = PLAYBACK_CONFIG.introMs;
+  let phaseType = 'intro';
+  let ended = false;
+  let synthesisNodes = [];
+  let termElements = [];
+
+  introEyebrow.textContent = BRIEFING.intro.eyebrow;
+  introTitle.textContent = BRIEFING.intro.title;
+  introDate.textContent = BRIEFING.meta.dateLabel;
+  sceneDateBox.textContent = BRIEFING.meta.dateLabel;
+  synthesisHeadline.textContent = BRIEFING.synthesis.headline;
+  synthesisSummary.textContent = BRIEFING.synthesis.summary;
+
+  const mapPoints = [
+    {x: 0.42, y: 0.20, offset: 0},
+    {x: 0.58, y: 0.18, offset: 8},
+    {x: 0.65, y: 0.35, offset: 18},
+    {x: 0.38, y: 0.38, offset: 26},
+    {x: 0.28, y: 0.26, offset: 34},
+    {x: 0.52, y: 0.55, offset: 44},
+    {x: 0.70, y: 0.25, offset: 52}
+  ];
+
+  function familyLabel(familyId) {
+    const family = BRIEFING.clusters.find(function (cluster) { return cluster.id === familyId; });
+    return family ? family.label : '';
+  }
+
+  function renderEntry(entry) {
+    outletLogo.src = './../../public/outlet-logos/' + entry.outlet.logoFile;
+    outletLogo.alt = entry.outlet.name;
+    outletName.textContent = entry.outlet.name;
+    sceneLabel.textContent = entry.sceneLabel;
+    sceneSummary.textContent = entry.summary;
+    termGrid.innerHTML = '';
+
+    termElements = entry.terms.map(function (term) {
+      const chip = document.createElement('div');
+      chip.className = 'term-chip';
+
+      const text = document.createElement('div');
+      text.className = 'term-text';
+      text.textContent = term.text;
+
+      chip.appendChild(text);
+      termGrid.appendChild(chip);
+      return chip;
+    });
+  }
+
+  function renderSynthesisNodes() {
+    synthesisNodes.forEach(function (node) {
+      node.remove();
+    });
+    synthesisNodes = [];
+
+    const clustersById = new Map(
+      BRIEFING.clusters.map(function (cluster) { return [cluster.id, cluster]; })
+    );
+
+    const groupedTerms = new Map();
+
+    BRIEFING.entries.forEach(function (entry) {
+      entry.terms.forEach(function (term) {
+        if (!groupedTerms.has(term.family)) {
+          groupedTerms.set(term.family, []);
+        }
+
+        groupedTerms.get(term.family).push(term.text);
+      });
+    });
+
+    clusterLegend.innerHTML = '';
+
+    BRIEFING.clusters.forEach(function (cluster) {
+      if (!groupedTerms.has(cluster.id)) {
+        return;
+      }
+
+      const pill = document.createElement('div');
+      pill.className = 'legend-pill';
+      pill.textContent = cluster.label;
+      pill.style.borderColor = cluster.color + '40';
+      pill.style.background = cluster.color + '18';
+      clusterLegend.appendChild(pill);
+
+      const node = document.createElement('div');
+      node.className = 'cluster-node';
+      node.style.left = (cluster.position.x * 100) + '%';
+      node.style.top = (cluster.position.y * 100) + '%';
+      node.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.22), 0 0 0 1px ' + cluster.color + '22';
+      node.style.borderColor = cluster.color + '44';
+
+      const label = document.createElement('div');
+      label.className = 'cluster-label';
+      label.style.color = cluster.color;
+      label.textContent = cluster.label;
+      node.appendChild(label);
+
+      const termsWrap = document.createElement('div');
+      termsWrap.className = 'cluster-terms';
+
+      groupedTerms.get(cluster.id).slice(0, 4).forEach(function (termText) {
+        const term = document.createElement('div');
+        term.className = 'cluster-term';
+        term.textContent = termText;
+        termsWrap.appendChild(term);
+      });
+
+      node.appendChild(termsWrap);
+      synthesisRadar.appendChild(node);
+      synthesisNodes.push(node);
+    });
+  }
+
+  function showIntro() {
+    phaseType = 'intro';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.introMs;
+
+    flash.animate([{opacity: 0.42}, {opacity: 0}], {duration: 500, fill: 'forwards'});
+    bgPhoto.style.opacity = '1';
+    bgPhoto.style.transform = 'scale(1)';
+    introCopy.style.opacity = '1';
+    introCopy.style.transform = 'translateY(0)';
+    scanLine.style.opacity = '1';
+    radarCanvas.style.opacity = '1';
+    mapCanvas.style.opacity = '1';
+    rings.forEach(function (ring, index) {
+      ring.classList.add('is-live');
+      ring.style.animationDelay = index * 0.35 + 's';
+      ring.style.opacity = '0.8';
+    });
+    brackets.forEach(function (bracket) {
+      bracket.style.opacity = '1';
+    });
+    content.classList.remove('is-visible');
+    sceneCard.classList.remove('hidden');
+    synthesisCard.classList.add('hidden');
+  }
+
+  function showEntry(index) {
+    const entry = BRIEFING.entries[index];
+    activeEntryIndex = index;
+    phaseType = 'entry';
+    phaseStart = performance.now();
+    phaseDuration = getEntryDurationMs(entry);
+    renderEntry(entry);
+
+    introCopy.style.opacity = '0';
+    introCopy.style.transform = 'translateY(20px)';
+    content.classList.add('is-visible');
+    sceneCard.classList.remove('hidden');
+    synthesisCard.classList.add('hidden');
+  }
+
+  function showSynthesis() {
+    phaseType = 'synthesis';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.synthesisMs;
+
+    sceneCard.classList.add('hidden');
+    synthesisCard.classList.remove('hidden');
+    renderSynthesisNodes();
+    synthesisNodes.forEach(function (node, index) {
+      window.setTimeout(function () {
+        node.classList.add('is-visible');
+      }, index * 180);
+    });
+
+  }
+
+  function updateTermReveal(elapsed) {
+    if (phaseType !== 'entry') return;
+
+    const revealCount = Math.min(
+      termElements.length,
+      Math.floor(elapsed / PLAYBACK_CONFIG.termRevealStepMs) + 1
+    );
+
+    termElements.forEach(function (element, index) {
+      element.classList.remove('is-active', 'is-settled');
+      if (index < revealCount - 1) {
+        element.classList.add('is-settled');
+      } else if (index === revealCount - 1) {
+        element.classList.add('is-active');
+      }
+    });
+  }
+
+  function drawRadar(now) {
+    const ctx = radarCanvas.getContext('2d');
+    const w = radarCanvas.width;
+    const h = radarCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = 114;
+    const sweep = ((now / 18) % 360) * Math.PI / 180;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.2)';
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i <= 4; i += 1) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (r / 4) * i, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx + r, cy);
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.stroke();
+
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    gradient.addColorStop(0, 'rgba(205, 127, 50, 0.2)');
+    gradient.addColorStop(1, 'rgba(205, 127, 50, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, sweep - 0.34, sweep + 0.06);
+    ctx.closePath();
+    ctx.fill();
+
+    if (phaseType === 'entry' && activeEntryIndex >= 0) {
+      const entry = BRIEFING.entries[activeEntryIndex];
+      entry.terms.forEach(function (term, index) {
+        const angle = (-90 + index * 34 + activeEntryIndex * 6) * Math.PI / 180;
+        const radius = 34 + (term.weight || 0.7) * 64;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const pulse = index === Math.min(termElements.length - 1, Math.floor((performance.now() - phaseStart) / PLAYBACK_CONFIG.termRevealStepMs))
+          ? 1
+          : 0.45;
+
+        ctx.fillStyle = 'rgba(205, 127, 50, ' + (0.4 + pulse * 0.45) + ')';
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2 + pulse * 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  function drawMap(now) {
+    const ctx = mapCanvas.getContext('2d');
+    const w = mapCanvas.width;
+    const h = mapCanvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.18)';
+    ctx.lineWidth = 1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(26, 62);
+    ctx.lineTo(46, 28);
+    ctx.lineTo(82, 18);
+    ctx.lineTo(128, 28);
+    ctx.lineTo(150, 56);
+    ctx.lineTo(138, 88);
+    ctx.lineTo(92, 104);
+    ctx.lineTo(56, 98);
+    ctx.closePath();
+    ctx.stroke();
+
+    mapPoints.forEach(function (point) {
+      const x = point.x * w;
+      const y = point.y * h;
+      const pulse = 0.5 + 0.5 * Math.sin((now / 240) + point.offset);
+      ctx.fillStyle = 'rgba(205, 127, 50, ' + (0.35 + pulse * 0.45) + ')';
+      ctx.beginPath();
+      ctx.arc(x, y, 2.6 + pulse * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function tick(now) {
+    drawRadar(now);
+    drawMap(now);
+
+    if (!phaseStart) phaseStart = now;
+
+    const phaseElapsed = now - phaseStart;
+    updateTermReveal(phaseElapsed);
+
+    if (phaseType === 'intro' && phaseElapsed >= PLAYBACK_CONFIG.introMs) {
+      showEntry(0);
+    } else if (phaseType === 'entry' && phaseElapsed >= phaseDuration) {
+      const nextIndex = activeEntryIndex + 1;
+      if (nextIndex >= BRIEFING.entries.length) {
+        showSynthesis();
+      } else {
+        showEntry(nextIndex);
+      }
+    } else if (phaseType === 'synthesis' && phaseElapsed >= PLAYBACK_CONFIG.synthesisMs) {
+      ended = true;
+    }
+
+    if (!ended) requestAnimationFrame(tick);
+  }
+
+  showIntro();
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

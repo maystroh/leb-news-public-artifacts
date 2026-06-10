@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+*.env
+
+# Dependencies (1.2 GB)
+node_modules/
+
+# Rendered video outputs
+*.mp4
+*.webm
+
+# Generated audio
+*.wav
+
+# Remotion render staging directories (large — copied from briefings/audio each build)
+briefings/*/output/remotion-assets/
+briefings/*/output/remotion-intro-assets/
+
+# Scene video clip splits
+briefings/*/output/scene-videos*/
+
+# OS & editor artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.suo
+*.user
+
+# Obsidian workspace state (keep .obsidian/ vault config, skip user workspace)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspace-mobile-preferences.json
+.obsidian/graph.json
+
+# Empty placeholder directory marker
+public/audio/briefing

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Beirut Intro</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+  }
+
+  #stage {
+    position: relative;
+    width: 405px;
+    height: 720px;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* Background image */
+  #bg {
+    position: absolute;
+    inset: 0;
+    background: url('logos/video-front-page-3.png') center/cover no-repeat;
+    opacity: 0;
+    animation: bgReveal 1.2s ease-out 0.3s forwards;
+  }
+
+  @keyframes bgReveal {
+    from { opacity: 0; transform: scale(1.06); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* Dark vignette overlay */
+  #vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center,
+      transparent 30%,
+      rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* Radar sweep canvas */
+  #radar-canvas {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250px;
+    height: 250px;
+    opacity: 0;
+    animation: fadeIn 0.8s ease 1.2s forwards;
+  }
+
+  /* Outer ring pulse */
+  .ring-pulse {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    border: 2px solid rgba(205, 127, 50, 0.6);
+    opacity: 0;
+    animation: ringPulse 2.5s ease-out infinite;
+  }
+  .ring-pulse:nth-child(2) { animation-delay: 0.8s; }
+  .ring-pulse:nth-child(3) { animation-delay: 1.6s; }
+
+  @keyframes ringPulse {
+    0%   { transform: translateX(-50%) scale(0.9); opacity: 0.7; }
+    100% { transform: translateX(-50%) scale(1.5); opacity: 0; }
+  }
+
+  /* Scan line horizontal sweep */
+  #scan-line {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(205,127,50,0.08) 40%,
+      rgba(205,127,50,0.25) 50%,
+      rgba(205,127,50,0.08) 60%,
+      transparent 100%);
+    animation: scanSweep 3s ease-in-out 1.5s infinite;
+    pointer-events: none;
+  }
+
+  @keyframes scanSweep {
+    0%   { left: -60%; }
+    100% { left: 100%; }
+  }
+
+  /* Glowing corner brackets */
+  .bracket {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0;
+    animation: fadeIn 0.6s ease forwards;
+  }
+  .bracket::before, .bracket::after {
+    content: '';
+    position: absolute;
+    background: rgba(205,127,50,0.9);
+    box-shadow: 0 0 8px rgba(205,127,50,0.8);
+  }
+  .bracket::before { width: 100%; height: 3px; top: 0; left: 0; }
+  .bracket::after  { width: 3px; height: 100%; top: 0; left: 0; }
+
+  .bracket.tl { top: 10px; left: 10px; animation-delay: 1.4s; }
+  .bracket.tr { top: 10px; right: 10px; transform: scaleX(-1); animation-delay: 1.5s; }
+  .bracket.bl { bottom: 10px; left: 10px; transform: scaleY(-1); animation-delay: 1.6s; }
+  .bracket.br { bottom: 10px; right: 10px; transform: scale(-1,-1); animation-delay: 1.7s; }
+
+  /* Flash overlay on start */
+  #flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    animation: flash 0.4s ease 0.2s forwards;
+    pointer-events: none;
+  }
+
+  @keyframes flash {
+    0%   { opacity: 0.4; }
+    100% { opacity: 0; }
+  }
+
+  /* Map blips canvas */
+  #map-canvas {
+    position: absolute;
+    top: 400px;
+    left: calc(50% + 62px);
+    transform: translateX(-50%);
+    width: 175px;
+    height: 120px;
+    opacity: 0;
+    animation: fadeIn 1s ease 2s forwards;
+    pointer-events: none;
+  }
+
+  /* Replay button */
+  #replay {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(205,127,50,0.15);
+    border: 1px solid rgba(205,127,50,0.5);
+    color: rgba(205,127,50,0.9);
+    padding: 8px 20px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    opacity: 0;
+    animation: fadeIn 0.5s ease 4s forwards;
+    transition: background 0.2s;
+    direction: ltr;
+  }
+  #replay:hover { background: rgba(205,127,50,0.3); }
+
+  /* Utility */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="bg"></div>
+  <div id="vignette"></div>
+
+  <!-- Radar rings -->
+  <div class="ring-pulse" style="animation-delay:1.8s"></div>
+  <div class="ring-pulse" style="animation-delay:2.6s"></div>
+  <div class="ring-pulse" style="animation-delay:3.4s"></div>
+
+  <!-- Radar sweep canvas -->
+  <canvas id="radar-canvas" width="250" height="250"></canvas>
+
+  <!-- Scan line -->
+  <div id="scan-line"></div>
+
+  <!-- Corner brackets -->
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+
+  <!-- Map blips -->
+  <canvas id="map-canvas" width="175" height="120"></canvas>
+
+  <!-- Flash -->
+  <div id="flash"></div>
+
+  <!-- Replay -->
+  <button id="replay" onclick="replayIntro()">↺ REPLAY</button>
+</div>
+
+<script>
+  // Radar sweep animation
+  const canvas = document.getElementById('radar-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2, R = W / 2 - 4;
+  let angle = -Math.PI / 2;
+  let startTime = null;
+  const SWEEP_DURATION = 4000;
+
+  const blips = [
+    { r: 0.38, a: 0.4,  life: 0 },
+    { r: 0.62, a: 1.9,  life: 0 },
+    { r: 0.75, a: 3.5,  life: 0 },
+    { r: 0.50, a: 5.1,  life: 0 },
+    { r: 0.85, a: 2.8,  life: 0 },
+  ];
+
+  function drawRadar(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = ts - startTime;
+    angle = -Math.PI / 2 + (elapsed / SWEEP_DURATION) * Math.PI * 2;
+    ctx.clearRect(0, 0, W, H);
+
+    const TRAIL = Math.PI * 0.67;
+    for (let i = 0; i < 60; i++) {
+      const a = angle - (i / 60) * TRAIL;
+      const alpha = (1 - i / 60) * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a - 0.05, a + 0.005);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(205,127,50,${alpha})`;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
+    ctx.strokeStyle = 'rgba(205,127,50,0.9)';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(205,127,50,0.8)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    blips.forEach(b => {
+      const normalizedCurrent = ((angle + Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const normalizedBlip = (b.a % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const diff = (normalizedCurrent - normalizedBlip + Math.PI * 2) % (Math.PI * 2);
+      if (diff < 0.15) b.life = 1.0;
+      if (b.life > 0) {
+        const bx = cx + R * b.r * Math.cos(b.a);
+        const by = cy + R * b.r * Math.sin(b.a);
+        ctx.beginPath();
+        ctx.arc(bx, by, 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(205,127,50,${b.life})`;
+        ctx.shadowColor = `rgba(255,180,60,${b.life})`;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        b.life = Math.max(0, b.life - 0.008);
+      }
+    });
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(205,127,50,0.9)';
+    ctx.fill();
+
+    requestAnimationFrame(drawRadar);
+  }
+
+  requestAnimationFrame(drawRadar);
+
+  // Map blips over Beirut map
+  const mapCanvas = document.getElementById('map-canvas');
+  const mctx = mapCanvas.getContext('2d');
+  const MW = mapCanvas.width, MH = mapCanvas.height;
+
+  const mapPoints = [
+    { x: 0.42, y: 0.20, label: 'Hamra' },
+    { x: 0.58, y: 0.18, label: 'Gemmayzeh' },
+    { x: 0.65, y: 0.35, label: 'Achrafieh' },
+    { x: 0.38, y: 0.38, label: 'Verdun' },
+    { x: 0.28, y: 0.26, label: 'Mreisseh' },
+    { x: 0.52, y: 0.55, label: 'Badaro' },
+    { x: 0.70, y: 0.25, label: 'Mar Mikhael' },
+    { x: 0.72, y: 0.48, label: 'Sin El Fil' },
+    { x: 0.32, y: 0.58, label: 'Bir Hassan' },
+    { x: 0.62, y: 0.65, label: 'Hazmieh' },
+    { x: 0.48, y: 0.70, label: 'Baabda' },
+    { x: 0.52, y: 0.30, label: 'Downtown' },
+  ];
+
+  const mapBlips = mapPoints.map(p => ({
+    x: p.x * MW, y: p.y * MH, label: p.label,
+    life: 0, ripple: 0,
+    next: Math.random() * 3000 + 500,
+    lastTrigger: 0,
+  }));
+
+  let mapStartTime = null;
+
+  function drawMapBlips(ts) {
+    if (!mapStartTime) mapStartTime = ts;
+    const elapsed = ts - mapStartTime;
+    mctx.clearRect(0, 0, MW, MH);
+
+    mapBlips.forEach(b => {
+      if (elapsed > b.lastTrigger + b.next) {
+        b.life = 1.0; b.ripple = 1.0;
+        b.lastTrigger = elapsed;
+        b.next = Math.random() * 4000 + 1500;
+      }
+
+      if (b.life > 0) {
+        if (b.ripple > 0) {
+          const rippleR = (1 - b.ripple) * 22;
+          mctx.beginPath();
+          mctx.arc(b.x, b.y, rippleR, 0, Math.PI * 2);
+          mctx.strokeStyle = `rgba(205,127,50,${b.ripple * 0.6})`;
+          mctx.lineWidth = 1.2;
+          mctx.stroke();
+          if (b.ripple < 0.8) {
+            const r2 = (0.8 - b.ripple) * 30;
+            mctx.beginPath();
+            mctx.arc(b.x, b.y, r2, 0, Math.PI * 2);
+            mctx.strokeStyle = `rgba(80,180,255,${(0.8 - b.ripple) * 0.4})`;
+            mctx.lineWidth = 0.8;
+            mctx.stroke();
+          }
+          b.ripple = Math.max(0, b.ripple - 0.012);
+        }
+
+        mctx.beginPath();
+        mctx.arc(b.x, b.y, 2.5, 0, Math.PI * 2);
+        mctx.fillStyle = `rgba(205,127,50,${b.life})`;
+        mctx.shadowColor = `rgba(255,180,60,${b.life})`;
+        mctx.shadowBlur = 10;
+        mctx.fill();
+        mctx.shadowBlur = 0;
+
+        if (b.life > 0.5) {
+          mctx.fillStyle = `rgba(180,220,255,${(b.life - 0.5) * 1.6})`;
+          mctx.font = '8px Arial';
+          mctx.fillText(b.label, b.x + 5, b.y - 4);
+        }
+
+        b.life = Math.max(0, b.life - 0.004);
+      }
+    });
+
+    requestAnimationFrame(drawMapBlips);
+  }
+
+  requestAnimationFrame(drawMapBlips);
+
+  // Replay
+  function replayIntro() { location.reload(); }
+</script>
+</body>
+</html>

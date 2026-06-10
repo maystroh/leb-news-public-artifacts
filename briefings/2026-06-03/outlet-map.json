@@ -1,0 +1,56 @@
+[
+  {
+    "sceneId": "scene-2",
+    "outletKey": "aawsat",
+    "outletName": "الشرق الأوسط",
+    "logoFile": "aawsat-logo.png"
+  },
+  {
+    "sceneId": "scene-3",
+    "outletKey": "alakhbar",
+    "outletName": "الأخبار",
+    "logoFile": "alakhbar-logo.png"
+  },
+  {
+    "sceneId": "scene-4",
+    "outletKey": "nidaa-al-watan",
+    "outletName": "نداء الوطن",
+    "logoFile": "nidaalwatan-logo.png"
+  },
+  {
+    "sceneId": "scene-5",
+    "outletKey": "aljoumhouria",
+    "outletName": "الجمهورية",
+    "logoFile": "aljoumhouria-logo.png"
+  },
+  {
+    "sceneId": "scene-6",
+    "outletKey": "asas-media",
+    "outletName": "أساس ميديا",
+    "logoFile": "asasmedia-logo.png"
+  },
+  {
+    "sceneId": "scene-7",
+    "outletKey": "almodon",
+    "outletName": "المدن",
+    "logoFile": "almodon-logo.png"
+  },
+  {
+    "sceneId": "scene-8",
+    "outletKey": "aliwaa",
+    "outletName": "اللواء",
+    "logoFile": "aliwa2-logo.png"
+  },
+  {
+    "sceneId": "scene-9",
+    "outletKey": "albinaa",
+    "outletName": "البناء",
+    "logoFile": "albina2-logo.png"
+  },
+  {
+    "sceneId": "scene-10",
+    "outletKey": "aldiyar",
+    "outletName": "الديار",
+    "logoFile": "aldiyar-logo.png"
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "title": "The Quote Duel",
+    "dateLabel": "2026-06-01",
+    "totalScenes": 0
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "ثنائية الاقتباسات",
+    "subtitle": "",
+    "durationSeconds": 8
+  },
+  "scenes": [
+    {
+      "id": "duel-1",
+      "eventLabel": "",
+      "contrastLabel": "",
+      "summary": "",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "",
+        "logoFile": "",
+        "stance": "",
+        "quote": ""
+      },
+      "right": {
+        "outlet": "",
+        "logoFile": "",
+        "stance": "",
+        "quote": ""
+      }
+    }
+  ],
+  "outro": {
+    "title": "",
+    "body": "",
+    "durationSeconds": 5
+  }
+}

@@ -1,0 +1,498 @@
+{
+  "meta": {
+    "sourcePath": "/mnt/c/Users/HassanAlhajj/Desktop/MyProjects/video-animations/briefings/2026-06-10/briefing_2026-06-10_corrected.txt",
+    "generatedAt": "2026-06-10T09:16:36.204Z",
+    "dateLabel": "2026-06-10",
+    "mode": "keyword-radar",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "رادار الكلمات",
+    "subtitle": "",
+    "durationSeconds": 7.527,
+    "textRevealSeconds": 4.527
+  },
+  "entries": [
+    {
+      "id": "keyword-radar-1",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "sceneLabel": "لغة الانفصام",
+      "summary": "الأخبار تبني قاموساً يضع الدولة في موقع الإنكار وإيران في موقع الفعل الدفاعي.",
+      "terms": [
+        {
+          "id": "scene-2-term-1",
+          "text": "السلطة المنفصمة",
+          "family": "delegitimization",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-2-term-2",
+          "text": "ما قال إن هناك عدوان",
+          "family": "delegitimization",
+          "weight": 0.92
+        },
+        {
+          "id": "scene-2-term-3",
+          "text": "تعافٍ",
+          "family": "economic-doubt",
+          "weight": 0.84
+        },
+        {
+          "id": "scene-2-term-4",
+          "text": "حرب الآخرين",
+          "family": "resistance-shield",
+          "weight": 0.88
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-2",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "sceneLabel": "لغة القطيعة",
+      "summary": "نداء الوطن تستخدم قاموس العزلة والمنصة والخراب لإغلاق باب أي شرعية لسلاح الحزب.",
+      "terms": [
+        {
+          "id": "scene-3-term-1",
+          "text": "تفكك وحدة الساحات",
+          "family": "axis-collapse",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-3-term-2",
+          "text": "عزلة حزب الله",
+          "family": "axis-collapse",
+          "weight": 0.94
+        },
+        {
+          "id": "scene-3-term-3",
+          "text": "منصة صواريخ",
+          "family": "war-platform",
+          "weight": 0.92
+        },
+        {
+          "id": "scene-3-term-4",
+          "text": "تجار الدماء",
+          "family": "delegitimization",
+          "weight": 0.9
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-3",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "sceneLabel": "لغة الطلاق",
+      "summary": "أساس ميديا تجمع الطلاق السياسي وإسقاط الدولة والحرب المفتوحة في سردية واحدة ضد المحور.",
+      "terms": [
+        {
+          "id": "scene-4-term-1",
+          "text": "عمق الطلاق",
+          "family": "state-command",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-4-term-2",
+          "text": "إسقاط الدولة",
+          "family": "state-command",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-4-term-3",
+          "text": "إفشال المسار التفاوضي",
+          "family": "diplomatic-formula",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-4-term-4",
+          "text": "لن تتوقف الحرب",
+          "family": "war-platform",
+          "weight": 0.86
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-4",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "sceneLabel": "لغة الهندسة",
+      "summary": "المدن تنقل النقاش من السلاح إلى موقع الطائفة وحدود إعادة هندسة النظام.",
+      "terms": [
+        {
+          "id": "scene-5-term-1",
+          "text": "موقع الطائفة الشيعية",
+          "family": "sectarian-system",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-5-term-2",
+          "text": "طاولة إسلام آباد",
+          "family": "regional-table",
+          "weight": 0.92
+        },
+        {
+          "id": "scene-5-term-3",
+          "text": "إعادة هندسة",
+          "family": "sectarian-system",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-5-term-4",
+          "text": "المظلة القطرية",
+          "family": "diplomatic-formula",
+          "weight": 0.84
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-5",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "sceneLabel": "لغة الضمانة",
+      "summary": "الجمهورية تميل إلى قاموس الجيش والانسحاب والخشية من استفراد لبنان بعد تهدئة الجبهة الإيرانية.",
+      "terms": [
+        {
+          "id": "scene-6-term-1",
+          "text": "الانسحاب الإسرائيلي الكامل",
+          "family": "diplomatic-formula",
+          "weight": 0.94
+        },
+        {
+          "id": "scene-6-term-2",
+          "text": "عاد مستفرداً",
+          "family": "war-platform",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-6-term-3",
+          "text": "ضامناً عملياً وحيداً",
+          "family": "state-command",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-6-term-4",
+          "text": "اللامركزية الإنمائية",
+          "family": "state-command",
+          "weight": 0.82
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-6",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "sceneLabel": "لغة السيادة",
+      "summary": "اللواء تصعد قاموس الاستباحة والسيادة وتحوّل المناطق التجريبية إلى أداة انتشار للجيش.",
+      "terms": [
+        {
+          "id": "scene-7-term-1",
+          "text": "الاستباحة الإيرانية",
+          "family": "sovereignty-break",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-7-term-2",
+          "text": "لبنان ليس قلب أحد",
+          "family": "sovereignty-break",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-7-term-3",
+          "text": "المناطق التجريبية",
+          "family": "diplomatic-formula",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-7-term-4",
+          "text": "انتشار الجيش",
+          "family": "state-command",
+          "weight": 0.88
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-7",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "sceneLabel": "لغة الفخ",
+      "summary": "الديار تستعمل قاموساً تحذيرياً: تهدئة أم صدام، لوائح أسماء أم أهل أرض.",
+      "terms": [
+        {
+          "id": "scene-8-term-1",
+          "text": "فخ لصدام محتمل",
+          "family": "war-platform",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-8-term-2",
+          "text": "رفض بري القاطع",
+          "family": "resistance-shield",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-8-term-3",
+          "text": "أهل الأرض",
+          "family": "resistance-shield",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-8-term-4",
+          "text": "الحارة المسيحية",
+          "family": "civilian-cost",
+          "weight": 0.84
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-8",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "sceneLabel": "لغة التفريغ",
+      "summary": "الشرق الأوسط تجعل صور مركز القاموس: نار، إخلاء، ضغط ديموغرافي، وانحسار إيراني.",
+      "terms": [
+        {
+          "id": "scene-9-term-1",
+          "text": "صور تحت نار إسرائيل",
+          "family": "civilian-cost",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-9-term-2",
+          "text": "إنذار غير مسبوق",
+          "family": "civilian-cost",
+          "weight": 0.94
+        },
+        {
+          "id": "scene-9-term-3",
+          "text": "ضغط ديموغرافي",
+          "family": "civilian-cost",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-9-term-4",
+          "text": "انحسار الإمبراطورية الإيرانية",
+          "family": "axis-collapse",
+          "weight": 0.9
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-9",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "sceneLabel": "لغة التخوين",
+      "summary": "البناء ترفع الردع إلى معادلة وتحوّل السلطة إلى فيشي والتفاوض إلى تطبيع.",
+      "terms": [
+        {
+          "id": "scene-10-term-1",
+          "text": "الشمال مقابل الضاحية",
+          "family": "iranian-deterrence",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-10-term-2",
+          "text": "حكومة فيشي",
+          "family": "delegitimization",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-10-term-3",
+          "text": "إنهاء حالة العداء",
+          "family": "normalization-fear",
+          "weight": 0.92
+        },
+        {
+          "id": "scene-10-term-4",
+          "text": "تفكيك بنية المقاومة",
+          "family": "resistance-shield",
+          "weight": 0.9
+        }
+      ],
+      "durationSeconds": 6
+    }
+  ],
+  "clusters": [
+    {
+      "id": "delegitimization",
+      "label": "عائلة نزع الشرعية",
+      "color": "#f07d62",
+      "position": {
+        "x": 0.3,
+        "y": 0.22
+      }
+    },
+    {
+      "id": "state-command",
+      "label": "عائلة قرار الدولة",
+      "color": "#67bfd8",
+      "position": {
+        "x": 0.78,
+        "y": 0.34
+      }
+    },
+    {
+      "id": "resistance-shield",
+      "label": "عائلة درع المقاومة",
+      "color": "#cd7f32",
+      "position": {
+        "x": 0.2,
+        "y": 0.44
+      }
+    },
+    {
+      "id": "diplomatic-formula",
+      "label": "عائلة الصيغة التفاوضية",
+      "color": "#89d5be",
+      "position": {
+        "x": 0.62,
+        "y": 0.72
+      }
+    },
+    {
+      "id": "war-platform",
+      "label": "عائلة منصة الحرب",
+      "color": "#d8c56a",
+      "position": {
+        "x": 0.42,
+        "y": 0.78
+      }
+    },
+    {
+      "id": "sovereignty-break",
+      "label": "عائلة السيادة المستباحة",
+      "color": "#f0b36f",
+      "position": {
+        "x": 0.86,
+        "y": 0.55
+      }
+    },
+    {
+      "id": "axis-collapse",
+      "label": "عائلة انحسار المحور",
+      "color": "#9eb7ff",
+      "position": {
+        "x": 0.66,
+        "y": 0.2
+      }
+    },
+    {
+      "id": "civilian-cost",
+      "label": "عائلة كلفة صور",
+      "color": "#d2a6ff",
+      "position": {
+        "x": 0.5,
+        "y": 0.48
+      }
+    },
+    {
+      "id": "sectarian-system",
+      "label": "عائلة هندسة النظام",
+      "color": "#f2cf5b",
+      "position": {
+        "x": 0.5,
+        "y": 0.28
+      }
+    },
+    {
+      "id": "regional-table",
+      "label": "عائلة الطاولة الإقليمية",
+      "color": "#78c6a3",
+      "position": {
+        "x": 0.36,
+        "y": 0.58
+      }
+    },
+    {
+      "id": "economic-doubt",
+      "label": "عائلة الشك الاقتصادي",
+      "color": "#b8a7ff",
+      "position": {
+        "x": 0.18,
+        "y": 0.72
+      }
+    },
+    {
+      "id": "iranian-deterrence",
+      "label": "عائلة الردع الإيراني",
+      "color": "#d9954c",
+      "position": {
+        "x": 0.18,
+        "y": 0.28
+      }
+    },
+    {
+      "id": "normalization-fear",
+      "label": "عائلة خوف التطبيع",
+      "color": "#ff8b7b",
+      "position": {
+        "x": 0.28,
+        "y": 0.62
+      }
+    }
+  ],
+  "synthesis": {
+    "headline": "قاموس بلا أرضية مشتركة",
+    "summary": "كلمات اليوم تصطف بين الاستباحة والردع والضمانة والفخ؛ وكل كلمة تكشف دولة مختلفة في خيال أصحابها.",
+    "durationSeconds": 6
+  },
+  "outro": {
+    "title": "السؤال المفتوح",
+    "body": "فَعَلَى أَيِّ قَامُوسٍ مُشْتَرَكٍ يُمْكِنُ لِلُّبْنَانِيِّينَ أَنْ يَبْنُوا دَوْلَتَهُمْ؟",
+    "durationSeconds": 5
+  }
+}

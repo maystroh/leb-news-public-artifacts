@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "title": "The Quote Duel",
+    "dateLabel": "2026-06-01",
+    "totalScenes": 3
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "ثنائية الاقتباسات",
+    "subtitle": "",
+    "durationSeconds": 8
+  },
+  "scenes": [
+    {
+      "id": "duel-1",
+      "eventLabel": "قلعة الشقيف سقطت",
+      "contrastLabel": "التحرير أم السقوط الأخلاقي؟",
+      "summary": "هنا لا نحتاج راويا: الصدام موجود داخل الكلمات نفسها.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "البناء",
+        "logoFile": "albina2-logo.png",
+        "stance": "تصعيد تعبوي",
+        "quote": "تحرير ثالث آتٍ"
+      },
+      "right": {
+        "outlet": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "stance": "إدانة سياسية",
+        "quote": "سقوط أخلاقي"
+      }
+    },
+    {
+      "id": "duel-2",
+      "eventLabel": "من يملك قرار الحرب؟",
+      "contrastLabel": "الدولة أم المحور؟",
+      "summary": "المواجهة هنا بين منطق السيادة ومنطق الجبهة المفتوحة.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "stance": "دفاع عن الدولة",
+        "quote": "هل يحق لإيران ما لا يحق للدولة اللبنانية؟"
+      },
+      "right": {
+        "outlet": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "stance": "ربط الحل بطهران",
+        "quote": "وقف الحرب في لبنان شرط لازم للاتفاق"
+      }
+    },
+    {
+      "id": "duel-3",
+      "eventLabel": "ماذا يعني المشهد بعد الشقيف؟",
+      "contrastLabel": "الركام أم التعبئة؟",
+      "summary": "الحدث نفسه يتحول إلى مستقبلين سياسيين متناقضين.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "المدن",
+        "logoFile": "almodon-logo.png",
+        "stance": "نقد إنساني وسياسي",
+        "quote": "إمارة الركام"
+      },
+      "right": {
+        "outlet": "البناء",
+        "logoFile": "albina2-logo.png",
+        "stance": "استمرار التعبئة",
+        "quote": "التحرير الثالث"
+      }
+    }
+  ],
+  "outro": {
+    "title": "خلاصة الصدام",
+    "body": "حين تتواجه الاقتباسات وحدها، يصبح الانقسام هو القصة.",
+    "durationSeconds": 5
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "رادار الكلمات",
+    "subtitle": "",
+    "durationSeconds": 5
+  },
+  "entries": [
+    {
+      "sceneId": "scene-2",
+      "sceneLabel": "لغة الوقائع الباردة",
+      "summary": "تفكك الحدث إلى لغة كلفة وإخلاءات وعجز تفاوضي.",
+      "terms": [
+        {
+          "text": "أقل تكلفة",
+          "family": "pragmatic-state",
+          "weight": 0.82
+        },
+        {
+          "text": "توسيع الإخلاءات",
+          "family": "pragmatic-state",
+          "weight": 0.66
+        },
+        {
+          "text": "انعدام خيارات",
+          "family": "pragmatic-state",
+          "weight": 0.76
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-3",
+      "sceneLabel": "لغة الإسقاط والاتهام",
+      "summary": "تسحب الشرعية من الحزب وتعيد تعريف المعركة كامتداد مباشر لطهران.",
+      "terms": [
+        {
+          "text": "إسناد خامنئي",
+          "family": "sovereignty-camp",
+          "weight": 0.99
+        },
+        {
+          "text": "السقوط الأخلاقي",
+          "family": "sovereignty-camp",
+          "weight": 0.97
+        },
+        {
+          "text": "ضباط إسرائيليون",
+          "family": "sovereignty-camp",
+          "weight": 0.88
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-4",
+      "sceneLabel": "لغة الخراب البنيوي",
+      "summary": "تصف الجميع كمستثمرين في الركام لا كخصوم منفصلين فقط.",
+      "terms": [
+        {
+          "text": "إمارة الركام",
+          "family": "state-collapse",
+          "weight": 0.9
+        },
+        {
+          "text": "تقاطع المصالح",
+          "family": "state-collapse",
+          "weight": 0.74
+        },
+        {
+          "text": "أنقاض الدولة",
+          "family": "state-collapse",
+          "weight": 0.8
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-5",
+      "sceneLabel": "لغة الدولة البديلة",
+      "summary": "تقرأ الجنوب كبيئة بدأت تصرخ لصالح الجيش والدولة.",
+      "terms": [
+        {
+          "text": "الصرخة الجنوبية",
+          "family": "sovereignty-camp",
+          "weight": 0.84
+        },
+        {
+          "text": "انتشار الجيش",
+          "family": "sovereignty-camp",
+          "weight": 0.79
+        },
+        {
+          "text": "وحدة الساحات",
+          "family": "sovereignty-camp",
+          "weight": 0.67
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-6",
+      "sceneLabel": "لغة المظلة الدبلوماسية",
+      "summary": "تمنح ثقلا للحل العربي والدولي بوصفه خط الشرعية.",
+      "terms": [
+        {
+          "text": "تثبيت وقف النار",
+          "family": "diplomatic-track",
+          "weight": 0.8
+        },
+        {
+          "text": "الدعم السعودي الفرنسي",
+          "family": "diplomatic-track",
+          "weight": 0.83
+        },
+        {
+          "text": "أذرع إيران",
+          "family": "diplomatic-track",
+          "weight": 0.72
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-7",
+      "sceneLabel": "لغة النقد المزدوج",
+      "summary": "تدين التدمير الإسرائيلي وعمى الحزب في الوقت نفسه.",
+      "terms": [
+        {
+          "text": "عقيدة الركام",
+          "family": "humanitarian-critique",
+          "weight": 0.88
+        },
+        {
+          "text": "عمى الأيديولوجيا",
+          "family": "humanitarian-critique",
+          "weight": 0.92
+        },
+        {
+          "text": "احتواء المكون الشيعي",
+          "family": "humanitarian-critique",
+          "weight": 0.78
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-8",
+      "sceneLabel": "لغة نزع الشرعية",
+      "summary": "تعكس المشهد بالكامل وتتهم مؤسسات الدولة نفسها بالتبعية للاحتلال.",
+      "terms": [
+        {
+          "text": "سلطة الاحتلال",
+          "family": "resistance-camp",
+          "weight": 0.99
+        },
+        {
+          "text": "عملاء وقتلة",
+          "family": "resistance-camp",
+          "weight": 0.96
+        },
+        {
+          "text": "اللوبي اللبناني-الأمريكي",
+          "family": "resistance-camp",
+          "weight": 0.9
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-9",
+      "sceneLabel": "لغة المقايضة الحذرة",
+      "summary": "تؤجل الصدام الداخلي وتمنح أولوية لمرجعية التفاوض.",
+      "terms": [
+        {
+          "text": "تحييد الحكومة",
+          "family": "diplomatic-track",
+          "weight": 0.75
+        },
+        {
+          "text": "الأرض مقابل السلاح",
+          "family": "diplomatic-track",
+          "weight": 0.86
+        },
+        {
+          "text": "المسار الأمني",
+          "family": "diplomatic-track",
+          "weight": 0.69
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "sceneId": "scene-10",
+      "sceneLabel": "لغة التعبئة القصوى",
+      "summary": "تحول الذكرى إلى منصة تعبئة وتبشر بمرحلة حسم جديدة.",
+      "terms": [
+        {
+          "text": "التحرير الثالث",
+          "family": "resistance-camp",
+          "weight": 0.95
+        },
+        {
+          "text": "الخيار الخطيئة",
+          "family": "resistance-camp",
+          "weight": 0.87
+        },
+        {
+          "text": "العدو الصهيو-أمريكي",
+          "family": "resistance-camp",
+          "weight": 0.91
+        }
+      ],
+      "durationSeconds": 6
+    }
+  ],
+  "clusters": [
+    {
+      "id": "resistance-camp",
+      "label": "عائلة التعبئة والمقاومة",
+      "color": "#cd7f32",
+      "position": {
+        "x": 0.28,
+        "y": 0.34
+      }
+    },
+    {
+      "id": "sovereignty-camp",
+      "label": "عائلة السيادة ونزع الشرعية",
+      "color": "#67bfd8",
+      "position": {
+        "x": 0.73,
+        "y": 0.34
+      }
+    },
+    {
+      "id": "diplomatic-track",
+      "label": "عائلة التفاوض والدولة",
+      "color": "#89d5be",
+      "position": {
+        "x": 0.61,
+        "y": 0.72
+      }
+    },
+    {
+      "id": "humanitarian-critique",
+      "label": "عائلة النقد الإنساني",
+      "color": "#f0b36f",
+      "position": {
+        "x": 0.39,
+        "y": 0.74
+      }
+    },
+    {
+      "id": "state-collapse",
+      "label": "عائلة خراب الدولة",
+      "color": "#f07d62",
+      "position": {
+        "x": 0.5,
+        "y": 0.53
+      }
+    },
+    {
+      "id": "pragmatic-state",
+      "label": "عائلة الواقعية الباردة",
+      "color": "#c7d4e5",
+      "position": {
+        "x": 0.82,
+        "y": 0.58
+      }
+    }
+  ],
+  "synthesis": {
+    "headline": "الخريطة لا تجمع الصحف على معنى واحد",
+    "summary": "كل مجموعة كلمات تكشف عائلة خطابية مختلفة: تعبئة، سيادة، تفاوض، أو نقد إنساني.",
+    "durationSeconds": 6
+  }
+}

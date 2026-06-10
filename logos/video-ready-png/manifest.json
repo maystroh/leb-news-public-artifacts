@@ -1,0 +1,87 @@
+{
+  "targetSize": {
+    "width": 320,
+    "height": 160
+  },
+  "innerFitSize": {
+    "width": 280,
+    "height": 120
+  },
+  "usageSuggestion": {
+    "displayWidth": 180,
+    "displayHeight": 90,
+    "note": "Recommended outlet badge size for the current vertical composition."
+  },
+  "logos": [
+    {
+      "sourceFile": "180post-logo.png",
+      "outputFile": "180post-logo.png",
+      "publicPath": "/outlet-logos/180post-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "aawsat-logo.jpg",
+      "outputFile": "aawsat-logo.png",
+      "publicPath": "/outlet-logos/aawsat-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "alakhbar-logo.jpg",
+      "outputFile": "alakhbar-logo.png",
+      "publicPath": "/outlet-logos/alakhbar-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "albina2-logo.png",
+      "outputFile": "albina2-logo.png",
+      "publicPath": "/outlet-logos/albina2-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "aldiyar-logo.webp",
+      "outputFile": "aldiyar-logo.png",
+      "publicPath": "/outlet-logos/aldiyar-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "aliwa2-logo.png",
+      "outputFile": "aliwa2-logo.png",
+      "publicPath": "/outlet-logos/aliwa2-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "aljoumhouria-logo.webp",
+      "outputFile": "aljoumhouria-logo.png",
+      "publicPath": "/outlet-logos/aljoumhouria-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "almodon-logo.svg",
+      "outputFile": "almodon-logo.png",
+      "publicPath": "/outlet-logos/almodon-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "asasmedia-logo.png",
+      "outputFile": "asasmedia-logo.png",
+      "publicPath": "/outlet-logos/asasmedia-logo.png",
+      "width": 320,
+      "height": 160
+    },
+    {
+      "sourceFile": "nidaalwatan-logo.svg",
+      "outputFile": "nidaalwatan-logo.png",
+      "publicPath": "/outlet-logos/nidaalwatan-logo.png",
+      "width": 320,
+      "height": 160
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "sourcePath": "/mnt/c/Users/HassanAlhajj/Desktop/MyProjects/video-animations/briefings/2026-06-06/briefing_2026-06-06_corrected.txt",
+    "generatedAt": "2026-06-09T11:42:40.029Z",
+    "dateLabel": "2026-06-06",
+    "mode": "fault-line-map",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "خريطة الانقسام",
+    "subtitle": "",
+    "durationSeconds": 7.527,
+    "textRevealSeconds": 4.527
+  },
+  "axis": {
+    "id": "state-sovereignty-vs-resistance-mandate",
+    "label": "الخريطة الأيديولوجية لليوم",
+    "headline": "من يعرّف السيادة: الدولة التي تنفصل عن إيران أم المقاومة التي تمنع فخ واشنطن؟",
+    "leftPole": "تفويض المقاومة",
+    "rightPole": "استعادة الدولة",
+    "leftColor": "#cd7f32",
+    "rightColor": "#67bfd8"
+  },
+  "entries": [
+    {
+      "id": "fault-line-1",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "headline": "فخ واشنطن",
+      "rationale": "تسقط اتفاق واشنطن وتتهم السلطة بالخيانة، وتربط السيادة بحفظ سلاح المقاومة وصمود الميدان.",
+      "quote": "صمود الميدان يفكك الفخ الأمريكي-الإسرائيلي",
+      "stanceLabel": "رفض كامل",
+      "position": 0.05,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-2",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "headline": "مرجعية المقاومة",
+      "rationale": "تمنح المقاومة تفوقاً تكتيكياً وتضع إيران كمرجعية تفاوضية لا بديل عنها لأي هدنة جنوبية.",
+      "quote": "الضامن الفعلي لأي هدنة في الجنوب",
+      "stanceLabel": "ضمانة إيران",
+      "position": 0.14,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-3",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "headline": "واقعية ميدانية",
+      "rationale": "تنقل خطاب عون لكنها تشترط الحل بتوافق الثنائي الشيعي وتعتبر الميدان مصدر الشروط النهائية.",
+      "quote": "الميدان هو الذي سيملي الشروط النهائية",
+      "stanceLabel": "واقعية الثنائي",
+      "position": 0.34,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-4",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "headline": "توازن هش",
+      "rationale": "تبتعد عن اليقينين، وترى التفاوض متشعباً والجنوب عالقاً في توازن هش لا سلاماً ناجزاً.",
+      "quote": "إدارة مستمرة للتوتر لا على سلام منشود",
+      "stanceLabel": "إدارة التوتر",
+      "position": 0.52,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-5",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "headline": "بيروت منزوعة",
+      "rationale": "تجعل السلاح داخل بيروت علامة انهيار الدولة وتطلب تدخلاً عربياً واسعاً لاستعادتها.",
+      "quote": "مدينةً منزوعة السلاح اليوم وليس غداً",
+      "stanceLabel": "نزع داخلي",
+      "position": 0.72,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-6",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "headline": "ركائز الدولة",
+      "rationale": "تستدعي المقاصد ودار الفتوى كركائز مواجهة مدنية ضد الدويلة ومنصات الصواريخ في الأحياء.",
+      "quote": "نزع الشرعية التمثيلية عن حزب الله",
+      "stanceLabel": "مؤسسات الدولة",
+      "position": 0.78,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-7",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "headline": "فرصة أخيرة",
+      "rationale": "تحمّل الثنائي مسؤولية إجهاض فرصة السلام وتخشى قطع لبنان عن العالم العربي والدولي.",
+      "quote": "السلطة تتبنى والثنائي يرفض",
+      "stanceLabel": "فرصة السلام",
+      "position": 0.82,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-8",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "headline": "انتفاضة الدولة",
+      "rationale": "تقرأ المشهد كتحرك مؤسسات الدولة ضد الوصاية الإيرانية وكتعزيز لمسار سيادي بدعم خارجي.",
+      "quote": "لبنان يتصدى لتوظيفه إيرانياً في المفاوضات",
+      "stanceLabel": "انتفاضة الدولة",
+      "position": 0.9,
+      "durationSeconds": 5
+    },
+    {
+      "id": "fault-line-9",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "headline": "قطيعة الساحات",
+      "rationale": "تجعل تصريح عون إعلاناً لاستعادة القرار ونزعاً لصفة تمثيل اللبنانيين عن حزب الله.",
+      "quote": "استعادة القرار الوطني من منطق الساحات",
+      "stanceLabel": "قطيعة سيادية",
+      "position": 0.95,
+      "durationSeconds": 5
+    }
+  ],
+  "synthesis": {
+    "headline": "السيادة صارت سؤال تمثيل",
+    "summary": "الخريطة لا تنقسم حول الاتفاق وحده، بل حول من يملك حق النطق باسم لبنان: الدولة أم محور المقاومة؟",
+    "durationSeconds": 5,
+    "leftMostOutlet": "البناء",
+    "rightMostOutlet": "نداء الوطن",
+    "bridgeOutlet": "المدن"
+  },
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "هل ينجح عون في إقناع الرأي العام اللبناني والإقليمي بأن الانفصال عن إيران ممكن، في بلد تتشابك فيه جذور المحور مع جذور الدولة؟",
+    "durationSeconds": 5
+  }
+}

@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Beirut Quote Duel</title>
+<style>
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Medium.ttf") format("truetype");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Dubai";
+    src: url("./../../../fonts/Dubai-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #050d14;
+    --bg-deep: #02080d;
+    --panel: rgba(8, 23, 35, 0.9);
+    --panel-strong: rgba(4, 13, 21, 0.96);
+    --line: rgba(120, 172, 205, 0.14);
+    --text: #f4efe5;
+    --muted: #9ab2c5;
+    --accent: #cd7f32;
+    --accent-soft: rgba(205, 127, 50, 0.18);
+    --cyan: #67bfd8;
+    --cyan-soft: rgba(103, 191, 216, 0.14);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+    --scan-sweep-duration: 3200ms;
+    --font-arabic: "Dubai", "Noto Naskh Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 18% 16%, rgba(205, 127, 50, 0.16), transparent 18%),
+      radial-gradient(circle at 80% 14%, rgba(103, 191, 216, 0.18), transparent 22%),
+      linear-gradient(180deg, #06131d, #03080d 72%);
+    color: var(--text);
+    overflow: hidden;
+    font-family: var(--font-arabic);
+    font-weight: 400;
+  }
+
+  #stage {
+    position: relative;
+    width: min(100vw, 405px);
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 24% 18%, rgba(205, 127, 50, 0.11), transparent 18%),
+      radial-gradient(circle at 74% 22%, rgba(103, 191, 216, 0.12), transparent 22%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg));
+    border: 1px solid rgba(205, 127, 50, 0.18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  }
+
+  #bg-photo,
+  #bg-noise,
+  #grid,
+  #ambient,
+  #scan-line,
+  #flash,
+  #vignette {
+    position: absolute;
+    inset: 0;
+  }
+
+  #bg-photo {
+    background: url('./../../../logos/video-front-page-3.png') center/cover no-repeat;
+    opacity: 0;
+    transform: scale(1.08);
+    transition: opacity 1.2s ease, transform 6s ease;
+  }
+
+  #bg-noise {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.26)),
+      radial-gradient(circle at 50% 120%, rgba(205, 127, 50, 0.14), transparent 30%);
+    opacity: 0.9;
+  }
+
+  #grid {
+    inset: -18%;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: rotate(-8deg) scale(1.08);
+    opacity: 0.7;
+    animation: driftGrid 22s linear infinite;
+  }
+
+  #ambient {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.28)),
+      radial-gradient(circle at 50% 120%, rgba(205, 127, 50, 0.15), transparent 30%);
+    pointer-events: none;
+  }
+
+  #scan-line {
+    inset: 0 auto 0 -70%;
+    width: 64%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(205, 127, 50, 0.06) 36%,
+      rgba(205, 127, 50, 0.26) 50%,
+      rgba(205, 127, 50, 0.06) 64%,
+      transparent 100%
+    );
+    transform: skewX(-15deg);
+    opacity: 0;
+    pointer-events: none;
+    animation: scanSweepLoop var(--scan-sweep-duration) linear infinite;
+  }
+
+  #flash {
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #vignette {
+    background: radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none;
+  }
+
+  .ring {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    border-radius: 50%;
+    border: 2px solid rgba(205, 127, 50, 0.55);
+    opacity: 0;
+    transform: scale(0.86);
+    pointer-events: none;
+  }
+
+  .ring.is-live {
+    animation: ringPulse 2.4s ease-out infinite;
+  }
+
+  #radar-canvas {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    width: 250px;
+    height: 250px;
+    margin-left: -125px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    z-index: 3;
+  }
+
+  #map-canvas {
+    position: absolute;
+    top: 398px;
+    left: calc(50% + 62px);
+    width: 175px;
+    height: 120px;
+    margin-left: -87.5px;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+  }
+
+  .bracket {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .bracket::before,
+  .bracket::after {
+    content: "";
+    position: absolute;
+    background: rgba(205, 127, 50, 0.9);
+    box-shadow: 0 0 8px rgba(205, 127, 50, 0.82);
+  }
+
+  .bracket::before {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+  }
+
+  .bracket::after {
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+  }
+
+  .bracket.tl { top: 10px; left: 10px; }
+  .bracket.tr { top: 10px; right: 10px; transform: scaleX(-1); }
+  .bracket.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+  .bracket.br { bottom: 10px; right: 10px; transform: scale(-1, -1); }
+
+  #intro-copy {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20px 22px 30px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    z-index: 6;
+  }
+
+  #intro-eyebrow {
+    color: rgba(205, 127, 50, 0.92);
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 0;
+  }
+
+  #intro-title {
+    font-size: 46px;
+    line-height: 1.18;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  #intro-subtitle {
+    color: rgba(212, 222, 232, 0.84);
+    font-size: 18px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  #intro-subtitle.hidden {
+    display: none;
+  }
+
+  #intro-date {
+    color: rgba(205, 127, 50, 0.84);
+    font-family: var(--font-arabic);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+
+  #content {
+    position: absolute;
+    inset: 18px 18px 78px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    z-index: 7;
+  }
+
+  #content.is-visible {
+    opacity: 1;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(10, 28, 42, 0.9), var(--panel-strong));
+    border: 1px solid rgba(107, 162, 197, 0.16);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  #scene-date-box {
+    align-self: center;
+    border: 1px solid rgba(205, 127, 50, 0.24);
+    background: rgba(0, 0, 0, 0.42);
+    color: rgba(212, 222, 232, 0.9);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-arabic);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    direction: ltr;
+    backdrop-filter: blur(8px);
+    width: min(260px, calc(100% - 72px));
+    text-align: center;
+  }
+
+  #scene-card,
+  #outro-card {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  #scene-card.is-visible,
+  #outro-card.is-visible {
+    animation: riseIn 0.65s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+
+  #scene-card {
+    flex: 1;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 14px;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  #event-pill {
+    justify-self: center;
+    max-width: 100%;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(205, 127, 50, 0.28);
+    background: rgba(205, 127, 50, 0.08);
+    color: #ffdcb2;
+    font-size: 22px;
+    line-height: 1.45;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  #contrast-line {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  #duel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    direction: ltr;
+    min-height: 0;
+  }
+
+  .duel-panel {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 12px;
+    padding: 14px 12px;
+    min-width: 0;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(4, 13, 21, 0.64);
+  }
+
+  .duel-panel.left {
+    box-shadow: inset 0 0 0 1px rgba(205, 127, 50, 0.08);
+  }
+
+  .duel-panel.right {
+    box-shadow: inset 0 0 0 1px rgba(103, 191, 216, 0.08);
+  }
+
+  .outlet-header {
+    direction: rtl;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .logo-box {
+    width: 78px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(244, 247, 250, 0.97);
+    border: 1px solid rgba(205, 127, 50, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+    flex-shrink: 0;
+  }
+
+  .logo-box img {
+    max-width: 62px;
+    max-height: 24px;
+    object-fit: contain;
+  }
+
+  .outlet-name {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .stance {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .quote-card {
+    direction: rtl;
+    display: grid;
+    align-content: center;
+    min-height: 0;
+    padding: 14px 12px;
+    border-radius: 18px;
+    font-size: 25px;
+    line-height: 1.52;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .duel-panel.left .quote-card {
+    background: linear-gradient(180deg, rgba(205, 127, 50, 0.14), rgba(205, 127, 50, 0.05));
+    color: #ffd39f;
+    border: 1px solid rgba(205, 127, 50, 0.16);
+  }
+
+  .duel-panel.right .quote-card {
+    background: linear-gradient(180deg, rgba(103, 191, 216, 0.14), rgba(103, 191, 216, 0.05));
+    color: #cfeef6;
+    border: 1px solid rgba(103, 191, 216, 0.16);
+  }
+
+  #bottom-summary {
+    text-align: center;
+    color: #f1e2ca;
+    font-size: 13px;
+    line-height: 1.7;
+    font-weight: 400;
+    padding: 12px 14px;
+    border-top: 1px solid rgba(205, 127, 50, 0.14);
+    background: linear-gradient(180deg, rgba(205, 127, 50, 0.06), rgba(205, 127, 50, 0.02));
+    border-radius: 18px;
+  }
+
+  #outro-card {
+    position: absolute;
+    inset: 132px 22px 110px;
+    display: grid;
+    align-content: center;
+    gap: 18px;
+    padding: 28px 22px;
+    text-align: center;
+    z-index: 7;
+  }
+
+  #outro-title {
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  #outro-body {
+    font-size: 34px;
+    line-height: 1.55;
+    font-weight: 700;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  @keyframes scanSweepLoop {
+    0% {
+      opacity: 0;
+      transform: translateX(-140%) skewX(-15deg);
+    }
+    8% {
+      opacity: 0.9;
+      transform: translateX(-60%) skewX(-15deg);
+    }
+    45% {
+      opacity: 1;
+      transform: translateX(90%) skewX(-15deg);
+    }
+    68% {
+      opacity: 0.18;
+      transform: translateX(155%) skewX(-15deg);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(155%) skewX(-15deg);
+    }
+  }
+
+  @keyframes ringPulse {
+    0% { transform: scale(0.86); opacity: 0.72; }
+    100% { transform: scale(1.52); opacity: 0; }
+  }
+
+  @keyframes driftGrid {
+    from { transform: translateY(0) rotate(-8deg) scale(1.08); }
+    to { transform: translateY(52px) rotate(-8deg) scale(1.08); }
+  }
+
+  @keyframes riseIn {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg-photo"></div>
+  <div id="bg-noise"></div>
+  <div id="grid"></div>
+  <div id="ambient"></div>
+  <div id="scan-line"></div>
+  <div id="flash"></div>
+  <div id="vignette"></div>
+
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <canvas id="radar-canvas" width="250" height="250"></canvas>
+  <canvas id="map-canvas" width="175" height="120"></canvas>
+
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+
+  <section id="intro-copy">
+    <div id="intro-eyebrow"></div>
+    <div id="intro-title"></div>
+    <div id="intro-subtitle"></div>
+    <div id="intro-date"></div>
+  </section>
+
+  <div id="content">
+    <div id="scene-date-box"></div>
+    <section id="scene-card" class="panel">
+      <div id="event-pill"></div>
+      <div id="contrast-line"></div>
+      <div id="duel-grid">
+        <article class="duel-panel left">
+          <div class="outlet-header">
+            <div class="logo-box"><img id="left-logo" alt=""></div>
+            <div>
+              <div id="left-name" class="outlet-name"></div>
+              <div id="left-stance" class="stance"></div>
+            </div>
+          </div>
+          <div id="left-quote" class="quote-card"></div>
+        </article>
+        <article class="duel-panel right">
+          <div class="outlet-header">
+            <div class="logo-box"><img id="right-logo" alt=""></div>
+            <div>
+              <div id="right-name" class="outlet-name"></div>
+              <div id="right-stance" class="stance"></div>
+            </div>
+          </div>
+          <div id="right-quote" class="quote-card"></div>
+        </article>
+      </div>
+      <div id="bottom-summary"></div>
+    </section>
+  </div>
+
+  <section id="outro-card" class="panel hidden">
+    <div id="outro-title"></div>
+    <div id="outro-body"></div>
+  </section>
+</div>
+
+<script id="quote-duel-data" type="text/plain">
+eyJtZXRhIjp7InRpdGxlIjoiVGhlIFF1b3RlIER1ZWwiLCJkYXRlTGFiZWwiOiIyMDI2LTA2LTAzIiwidG90YWxTY2VuZXMiOjR9LCJpbnRybyI6eyJleWVicm93Ijoi2KfZhNi12K3Yp9mB2Kkg2KfZhNmK2YjZhSIsInRpdGxlIjoi2KvZhtin2KbZitipINin2YTYp9mC2KrYqNin2LPYp9iqIiwic3VidGl0bGUiOiIiLCJkdXJhdGlvblNlY29uZHMiOjgsInRleHRSZXZlYWxTZWNvbmRzIjo2fSwic2NlbmVzIjpbeyJpZCI6ImR1ZWwtMSIsImV2ZW50TGFiZWwiOiLYqtix2KfZhdioINio2YrZhiDYp9mE2KXZhtmC2KfYsCDZiNin2YTYp9i22LfYsdin2LEiLCJjb250cmFzdExhYmVsIjoi2YXZhiDZitmF2YTZgyDYp9mE2YHYttmE2J8iLCJzdW1tYXJ5Ijoi2KfZhNi02LHZgiDYp9mE2KPZiNiz2Lcg2KrYsdmJINiq2LHYp9mF2Kgg2LbYp9io2Lcg2KXZitmC2KfYudiMINmI2KfZhNmF2K/ZhiDYqtix2Ykg2KPZhtmHINmF2YbYrSDYp9mE2K3YstioINi02LHYudmK2Kkg2KrZgdin2YjYttmK2Kkg2YTZhSDZitmD2YYg2YrYsdmK2K/Zh9inLiIsImR1cmF0aW9uU2Vjb25kcyI6OCwibGVmdCI6eyJvdXRsZXQiOiLYp9mE2LTYsdmCINin2YTYo9mI2LPYtyIsImxvZ29GaWxlIjoiYWF3c2F0LWxvZ28ucG5nIiwic3RhbmNlIjoi2YLZiNipINi22KjYtyIsInF1b3RlIjoi2YTYrNmFINmG2KrZhtmK2KfZh9mIINmI2KPZhtmC2LAg2KjZitix2YjYqiDZhdmGINin2YTZgti12YEifSwicmlnaHQiOnsib3V0bGV0Ijoi2KfZhNmF2K/ZhiIsImxvZ29GaWxlIjoiYWxtb2Rvbi1sb2dvLnBuZyIsInN0YW5jZSI6Iti02LHYudmK2Kkg2KfYtti32LHYp9ix2YrYqSIsInF1b3RlIjoi2KrYsdin2YXYqCDZhdmG2K0g2K3YstioINin2YTZhNmHINi02LHYudmK2Kkg2KfZhtiq2LLYudmH2Kcg2KjYp9mE2KrYudioINmI2KfZhNi52LHZgiDZiNin2YTYtdio2LEifX0seyJpZCI6ImR1ZWwtMiIsImV2ZW50TGFiZWwiOiLYpdmK2LHYp9mGOiDYpdiz2YbYp9ivINij2YUg2LXZgdmC2KnYnyIsImNvbnRyYXN0TGFiZWwiOiLYt9mH2LHYp9mGINio2YrZhiDYp9mE2LHYp9mB2LnYqSDZiNin2YTYrti12YUiLCJzdW1tYXJ5Ijoi2KfZhNij2K7YqNin2LEg2KrYudmE2YYg2KjYr9in2YrYqSDYp9mE2KXYs9mG2KfYryDYp9mE2KXZitix2KfZhtmK2Iwg2YjYo9iz2KfYsyDZhdmK2K/ZitinINiq2K3YqtmB2YQg2KjYp9mE2KfYqtmB2KfZgiDYp9mE2KPZhdix2YrZg9mKINin2YTYpdmK2LHYp9mG2Yog2YPYrtmE2KfYtSDZhNmE2K/ZiNmE2Kkg2YTYpyDZhNmE2K3YstioLiIsImR1cmF0aW9uU2Vjb25kcyI6OCwibGVmdCI6eyJvdXRsZXQiOiLYp9mE2KPYrtio2KfYsSIsImxvZ29GaWxlIjoiYWxha2hiYXItbG9nby5wbmciLCJzdGFuY2UiOiLYpdiz2YbYp9ivINin2YTZhdmC2KfZiNmF2KkiLCJxdW90ZSI6Itiq2LXZhdmK2YUg2KXZitix2KfZhtmKINi52YTZiSDYpdiz2YbYp9ivINmE2KjZhtin2YYifSwicmlnaHQiOnsib3V0bGV0Ijoi2KPYs9in2LMg2YXZitiv2YrYpyIsImxvZ29GaWxlIjoiYXNhc21lZGlhLWxvZ28ucG5nIiwic3RhbmNlIjoi2K7ZhNin2LUg2KfZhNiv2YjZhNipIiwicXVvdGUiOiLYp9mE2KfYqtmB2KfZgiDYp9mE2KPZhdix2YrZg9mKLdin2YTYpdmK2LHYp9mG2Yog2YTYrdi42Kkg2KrYp9ix2YrYrtmK2Kkg2YTYrtmE2KfYtSDYr9mI2YTYqSDZhNio2YbYp9mGIn19LHsiaWQiOiJkdWVsLTMiLCJldmVudExhYmVsIjoi2KfZhNiz2YTYp9itINio2YrZhiDYp9mE2KrZgdmD2YrZgyDZiNin2YTYsdiv2LkiLCJjb250cmFzdExhYmVsIjoi2KjZhtmJINin2YTYrdiy2Kgg2KPZhSDZhdi52KfYr9mE2KfYqtmH2J8iLCJzdW1tYXJ5Ijoi2KfZhNis2YXZh9mI2LHZitipINiq2LfZhNioINiq2YHZg9mK2YMg2KfZhNio2YbZitipINin2YTZhdin2YTZitipINmI2KfZhNil2K/Yp9ix2YrYqSDZhNmE2K3Ystio2Iwg2YjYp9mE2KjZhtin2KEg2KrYsdivINio2YXZhti32YIg2KfZhNix2K/YuSDZiNin2YTZhti12LEg2KfZhNin2LPYqtix2KfYqtmK2KzZii4iLCJkdXJhdGlvblNlY29uZHMiOjgsImxlZnQiOnsib3V0bGV0Ijoi2KfZhNis2YXZh9mI2LHZitipIiwibG9nb0ZpbGUiOiJhbGpvdW1ob3VyaWEtbG9nby5wbmciLCJzdGFuY2UiOiLYqtmB2YPZitmDINio2YbZitmI2YoiLCJxdW90ZSI6Itiq2YHZg9mK2YMg2KfZhNio2YbZiSDYp9mE2YXYp9mE2YrYqSDZiNin2YTYpdiv2KfYsdmK2Kkg2YTYrdiy2Kgg2KfZhNmE2YcifSwicmlnaHQiOnsib3V0bGV0Ijoi2KfZhNio2YbYp9ihIiwibG9nb0ZpbGUiOiJhbGJpbmEyLWxvZ28ucG5nIiwic3RhbmNlIjoi2LHYr9i5INmF2YbYqti12LEiLCJxdW90ZSI6ItmF2LnYp9iv2YTYp9iqINix2K/YuSDYrNiv2YrYr9ipINiq2YHYsdi22YfYpyDYp9mE2YXZgtin2YjZhdipINmI2KXZitix2KfZhiJ9fSx7ImlkIjoiZHVlbC00IiwiZXZlbnRMYWJlbCI6Itin2YTYrNmG2YjYqCDYr9in2K7ZhCDYp9mE2LPYsdiv2YrYqSIsImNvbnRyYXN0TGFiZWwiOiLYpdmG2YLYp9iwINmF2KjZg9ixINij2YUg2LDYp9mD2LHYqSDZhdmH2K/Yr9ip2J8iLCJzdW1tYXJ5Ijoi2KfZhNmE2YjYp9ihINiq2YLYt9i5INmF2Lkg2LPYsdiv2YrYqSDYp9mE2YXZhdin2YbYudip2Iwg2YjYp9mE2K/Zitin2LEg2KrZhtmC2YQg2KfZhNmF2LnYsdmD2Kkg2KXZhNmJINmF2LPYqtmI2Ykg2KfZhNmH2YjZitipINmI2KfZhNii2KvYp9ixINmI2KfZhNiw2KfZg9ix2KkuIiwiZHVyYXRpb25TZWNvbmRzIjo4LCJsZWZ0Ijp7Im91dGxldCI6Itin2YTZhNmI2KfYoSIsImxvZ29GaWxlIjoiYWxpd2EyLWxvZ28ucG5nIiwic3RhbmNlIjoi2YLYt9mK2LnYqSDYs9ix2K/ZitipIiwicXVvdGUiOiLZh9mEINmD2KfZhiDYtdin2K3YqCDYsdik2YrYqSDYpdmG2YLYp9iw2YrYqSDZhdio2YPYsdipINmE2YTYrNmG2YjYqCDZiNin2YTYtNmK2LnYqdifIn0sInJpZ2h0Ijp7Im91dGxldCI6Itin2YTYr9mK2KfYsSIsImxvZ29GaWxlIjoiYWxkaXlhci1sb2dvLnBuZyIsInN0YW5jZSI6Itiw2KfZg9ix2Kkg2YjYt9mG2YrYqSIsInF1b3RlIjoi2K3YsdioINi52YTZiSDYp9mE2YfZiNmK2Kkg2YjYp9mE2LDYp9mD2LHYqSDYp9mE2KzZhdin2LnZitipINin2YTZhNio2YbYp9mG2YrYqSJ9fV0sIm91dHJvIjp7InRpdGxlIjoi2KfZhNiz2KTYp9mEINin2YTZhdmB2KrZiNitIiwiYm9keSI6ItmF2KfYsNinINi52YYg2KfZhNis2YbZiNioINin2YTYsNmKINmK2KjYr9mIINiu2KfYsdisINij2Yog2KrZh9iv2KbYqSDYtNin2YXZhNipINmB2Yog2YPZhCDYp9mE2LPZitmG2KfYsdmK2YjZh9in2KrYnyIsImR1cmF0aW9uU2Vjb25kcyI6NX19
+</script>
+<script>
+  const BRIEFING = JSON.parse(
+    new TextDecoder().decode(
+      Uint8Array.from(
+        atob(document.getElementById('quote-duel-data').textContent.trim()),
+        (char) => char.charCodeAt(0)
+      )
+    )
+  );
+  const PLAYBACK_CONFIG = {
+    introMs: (BRIEFING.intro?.durationSeconds || 8) * 1000,
+    introTextRevealMs: (
+      typeof BRIEFING.intro?.textRevealSeconds === 'number'
+        ? BRIEFING.intro.textRevealSeconds * 1000
+        : Math.max(0, ((BRIEFING.intro?.durationSeconds || 8) - 2) * 1000)
+    ),
+    outroMs: 5000,
+    defaultSceneMs: 5000,
+    ambientMotion: {
+      scanSweepDurationMs: 3200
+    }
+  };
+
+  const getSceneDurationMs = (scene) =>
+    (scene.durationSeconds ? scene.durationSeconds * 1000 : null) ?? PLAYBACK_CONFIG.defaultSceneMs;
+
+  const stage = document.getElementById('stage');
+  stage.style.setProperty('--scan-sweep-duration', `${PLAYBACK_CONFIG.ambientMotion.scanSweepDurationMs}ms`);
+
+  const bgPhoto = document.getElementById('bg-photo');
+  const scanLine = document.getElementById('scan-line');
+  const flash = document.getElementById('flash');
+  const introCopy = document.getElementById('intro-copy');
+  const radarCanvas = document.getElementById('radar-canvas');
+  const mapCanvas = document.getElementById('map-canvas');
+  const rings = Array.from(document.querySelectorAll('.ring'));
+  const brackets = Array.from(document.querySelectorAll('.bracket'));
+  const content = document.getElementById('content');
+  const sceneCard = document.getElementById('scene-card');
+  const outroCard = document.getElementById('outro-card');
+  const introEyebrow = document.getElementById('intro-eyebrow');
+  const introTitle = document.getElementById('intro-title');
+  const introSubtitle = document.getElementById('intro-subtitle');
+  const introDate = document.getElementById('intro-date');
+  const sceneDateBox = document.getElementById('scene-date-box');
+  const eventPill = document.getElementById('event-pill');
+  const contrastLine = document.getElementById('contrast-line');
+  const leftLogo = document.getElementById('left-logo');
+  const leftName = document.getElementById('left-name');
+  const leftStance = document.getElementById('left-stance');
+  const leftQuote = document.getElementById('left-quote');
+  const rightLogo = document.getElementById('right-logo');
+  const rightName = document.getElementById('right-name');
+  const rightStance = document.getElementById('right-stance');
+  const rightQuote = document.getElementById('right-quote');
+  const bottomSummary = document.getElementById('bottom-summary');
+  const outroTitle = document.getElementById('outro-title');
+  const outroBody = document.getElementById('outro-body');
+  let activeSceneIndex = -1;
+  let phaseStart = 0;
+  let phaseDuration = PLAYBACK_CONFIG.introMs;
+  let phaseType = 'intro';
+  let ended = false;
+
+  introEyebrow.textContent = '';
+  introTitle.textContent = BRIEFING.intro?.title || 'الصحافة اليوم';
+  const introSubtitleText = BRIEFING.intro.subtitle || '';
+  introSubtitle.textContent = introSubtitleText;
+  introSubtitle.classList.toggle('hidden', !introSubtitleText);
+  introDate.textContent = BRIEFING.meta.dateLabel;
+  sceneDateBox.textContent = BRIEFING.meta.dateLabel;
+  outroTitle.textContent = BRIEFING.outro.title;
+  outroBody.textContent = BRIEFING.outro.body;
+
+  const mapPoints = [
+    {x: 0.42, y: 0.20, label: 'Hamra', offset: 0},
+    {x: 0.58, y: 0.18, label: 'Gemmayzeh', offset: 8},
+    {x: 0.65, y: 0.35, label: 'Achrafieh', offset: 18},
+    {x: 0.38, y: 0.38, label: 'Verdun', offset: 26},
+    {x: 0.28, y: 0.26, label: 'Mreisseh', offset: 34},
+    {x: 0.52, y: 0.55, label: 'Badaro', offset: 44},
+    {x: 0.70, y: 0.25, label: 'Mar Mikhael', offset: 52}
+  ];
+
+  function formatTime(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const secs = String(seconds % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  }
+
+  function setScene(scene) {
+    eventPill.textContent = scene.eventLabel;
+    contrastLine.textContent = scene.contrastLabel;
+    leftLogo.src = `./../../../public/outlet-logos/${scene.left.logoFile}`;
+    leftLogo.alt = scene.left.outlet;
+    leftName.textContent = scene.left.outlet;
+    leftStance.textContent = scene.left.stance;
+    leftQuote.textContent = scene.left.quote;
+
+    rightLogo.src = `./../../../public/outlet-logos/${scene.right.logoFile}`;
+    rightLogo.alt = scene.right.outlet;
+    rightName.textContent = scene.right.outlet;
+    rightStance.textContent = scene.right.stance;
+    rightQuote.textContent = scene.right.quote;
+
+    bottomSummary.textContent = scene.summary;
+  }
+
+  function showIntro() {
+    phaseType = 'intro';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.introMs;
+
+    flash.animate([{opacity: 0.42}, {opacity: 0}], {duration: 500, fill: 'forwards'});
+    bgPhoto.style.transition = 'none';
+    bgPhoto.style.opacity = '0';
+    bgPhoto.style.transform = 'scale(1.08)';
+    void bgPhoto.offsetWidth;
+    bgPhoto.style.transition = 'opacity 1.2s ease, transform 6s ease';
+    bgPhoto.style.opacity = '1';
+    bgPhoto.style.transform = 'scale(1)';
+    scanLine.style.opacity = '1';
+    setTimeout(() => { radarCanvas.style.opacity = '1'; }, 900);
+    setTimeout(() => {
+      rings.forEach((ring, index) => {
+        ring.classList.add('is-live');
+        ring.style.animationDelay = `${index * 0.7}s`;
+        ring.style.opacity = '1';
+      });
+    }, 1200);
+    setTimeout(() => {
+      brackets.forEach((bracket, index) => {
+        setTimeout(() => { bracket.style.opacity = '1'; }, index * 90);
+      });
+    }, 1300);
+    setTimeout(() => { mapCanvas.style.opacity = '1'; }, 1900);
+    setTimeout(() => {
+      introCopy.style.opacity = '1';
+      introCopy.style.transform = 'translateY(0)';
+    }, PLAYBACK_CONFIG.introTextRevealMs);
+    content.classList.remove('is-visible');
+    sceneCard.classList.remove('is-visible');
+    outroCard.classList.add('hidden');
+    outroCard.classList.remove('is-visible');
+  }
+
+  function showScene(index) {
+    const scene = BRIEFING.scenes[index];
+    activeSceneIndex = index;
+    phaseType = 'scene';
+    phaseStart = performance.now();
+    phaseDuration = getSceneDurationMs(scene);
+    setScene(scene);
+
+    introCopy.style.opacity = '0';
+    introCopy.style.transform = 'translateY(20px)';
+    content.classList.add('is-visible');
+    sceneCard.classList.remove('is-visible');
+    void sceneCard.offsetWidth;
+    sceneCard.classList.add('is-visible');
+    outroCard.classList.add('hidden');
+  }
+
+  function showOutro() {
+    phaseType = 'outro';
+    phaseStart = performance.now();
+    phaseDuration = PLAYBACK_CONFIG.outroMs;
+
+    content.classList.remove('is-visible');
+    sceneCard.classList.remove('is-visible');
+    outroCard.classList.remove('hidden');
+    outroCard.classList.remove('is-visible');
+    void outroCard.offsetWidth;
+    outroCard.classList.add('is-visible');
+  }
+
+  function drawRadar(now) {
+    const ctx = radarCanvas.getContext('2d');
+    const w = radarCanvas.width;
+    const h = radarCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = 108;
+    const sweep = ((now / 18) % 360) * Math.PI / 180;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.22)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i += 1) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (r / 4) * i, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx + r, cy);
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.stroke();
+
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    gradient.addColorStop(0, 'rgba(205, 127, 50, 0.22)');
+    gradient.addColorStop(1, 'rgba(205, 127, 50, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, sweep - 0.34, sweep + 0.06);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawMap(now) {
+    const ctx = mapCanvas.getContext('2d');
+    const w = mapCanvas.width;
+    const h = mapCanvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(103, 191, 216, 0.18)';
+    ctx.lineWidth = 1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(26, 62);
+    ctx.lineTo(46, 28);
+    ctx.lineTo(82, 18);
+    ctx.lineTo(128, 28);
+    ctx.lineTo(150, 56);
+    ctx.lineTo(138, 88);
+    ctx.lineTo(92, 104);
+    ctx.lineTo(56, 98);
+    ctx.closePath();
+    ctx.stroke();
+
+    mapPoints.forEach((point) => {
+      const cycle = ((now / 28) + point.offset) % 90;
+      const progress = cycle / 90;
+      const rippleScale = 0.4 + progress * 1.6;
+      const rippleOpacity = Math.max(0, 0.7 - progress * 0.7);
+      const labelOpacity = Math.max(0, 1 - progress * 1.4);
+      const x = point.x * w;
+      const y = point.y * h;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(205,127,50,0.95)';
+      ctx.shadowColor = 'rgba(255,180,60,0.88)';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.arc(x, y, 4 + rippleScale * 9, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(205,127,50,${rippleOpacity})`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(180,220,255,${labelOpacity})`;
+      ctx.font = '8px Segoe UI';
+      ctx.fillText(point.label, x + 5, y - 4);
+    });
+  }
+
+  function tick(now) {
+    drawRadar(now);
+    drawMap(now);
+
+    if (!phaseStart) phaseStart = now;
+
+    const phaseElapsed = now - phaseStart;
+    if (phaseType === 'intro' && phaseElapsed >= PLAYBACK_CONFIG.introMs) {
+      showScene(0);
+    } else if (phaseType === 'scene' && phaseElapsed >= phaseDuration) {
+      const nextIndex = activeSceneIndex + 1;
+      if (nextIndex >= BRIEFING.scenes.length) {
+        showOutro();
+      } else {
+        showScene(nextIndex);
+      }
+    } else if (phaseType === 'outro' && phaseElapsed >= PLAYBACK_CONFIG.outroMs) {
+      ended = true;
+    }
+
+    if (!ended) requestAnimationFrame(tick);
+  }
+
+  showIntro();
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

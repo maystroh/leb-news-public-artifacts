@@ -1,0 +1,59 @@
+{
+  "briefing": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-2": 38.962,
+      "scene-3": 40.276,
+      "scene-4": 41.304,
+      "scene-5": 47.284,
+      "scene-6": 31.172,
+      "scene-7": 32.341,
+      "scene-8": 33.324,
+      "scene-9": 31.734,
+      "scene-10": 48.663,
+      "scene-11": 45.699
+    },
+    "outroSeconds": 5.946
+  },
+  "quoteDuel": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {},
+    "outroSeconds": null
+  },
+  "faultLineMap": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-10": 5,
+      "scene-2": 5,
+      "scene-8": 5,
+      "scene-5": 5,
+      "scene-6": 5,
+      "scene-9": 5,
+      "scene-4": 5,
+      "scene-7": 5,
+      "scene-3": 5
+    },
+    "synthesisSeconds": 5,
+    "outroSeconds": 5
+  },
+  "keywordRadar": {
+    "introSeconds": 7.527,
+    "introTextRevealSeconds": 4.527,
+    "scenes": {
+      "scene-2": 6,
+      "scene-3": 6,
+      "scene-4": 6,
+      "scene-5": 6,
+      "scene-6": 6,
+      "scene-7": 6,
+      "scene-8": 6,
+      "scene-9": 6,
+      "scene-10": 6
+    },
+    "synthesisSeconds": 6,
+    "outroSeconds": 5
+  }
+}

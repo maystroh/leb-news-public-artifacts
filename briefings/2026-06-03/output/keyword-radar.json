@@ -1,0 +1,444 @@
+{
+  "meta": {
+    "sourcePath": "/mnt/c/users/hassanalhajj/desktop/myprojects/video-animations/briefings/2026-06-03/briefing_2026-06-03_corrected.txt",
+    "generatedAt": "2026-06-08T16:07:22.889Z",
+    "dateLabel": "2026-06-03",
+    "mode": "keyword-radar",
+    "totalEntries": 9
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "رادار الكلمات",
+    "subtitle": "",
+    "durationSeconds": 8,
+    "textRevealSeconds": 6
+  },
+  "entries": [
+    {
+      "id": "keyword-radar-1",
+      "sceneId": "scene-2",
+      "outlet": {
+        "key": "aawsat",
+        "name": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "logoPath": "/outlet-logos/aawsat-logo.png"
+      },
+      "sceneLabel": "لغة الضبط الأمريكي",
+      "summary": "الشرق الأوسط تبني مفرداتها حول ترامب كقوة ضبط وإيران كورقة ضغط على الدولة والطاقة.",
+      "terms": [
+        {
+          "id": "scene-2-term-1",
+          "text": "لجم نتنياهو",
+          "family": "american-arbitration",
+          "weight": 0.95
+        },
+        {
+          "id": "scene-2-term-2",
+          "text": "أنقذ بيروت",
+          "family": "american-arbitration",
+          "weight": 0.88
+        },
+        {
+          "id": "scene-2-term-3",
+          "text": "تأميم مضيق هرمز",
+          "family": "regional-bargain",
+          "weight": 0.82
+        },
+        {
+          "id": "scene-2-term-4",
+          "text": "مسابقة الدولة اللبنانية",
+          "family": "state-recovery",
+          "weight": 0.78
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-2",
+      "sceneId": "scene-3",
+      "outlet": {
+        "key": "alakhbar",
+        "name": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "logoPath": "/outlet-logos/alakhbar-logo.png"
+      },
+      "sceneLabel": "لغة الإسناد",
+      "summary": "الأخبار تصوغ المشهد كلحظة خروج إيراني من الصبر إلى الفعل المباشر.",
+      "terms": [
+        {
+          "id": "scene-3-term-1",
+          "text": "إسناد لبنان",
+          "family": "resistance-deterrence",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-3-term-2",
+          "text": "زمن الصبر",
+          "family": "resistance-deterrence",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-3-term-3",
+          "text": "فيتو ترامب",
+          "family": "american-arbitration",
+          "weight": 0.76
+        },
+        {
+          "id": "scene-3-term-4",
+          "text": "مسيّرات المقاومة",
+          "family": "resistance-deterrence",
+          "weight": 0.84
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-3",
+      "sceneId": "scene-4",
+      "outlet": {
+        "key": "nidaa-al-watan",
+        "name": "نداء الوطن",
+        "logoFile": "nidaalwatan-logo.png",
+        "logoPath": "/outlet-logos/nidaalwatan-logo.png"
+      },
+      "sceneLabel": "لغة نزع الشرعية",
+      "summary": "نداء الوطن تشحن خطابها بمفردات ميليشياوية ودستورية وتضع الشيعة في خانة الضحية.",
+      "terms": [
+        {
+          "id": "scene-4-term-1",
+          "text": "تربك الميليشيا",
+          "family": "sovereignty-strike",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-4-term-2",
+          "text": "نبيه بري",
+          "family": "institutional-fight",
+          "weight": 0.72
+        },
+        {
+          "id": "scene-4-term-3",
+          "text": "تدريب أمريكي",
+          "family": "sovereignty-strike",
+          "weight": 0.82
+        },
+        {
+          "id": "scene-4-term-4",
+          "text": "نكبة شيعية",
+          "family": "sovereignty-strike",
+          "weight": 0.92
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-4",
+      "sceneId": "scene-5",
+      "outlet": {
+        "key": "aljoumhouria",
+        "name": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "logoPath": "/outlet-logos/aljoumhouria-logo.png"
+      },
+      "sceneLabel": "لغة الاتفاق المبتور",
+      "summary": "الجمهورية تركّز على حدود التسوية وتحوّل السقف من الانسحاب إلى تفكيك البنية.",
+      "terms": [
+        {
+          "id": "scene-5-term-1",
+          "text": "اتفاق مبتور",
+          "family": "state-recovery",
+          "weight": 0.95
+        },
+        {
+          "id": "scene-5-term-2",
+          "text": "يترك الجنوب",
+          "family": "southern-gap",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-5-term-3",
+          "text": "تفكيك البنى",
+          "family": "state-recovery",
+          "weight": 0.92
+        },
+        {
+          "id": "scene-5-term-4",
+          "text": "وقف نار مجتزأ",
+          "family": "southern-gap",
+          "weight": 0.86
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-5",
+      "sceneId": "scene-6",
+      "outlet": {
+        "key": "asas-media",
+        "name": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "logoPath": "/outlet-logos/asasmedia-logo.png"
+      },
+      "sceneLabel": "لغة الخلاص السيادي",
+      "summary": "أساس ميديا تنقل ترامب من الشك إلى المرجعية وتطلب سلطة دولة خشنة وواضحة.",
+      "terms": [
+        {
+          "id": "scene-6-term-1",
+          "text": "خلاص دولة لبنان",
+          "family": "state-recovery",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-6-term-2",
+          "text": "مرجعية إجماع وطني",
+          "family": "state-recovery",
+          "weight": 0.88
+        },
+        {
+          "id": "scene-6-term-3",
+          "text": "الجلافة السيادية",
+          "family": "sovereignty-strike",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-6-term-4",
+          "text": "تآكل الحاضنة",
+          "family": "sovereignty-strike",
+          "weight": 0.8
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-6",
+      "sceneId": "scene-7",
+      "outlet": {
+        "key": "almodon",
+        "name": "المدن",
+        "logoFile": "almodon-logo.png",
+        "logoPath": "/outlet-logos/almodon-logo.png"
+      },
+      "sceneLabel": "لغة الاحتواء",
+      "summary": "المدن تكشف مفردات مأزق الدولة حين تتحول من نزع السلاح إلى احتواء الحزب.",
+      "terms": [
+        {
+          "id": "scene-7-term-1",
+          "text": "شرعية انتزعها",
+          "family": "regional-bargain",
+          "weight": 0.96
+        },
+        {
+          "id": "scene-7-term-2",
+          "text": "الخاسر الأكبر",
+          "family": "institutional-fight",
+          "weight": 0.88
+        },
+        {
+          "id": "scene-7-term-3",
+          "text": "ماء الوجه",
+          "family": "institutional-fight",
+          "weight": 0.78
+        },
+        {
+          "id": "scene-7-term-4",
+          "text": "لغة الاحتواء",
+          "family": "regional-bargain",
+          "weight": 0.9
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-7",
+      "sceneId": "scene-8",
+      "outlet": {
+        "key": "aliwaa",
+        "name": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "logoPath": "/outlet-logos/aliwa2-logo.png"
+      },
+      "sceneLabel": "لغة القطيعة",
+      "summary": "اللواء تستخدم مفردات غير مألوفة في الوسطية السنية وتفكك ذاكرة التحرير.",
+      "terms": [
+        {
+          "id": "scene-8-term-1",
+          "text": "رؤية إنقاذية",
+          "family": "sovereignty-strike",
+          "weight": 0.86
+        },
+        {
+          "id": "scene-8-term-2",
+          "text": "أحمد الأسير",
+          "family": "institutional-fight",
+          "weight": 0.82
+        },
+        {
+          "id": "scene-8-term-3",
+          "text": "السقوط المدوي",
+          "family": "sovereignty-strike",
+          "weight": 0.95
+        },
+        {
+          "id": "scene-8-term-4",
+          "text": "قطيعة سردية",
+          "family": "institutional-fight",
+          "weight": 0.88
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-8",
+      "sceneId": "scene-9",
+      "outlet": {
+        "key": "albinaa",
+        "name": "البناء",
+        "logoFile": "albina2-logo.png",
+        "logoPath": "/outlet-logos/albina2-logo.png"
+      },
+      "sceneLabel": "لغة الردع الواسع",
+      "summary": "البناء توسّع قاموس المقاومة من لبنان إلى الممرات البحرية والغطاء الروحي.",
+      "terms": [
+        {
+          "id": "scene-9-term-1",
+          "text": "النصر الاستراتيجي",
+          "family": "resistance-deterrence",
+          "weight": 0.98
+        },
+        {
+          "id": "scene-9-term-2",
+          "text": "بنود هرمز",
+          "family": "regional-bargain",
+          "weight": 0.86
+        },
+        {
+          "id": "scene-9-term-3",
+          "text": "جاهزية لوجستية",
+          "family": "resistance-deterrence",
+          "weight": 0.9
+        },
+        {
+          "id": "scene-9-term-4",
+          "text": "القمة الروحية",
+          "family": "resistance-deterrence",
+          "weight": 0.76
+        }
+      ],
+      "durationSeconds": 6
+    },
+    {
+      "id": "keyword-radar-9",
+      "sceneId": "scene-10",
+      "outlet": {
+        "key": "aldiyar",
+        "name": "الديار",
+        "logoFile": "aldiyar-logo.png",
+        "logoPath": "/outlet-logos/aldiyar-logo.png"
+      },
+      "sceneLabel": "لغة الذاكرة",
+      "summary": "الديار تجمع بين الردع وحصر السلاح وتحوّل استهداف الآثار إلى حرب على الهوية.",
+      "terms": [
+        {
+          "id": "scene-10-term-1",
+          "text": "حصر السلاح",
+          "family": "state-recovery",
+          "weight": 0.86
+        },
+        {
+          "id": "scene-10-term-2",
+          "text": "استراتيجية دفاعية",
+          "family": "state-recovery",
+          "weight": 0.8
+        },
+        {
+          "id": "scene-10-term-3",
+          "text": "قلعة الشقيف",
+          "family": "southern-gap",
+          "weight": 0.82
+        },
+        {
+          "id": "scene-10-term-4",
+          "text": "الذاكرة الجماعية",
+          "family": "southern-gap",
+          "weight": 0.92
+        }
+      ],
+      "durationSeconds": 6
+    }
+  ],
+  "clusters": [
+    {
+      "id": "resistance-deterrence",
+      "label": "عائلة الردع والإسناد",
+      "color": "#cd7f32",
+      "position": {
+        "x": 0.24,
+        "y": 0.34
+      }
+    },
+    {
+      "id": "state-recovery",
+      "label": "عائلة استعادة الدولة",
+      "color": "#67bfd8",
+      "position": {
+        "x": 0.73,
+        "y": 0.36
+      }
+    },
+    {
+      "id": "sovereignty-strike",
+      "label": "عائلة الضربة السيادية",
+      "color": "#f07d62",
+      "position": {
+        "x": 0.68,
+        "y": 0.62
+      }
+    },
+    {
+      "id": "regional-bargain",
+      "label": "عائلة الصفقة الإقليمية",
+      "color": "#89d5be",
+      "position": {
+        "x": 0.45,
+        "y": 0.72
+      }
+    },
+    {
+      "id": "american-arbitration",
+      "label": "عائلة التحكيم الأمريكي",
+      "color": "#f0b36f",
+      "position": {
+        "x": 0.5,
+        "y": 0.22
+      }
+    },
+    {
+      "id": "institutional-fight",
+      "label": "عائلة الاشتباك المؤسسي",
+      "color": "#9eb7ff",
+      "position": {
+        "x": 0.82,
+        "y": 0.78
+      }
+    },
+    {
+      "id": "southern-gap",
+      "label": "عائلة الجنوب المفتوح",
+      "color": "#d8c56a",
+      "position": {
+        "x": 0.3,
+        "y": 0.82
+      }
+    }
+  ],
+  "synthesis": {
+    "headline": "الكلمات تكشف المعركة على معنى واشنطن",
+    "summary": "المعجم الصحفي توزّع بين الردع والإسناد، استعادة الدولة، التحكيم الأمريكي، والجنوب الذي بقي خارج الضمانة.",
+    "durationSeconds": 6
+  },
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "ماذا عن الجنوب الذي يبدو خارج أي تهدئة شاملة في كل السيناريوهات؟",
+    "durationSeconds": 5
+  }
+}

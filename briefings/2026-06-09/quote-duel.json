@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "title": "The Quote Duel",
+    "dateLabel": "2026-06-09",
+    "totalScenes": 4
+  },
+  "intro": {
+    "eyebrow": "الصحافة اليوم",
+    "title": "ثنائية الاقتباسات",
+    "subtitle": "",
+    "durationSeconds": 8
+  },
+  "scenes": [
+    {
+      "id": "duel-1",
+      "eventLabel": "من يفاوض عن لبنان؟",
+      "contrastLabel": "الدولة وحدها أم بري وحده؟",
+      "summary": "الجمهورية تحصر التفاوض بالدولة، والبناء يكرّس بري مرجعية وطنية وحيدة.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "الجمهورية",
+        "logoFile": "aljoumhouria-logo.png",
+        "stance": "حصر القرار",
+        "quote": "لا أحد يفاوض عن لبنان غير الدولة اللبنانية"
+      },
+      "right": {
+        "outlet": "البناء",
+        "logoFile": "albina2-logo.png",
+        "stance": "مرجعية بري",
+        "quote": "نبيه بري مرجعيةً تفاوضية وطنية وحيدة"
+      }
+    },
+    {
+      "id": "duel-2",
+      "eventLabel": "كيف تُقرأ الضربة الإيرانية؟",
+      "contrastLabel": "مبادرة استراتيجية أم قرارات هوجاء؟",
+      "summary": "الأخبار ترى الرد انتقالاً إلى الفعل المباشر، وأساس ميديا تراه هلعاً بعد خسارة ورقة لبنان.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "الأخبار",
+        "logoFile": "alakhbar-logo.png",
+        "stance": "فعل مباشر",
+        "quote": "إمساكاً بزمام المبادرة"
+      },
+      "right": {
+        "outlet": "أساس ميديا",
+        "logoFile": "asasmedia-logo.png",
+        "stance": "هستيريا خسارة",
+        "quote": "قرارات هوجاء"
+      }
+    },
+    {
+      "id": "duel-3",
+      "eventLabel": "أي دولة بعد الحرب؟",
+      "contrastLabel": "إنهاء الثلاثية أم حرق لبنان؟",
+      "summary": "الشرق الأوسط تطالب بإنهاء الثلاثية، والبناء يهدد بأن أي اقتراب من هذا المسار سيحرق البلد.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "الشرق الأوسط",
+        "logoFile": "aawsat-logo.png",
+        "stance": "إنهاء الثلاثية",
+        "quote": "انتهاء الثلاثية الكارثية"
+      },
+      "right": {
+        "outlet": "البناء",
+        "logoFile": "albina2-logo.png",
+        "stance": "تحذير وجودي",
+        "quote": "أي خطوة باتجاه صهينة لبنان ستحرق لبنان"
+      }
+    },
+    {
+      "id": "duel-4",
+      "eventLabel": "السلاح بين النزع والتجميد",
+      "contrastLabel": "استباحة إيرانية أم صيغة واقعية؟",
+      "summary": "اللواء يطالب بحصر السلاح بيد الدولة والجيش، والمدن تبحث عن تسوية تجميد قابلة للقبول.",
+      "durationSeconds": 8,
+      "left": {
+        "outlet": "اللواء",
+        "logoFile": "aliwa2-logo.png",
+        "stance": "حصر السلاح",
+        "quote": "فك الاستباحة الإيرانية"
+      },
+      "right": {
+        "outlet": "المدن",
+        "logoFile": "almodon-logo.png",
+        "stance": "تجميد واقعي",
+        "quote": "تجميد السلاح بدلاً من نزعه"
+      }
+    }
+  ],
+  "outro": {
+    "title": "سؤال الغد",
+    "body": "فهل تنجح \"المنطقة التجريبية\" في تحوّلها نموذجاً سيادياً قابلاً للتصدير، أم أن المعادلات الإيرانية-الإسرائيلية تُحدّد ما يُتاح للدبلوماسية قبل أن تبدأ؟",
+    "durationSeconds": 5
+  }
+}
