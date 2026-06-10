@@ -510,20 +510,47 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
   const panEase = 0.5 - Math.cos(panProgress * Math.PI * 2) / 2;
   const objectFit = fitModeToObjectFit(media.fitMode);
 
+  if (media.fitMode === 'contain') {
+    return (
+      <div style={detailStyle}>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <Img
+            src={assetSrc(items[itemIndex])}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              borderRadius: 16,
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.06)',
+              opacity: fadeOpacity,
+              filter: fadeOpacity < 0.4 ? 'blur(8px)' : 'none'
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={detailStyle}>
       <Img
         src={assetSrc(items[itemIndex])}
         style={{
           position: 'absolute',
-          top: media.fitMode === 'contain' ? 9 : 0,
-          left: media.fitMode === 'contain' ? 9 : 0,
-          right: media.fitMode === 'contain' ? 9 : 0,
-          bottom: media.fitMode === 'contain' ? 9 : 0,
+          inset: 0,
           width: '100%',
           height: '100%',
           objectFit,
-          objectPosition: media.fitMode === 'contain' ? 'center' : `center ${panEase * 100}%`,
+          objectPosition: `center ${panEase * 100}%`,
           borderRadius: 22,
           opacity: fadeOpacity,
           filter: fadeOpacity < 0.4 ? 'blur(8px)' : 'none'
