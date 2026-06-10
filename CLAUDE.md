@@ -15,12 +15,21 @@ Radar Beirut daily briefing video system. Generates four parallel standalone HTM
 
 These are parallel options, not upgrade stages. Never collapse one into another.
 
+## Local Setup — briefings/ folder
+
+`briefings/` is **gitignored** and never committed. Each collaborator must create it locally:
+
+```bash
+mkdir -p briefings/YYYY-MM-DD
+```
+
+Populate the date folder with outlet screenshots, the corrected briefing `.txt`, and the five Codex JSON stubs before running any npm commands. The full expected structure is shown in **Directory Layout** below.
+
 ## Source of Truth Rules
 
 - `radar-beirut-intro.html` — current shared intro reference for all formats
-- `before_formatting_output/radar-beirut-intro.html` — retained only as older intro reference; do not use as active input
 - `templates/radar-beirut-briefing-template.html` and `templates/radar-beirut-quote-duel-template.html` — active HTML shells used by builders
-- `briefings/YYYY-MM-DD/output/` — daily generated artifacts; these are the current living outputs
+- `briefings/YYYY-MM-DD/output/` — daily generated artifacts; these are the current living outputs (local only)
 - `src/BriefingVideo.jsx` — legacy; do not treat as current production reference
 - `src/ProductionBriefingVideo.jsx` — current Remotion production composition
 

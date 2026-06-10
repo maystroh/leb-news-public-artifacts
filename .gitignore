@@ -13,12 +13,16 @@ node_modules/
 # Generated audio
 *.wav
 
-# Remotion render staging directories (large — copied from briefings/audio each build)
-briefings/*/output/remotion-assets/
-briefings/*/output/remotion-intro-assets/
+# Daily briefing data — local-only, never committed
+# Create briefings/YYYY-MM-DD/ manually and populate per the workflow in CLAUDE.md
+briefings/
 
-# Scene video clip splits
-briefings/*/output/scene-videos*/
+# Root-level generated HTML outputs (written by build scripts as fallback when --output omitted)
+radar-beirut-briefing.html
+radar-beirut-fault-line-map.html
+radar-beirut-keyword-radar.html
+radar-beirut-quote-duel.html
+radar-beirut-intro-audio-test.html
 
 # OS & editor artifacts
 .DS_Store
