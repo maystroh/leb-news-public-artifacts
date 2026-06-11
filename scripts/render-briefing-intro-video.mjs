@@ -144,9 +144,17 @@ if (args.log) remotionArgs.push(`--log=${args.log}`);
 
 remotionArgs.push(`--concurrency=${args.concurrency ?? 12}`);
 
-const glRenderer = args.gl ?? 'angle';
+// Platform defaults mirror render-briefing-video.mjs: Linux needs full Chrome
+// (chrome-for-testing) with an EGL backend for GPU; the headless shell cannot use the GPU.
+const isLinux = process.platform === 'linux';
+const glRenderer = args.gl ?? (isLinux ? 'angle-egl' : 'angle');
 if (glRenderer !== 'off') {
   remotionArgs.push(`--gl=${glRenderer}`);
+}
+
+const chromeMode = args['chrome-mode'] ?? (isLinux && glRenderer !== 'off' ? 'chrome-for-testing' : undefined);
+if (chromeMode) {
+  remotionArgs.push(`--chrome-mode=${chromeMode}`);
 }
 
 if (args.muted) remotionArgs.push('--muted');

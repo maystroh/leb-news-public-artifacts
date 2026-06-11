@@ -96,7 +96,9 @@ npm run briefing:launch -- fault-line-map
 npm run briefing:launch -- keyword-radar
 
 # MP4 rendering (run from PowerShell/CMD on Windows, not WSL — faster)
-# Defaults: 720x1280, --concurrency 12, --gl angle (pass --gl off to disable GPU).
+# Defaults: 720x1280, --concurrency 12. GPU defaults are per-platform:
+#   Windows/macOS → --gl angle (headless shell); Linux → --gl angle-egl --chrome-mode chrome-for-testing
+# Pass --gl off to disable GPU.
 # Default-resolution output stays unsuffixed (radar-beirut-briefing.mp4); use --resolution 1080x1920 for the full-res final cut.
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --log warn
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x960 --log warn
@@ -220,7 +222,7 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 - Scene frame math: `startFrame = round((introSeconds + previousSceneSeconds) * 30)`
 - Scene split grouping: intro+scene-1 together → each middle scene → penultimate+outro together
 - Splitting from the full MP4 is preferred over rendering each scene directly
-- Render defaults: `--concurrency 12 --gl angle` (frame rendering is ~99% of render time; GPU compositing of blur/glow effects is the main win). Override with `--concurrency N`, disable GPU with `--gl off`
+- Render defaults: `--concurrency 12`; GPU backend is per-platform — Windows/macOS `--gl angle` (headless shell), Linux `--gl angle-egl --chrome-mode chrome-for-testing` (headless shell has no GPU support on Linux). Frame rendering is ~99% of render time; GPU compositing of blur/glow effects is the main win. Override with `--concurrency N` / `--gl` / `--chrome-mode`, disable GPU with `--gl off`
 - Audio-fix workflow: render once with `--muted`, then `briefing:mux:audio` attaches narration in seconds (`-c:v copy`). A regenerated WAV may be re-muxed without re-rendering ONLY if it is not longer than the original — longer audio changes scene durations in `timing-config.json`, which shifts every later scene's start frame and invalidates the muted video
 
 ## Audio System

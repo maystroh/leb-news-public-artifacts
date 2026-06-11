@@ -311,9 +311,18 @@ for (const resolution of renderResolutions) {
   // rendering ~2.4x vs defaults. Pass --gl off to fall back to Chrome's default.
   remotionArgs.push(`--concurrency=${args.concurrency ?? 12}`);
 
-  const glRenderer = args.gl ?? 'angle';
+  // Platform defaults: Windows/macOS use ANGLE with the headless shell;
+  // Linux GPU rendering needs full Chrome (the headless shell has no GPU
+  // support) with an EGL backend. Override with --gl / --chrome-mode.
+  const isLinux = process.platform === 'linux';
+  const glRenderer = args.gl ?? (isLinux ? 'angle-egl' : 'angle');
   if (glRenderer !== 'off') {
     remotionArgs.push(`--gl=${glRenderer}`);
+  }
+
+  const chromeMode = args['chrome-mode'] ?? (isLinux && glRenderer !== 'off' ? 'chrome-for-testing' : undefined);
+  if (chromeMode) {
+    remotionArgs.push(`--chrome-mode=${chromeMode}`);
   }
 
   if (args.muted) {
