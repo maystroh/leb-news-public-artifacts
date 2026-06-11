@@ -16,6 +16,10 @@ through handoff generation, Codex/editorial JSON filling, build, review, timing,
 final HTML generation, muted MP4 rendering, narration audio muxing, and scene
 splitting.
 
+After final HTML/audio generation, the workflow attempts to rsync the briefing
+folder to the render server. If the server is unavailable, the workflow prints
+the connection issue and continues to the Windows/local render step.
+
 With no argument, the script defaults to today's project-local briefing folder:
   briefings/YYYY-MM-DD
 USAGE
@@ -369,23 +373,105 @@ project_relative_path() {
   esac
 }
 
+sync_briefing_to_render_server() {
+  local folder="$1"
+  local date_label="$2"
+  local briefing_folder_for_command
+  local remote_host="hassan.alhajj@10.0.10.20"
+  local remote_port="2361"
+  local remote_root="~/projects/simple-app/leb-news-public-artifacts"
+  local remote_folder="$remote_root/briefings/$date_label"
+
+  briefing_folder_for_command="briefings/$date_label"
+
+  section "Step 8: Sync Briefing Folder To Render Server"
+
+  cat <<EOF
+The workflow will try to sync the complete briefing folder to the render server:
+  rsync -av -e "ssh -p $remote_port" $briefing_folder_for_command/ $remote_host:$remote_folder/
+EOF
+
+  if ! command -v rsync >/dev/null 2>&1; then
+    printf '\nNo rsync command found in this environment. Skipping server sync.\n'
+  elif ! command -v ssh >/dev/null 2>&1; then
+    printf '\nNo ssh command found in this environment. Skipping server sync.\n'
+  else
+    set +e
+    ssh -p "$remote_port" -o ConnectTimeout=8 "$remote_host" "mkdir -p $remote_folder"
+    local ssh_status=$?
+    set -e
+
+    if [[ "$ssh_status" -ne 0 ]]; then
+      printf '\nNo connection to render server %s on port %s. Skipping server sync.\n' "$remote_host" "$remote_port"
+    else
+      set +e
+      rsync -av -e "ssh -p $remote_port" "$briefing_folder_for_command/" "$remote_host:$remote_folder/"
+      local rsync_status=$?
+      set -e
+
+      if [[ "$rsync_status" -ne 0 ]]; then
+        printf '\nNo connection or rsync failure while syncing to render server. Continuing locally.\n'
+      else
+        cat <<EOF
+
+Server sync complete.
+
+On the server, run:
+  cd ~/projects/simple-app/leb-news-public-artifacts
+  npm run briefing:render:mp4 -- --folder briefings/$date_label --muted --log warn
+  npm run briefing:mux:audio -- --folder briefings/$date_label
+
+Then download the final MP4 back to:
+  $folder/output/radar-beirut-briefing-final.mp4
+
+You can also ignore the server render and run the muted render locally on Windows.
+EOF
+      fi
+    fi
+  fi
+
+  cat <<EOF
+
+Next continuation options:
+  1. Download the server-produced final MP4 here:
+     $folder/output/radar-beirut-briefing-final.mp4
+  2. Or render the muted MP4 locally/Windows here:
+     $folder/output/radar-beirut-briefing.mp4
+
+The workflow will continue when either expected MP4 exists.
+EOF
+}
+
 wait_for_windows_muted_render_mux_and_split() {
   local folder="$1"
   local output_folder="$2"
+  local date_label="$3"
   local folder_for_command
+  local server_folder_for_command
   local muted_video
   local final_video
   local split_output_dir
 
   folder_for_command="$(project_relative_path "$folder")"
+  server_folder_for_command="briefings/$date_label"
   muted_video="$output_folder/radar-beirut-briefing.mp4"
   final_video="$output_folder/radar-beirut-briefing-final.mp4"
   split_output_dir="$output_folder/scene-videos"
 
-  while [[ ! -f "$muted_video" ]]; do
+  while [[ ! -f "$muted_video" && ! -f "$final_video" ]]; do
     cat <<EOF
 
-Manual action required on Windows.
+Manual action required.
+
+Option A: render on the synced server, then download:
+  $final_video
+
+Server commands:
+  cd ~/projects/simple-app/leb-news-public-artifacts
+  npm run briefing:render:mp4 -- --folder $server_folder_for_command --muted --log warn
+  npm run briefing:mux:audio -- --folder $server_folder_for_command
+
+Option B: render the muted video on Windows, then this script will mux audio here.
 
 Open PowerShell or Command Prompt in the project folder:
   C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations
@@ -404,13 +490,30 @@ For the full-resolution final cut, add: --resolution 1080x1920
 (that writes a -1080x1920 suffixed file; this workflow expects the default unsuffixed one).
 EOF
 
-    read -r -p "Press Enter after the Windows muted MP4 render finishes..."
+    read -r -p "Press Enter after downloading the server final MP4 or finishing the Windows muted render..."
 
-    if [[ ! -f "$muted_video" ]]; then
-      printf '\nStill missing expected muted video:\n  %s\n' "$muted_video"
-      printf 'Run the Windows render command above, then try again.\n'
+    if [[ ! -f "$muted_video" && ! -f "$final_video" ]]; then
+      printf '\nStill missing both expected continuation files:\n'
+      printf '  final video from server: %s\n' "$final_video"
+      printf '  muted video from local/Windows render: %s\n' "$muted_video"
+      printf 'Download the server final MP4 or run the Windows render command above, then try again.\n'
     fi
   done
+
+  if [[ -f "$final_video" ]]; then
+    if [[ "$output_folder/briefing.json" -nt "$final_video" ]]; then
+      printf '\nWARNING: the final video is older than output/briefing.json:\n  %s\n' "$final_video"
+      printf 'It may be left over from an earlier build of this folder.\n'
+      pause_for_user "If it is stale, re-render on the server or locally before continuing."
+    fi
+
+    printf '\nFound final MP4 with audio:\n  %s\n' "$final_video"
+    printf 'Skipping local mux step because the final video already exists.\n'
+    printf '\nSplitting final MP4 (with audio) into scene videos:\n'
+    printf '  npm run briefing:split:mp4 -- --folder %s --input %s --output-dir %s\n' "$folder_for_command" "$(project_relative_path "$final_video")" "$(project_relative_path "$split_output_dir")"
+    npm run briefing:split:mp4 -- --folder "$folder_for_command" --input "$(project_relative_path "$final_video")" --output-dir "$(project_relative_path "$split_output_dir")"
+    return
+  fi
 
   if [[ "$output_folder/briefing.json" -nt "$muted_video" ]]; then
     printf '\nWARNING: the muted video is older than output/briefing.json:\n  %s\n' "$muted_video"
@@ -420,7 +523,7 @@ EOF
 
   printf '\nFound muted MP4:\n  %s\n' "$muted_video"
 
-  section "Step 8b: Mux Narration Audio Into The Muted MP4 (runs here in WSL)"
+  section "Step 9b: Mux Narration Audio Into The Muted MP4 (runs here in WSL)"
   cat <<EOF
 Mixing all narration tracks (intro + outlet scenes + closing + outro) at
 frame-accurate offsets computed from output/briefing.json, then attaching
@@ -731,8 +834,10 @@ EOF
 
   print_output_duration_summary "$output_folder"
 
-  section "Step 8: Render Muted MP4 On Windows, Mux Audio, Then Split Scene Videos"
-  wait_for_windows_muted_render_mux_and_split "$folder" "$output_folder"
+  sync_briefing_to_render_server "$folder" "$date_label"
+
+  section "Step 9: Render Or Download MP4, Then Split Scene Videos"
+  wait_for_windows_muted_render_mux_and_split "$folder" "$output_folder" "$date_label"
 
   section "Workflow Complete"
   cat <<EOF
