@@ -1,9 +1,11 @@
-import React from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   AbsoluteFill,
   Audio,
   Img,
   Sequence,
+  continueRender,
+  delayRender,
   interpolate,
   staticFile,
   useCurrentFrame,
@@ -455,10 +457,55 @@ const IntroRadarOpening = ({intro, dateLabel, assets}) => {
   );
 };
 
+// Natural image size, resolved before the frame is captured (delayRender).
+const useImageNaturalSize = (src) => {
+  const [size, setSize] = useState(null);
+  useEffect(() => {
+    if (!src) {
+      return undefined;
+    }
+    const handle = delayRender(`measure image ${src}`);
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        continueRender(handle);
+      }
+    };
+    const probe = new window.Image();
+    probe.onload = () => {
+      setSize({width: probe.naturalWidth, height: probe.naturalHeight});
+      finish();
+    };
+    probe.onerror = finish;
+    probe.src = src;
+    return finish;
+  }, [src]);
+  return size;
+};
+
 const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const items = media?.items || [];
+  const switchEveryFrames = items.length > 1
+    ? Math.max(framesFromMs(2800), Math.floor((durationInFrames - framesFromMs(400)) / items.length))
+    : Math.max(1, durationInFrames);
+  const itemIndex = items.length
+    ? Math.min(items.length - 1, Math.floor(frame / switchEveryFrames) % items.length)
+    : 0;
+  const isCover = media?.fitMode !== 'contain';
+  const coverSrc = items.length && isCover ? assetSrc(items[itemIndex]) : null;
+  const naturalSize = useImageNaturalSize(coverSrc);
+  const boxRef = useRef(null);
+  const [boxSize, setBoxSize] = useState(null);
+  const [boxHandle] = useState(() => delayRender('measure media box'));
+  useEffect(() => {
+    if (boxRef.current) {
+      setBoxSize({width: boxRef.current.offsetWidth, height: boxRef.current.offsetHeight});
+    }
+    continueRender(boxHandle);
+  }, [boxHandle]);
   const detailStyle = {
     position: 'relative',
     minHeight: 0,
@@ -496,10 +543,6 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
     );
   }
 
-  const switchEveryFrames = items.length > 1
-    ? Math.max(framesFromMs(2800), Math.floor((durationInFrames - framesFromMs(400)) / items.length))
-    : Math.max(1, durationInFrames);
-  const itemIndex = Math.min(items.length - 1, Math.floor(frame / switchEveryFrames) % items.length);
   const localFrame = frame % switchEveryFrames;
   const fadeOpacity = items.length > 1
     ? interpolate(localFrame, [0, 13, Math.max(14, switchEveryFrames - 8), switchEveryFrames], [0.18, 1, 1, 0.18], {
@@ -545,17 +588,38 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
     );
   }
 
+  // Pan with a subpixel transform like the HTML's fitFrontPageImage —
+  // object-position is pixel-snapped by Chromium, which turns slow pans
+  // into a visible 1px staircase in rendered video.
+  let coverStyle = null;
+  if (naturalSize && boxSize && boxSize.width > 0 && boxSize.height > 0) {
+    const coverScale = Math.max(boxSize.width / naturalSize.width, boxSize.height / naturalSize.height);
+    const imgHeight = naturalSize.height * coverScale;
+    const overflow = Math.max(0, imgHeight - boxSize.height);
+    const translateY = overflow > 8 ? -overflow * panEase : 0;
+    coverStyle = {
+      position: 'absolute',
+      top: 0,
+      left: '50%',
+      width: naturalSize.width * coverScale,
+      height: imgHeight,
+      transform: `translate(-50%, ${translateY}px)`,
+      opacity: fadeOpacity,
+      filter: fadeOpacity < 0.4 ? 'blur(8px)' : 'none'
+    };
+  }
+
   return (
-    <div style={detailStyle}>
+    <div ref={boxRef} style={detailStyle}>
       <Img
         src={assetSrc(items[itemIndex])}
-        style={{
+        style={coverStyle ?? {
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
           objectFit,
-          objectPosition: `center ${panEase * 100}%`,
+          objectPosition: 'center top',
           borderRadius: 22,
           opacity: fadeOpacity,
           filter: fadeOpacity < 0.4 ? 'blur(8px)' : 'none'
