@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {parseEnv} from 'node:util';
 
+import {patchWavHeaderSizes} from '../scripts/lib/wav-header.mjs';
+
 const DEFAULTS = {
   endpoint: 'https://api.tryhamsa.com/v1/realtime/tts',
   projectEndpoint: 'https://api.tryhamsa.com/v1/projects/by-api-key',
@@ -452,6 +454,10 @@ for (const scene of audioScenes) {
 
   if (!args.force && fs.existsSync(outputPath)) {
     const existingBuffer = fs.readFileSync(outputPath);
+    if (patchWavHeaderSizes(existingBuffer)) {
+      fs.writeFileSync(outputPath, existingBuffer);
+      console.log(`Repaired WAV header sizes: ${relativeOutputPath}`);
+    }
     entries.push({
       ...baseEntry,
       audioDurationSeconds: getWavDurationSeconds(existingBuffer),
@@ -478,6 +484,7 @@ for (const scene of audioScenes) {
       endpoint: process.env.HAMSA_TTS_ENDPOINT || DEFAULTS.endpoint
     });
 
+    patchWavHeaderSizes(audio);
     fs.writeFileSync(outputPath, audio);
     entries.push({
       ...baseEntry,
