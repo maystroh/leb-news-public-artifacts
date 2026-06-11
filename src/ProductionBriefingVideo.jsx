@@ -457,6 +457,7 @@ const IntroRadarOpening = ({intro, dateLabel, assets}) => {
 
 const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
   const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
   const items = media?.items || [];
   const detailStyle = {
     position: 'relative',
@@ -506,7 +507,11 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
       extrapolateRight: 'clamp'
     })
     : 1;
-  const panProgress = ((frame % Math.max(1, Math.floor(durationInFrames / 2.4))) / Math.max(1, Math.floor(durationInFrames / 2.4)));
+  // Mirror the HTML pan: one-way duration clamped to 3.5–7s regardless of
+  // scene length, so audio-shortened scenes don't speed up the pan.
+  const panOneWaySeconds = Math.max(3.5, Math.min(7, (durationInFrames / fps) / 2.4));
+  const panCycleFrames = Math.max(1, Math.round(panOneWaySeconds * 2 * fps));
+  const panProgress = (frame % panCycleFrames) / panCycleFrames;
   const panEase = 0.5 - Math.cos(panProgress * Math.PI * 2) / 2;
   const objectFit = fitModeToObjectFit(media.fitMode);
 
