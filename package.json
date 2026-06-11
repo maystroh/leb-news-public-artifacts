@@ -19,6 +19,7 @@
     "briefing:launch": "node ./scripts/launch-briefing-format.mjs",
     "briefing:render:mp4": "node ./scripts/render-briefing-video.mjs",
     "briefing:render:intro": "node ./scripts/render-briefing-intro-video.mjs",
+    "briefing:mux:audio": "node ./scripts/mux-briefing-audio.mjs",
     "briefing:split:mp4": "node ./scripts/split-briefing-video.mjs",
     "narration:prepare": "npm run briefing:prepare && node ./scripts/prepare-narration.mjs",
     "audio:generate:dry": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs --dry-run",

@@ -57,7 +57,9 @@ const parseRenderResolutions = () => {
     }];
   }
 
-  return [{width: null, height: null}];
+  // Default render resolution. The output keeps the unsuffixed filename so
+  // downstream defaults (briefing:mux:audio, briefing:split:mp4) still match.
+  return [{width: 720, height: 1280, isDefault: true}];
 };
 
 let renderResolutions;
@@ -91,7 +93,7 @@ const fontFiles = ['Dubai-Regular.ttf', 'Dubai-Medium.ttf', 'Dubai-Bold.ttf'];
 
 const getOutputPath = (resolution) => {
   if (args.output) return path.resolve(cwd, args.output);
-  if (resolution.width && resolution.height) {
+  if (resolution.width && resolution.height && !resolution.isDefault) {
     return path.join(outputFolder, `radar-beirut-briefing-${resolution.width}x${resolution.height}.mp4`);
   }
   return path.join(outputFolder, 'radar-beirut-briefing.mp4');
@@ -278,9 +280,7 @@ const dnsResultOrderOption = '--dns-result-order=ipv4first';
 
 for (const resolution of renderResolutions) {
   const outputPath = getOutputPath(resolution);
-  const resolutionLabel = resolution.width && resolution.height
-    ? `${resolution.width}x${resolution.height}`
-    : 'composition default 1080x1920';
+  const resolutionLabel = `${resolution.width}x${resolution.height}${resolution.isDefault ? ' (default)' : ''}`;
   const remotionArgs = [
     remotionCliPath,
     'render',
@@ -305,6 +305,27 @@ for (const resolution of renderResolutions) {
 
   if (args.log) {
     remotionArgs.push(`--log=${args.log}`);
+  }
+
+  // Benchmarked 2026-06-11 on 720x1280: concurrency 12 + gl angle cut frame
+  // rendering ~2.4x vs defaults. Pass --gl off to fall back to Chrome's default.
+  remotionArgs.push(`--concurrency=${args.concurrency ?? 12}`);
+
+  const glRenderer = args.gl ?? 'angle';
+  if (glRenderer !== 'off') {
+    remotionArgs.push(`--gl=${glRenderer}`);
+  }
+
+  if (args.muted) {
+    remotionArgs.push('--muted');
+  }
+
+  if (args['jpeg-quality']) {
+    remotionArgs.push(`--jpeg-quality=${args['jpeg-quality']}`);
+  }
+
+  if (args['x264-preset']) {
+    remotionArgs.push(`--x264-preset=${args['x264-preset']}`);
   }
 
   console.log(`Rendering production briefing MP4 (${resolutionLabel} @ 30fps): ${path.relative(cwd, outputPath)}`);

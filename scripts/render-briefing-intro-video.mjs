@@ -34,7 +34,8 @@ const parseResolution = (value) => {
   };
 };
 
-let resolution = {width: null, height: null};
+// Default render resolution; the default output keeps the unsuffixed filename.
+let resolution = {width: 720, height: 1280, isDefault: true};
 try {
   if (args.resolution) {
     resolution = parseResolution(args.resolution);
@@ -113,7 +114,7 @@ writeJson(propsPath, props);
 
 const outputPath = args.output
   ? path.resolve(cwd, args.output)
-  : path.join(outputFolder, resolution.width && resolution.height
+  : path.join(outputFolder, resolution.width && resolution.height && !resolution.isDefault
     ? `radar-beirut-intro-${resolution.width}x${resolution.height}.mp4`
     : 'radar-beirut-intro.mp4');
 
@@ -141,9 +142,18 @@ if (resolution.width && resolution.height) {
 if (args.frames) remotionArgs.push(`--frames=${args.frames}`);
 if (args.log) remotionArgs.push(`--log=${args.log}`);
 
-const resolutionLabel = resolution.width && resolution.height
-  ? `${resolution.width}x${resolution.height}`
-  : 'composition default 1080x1920';
+remotionArgs.push(`--concurrency=${args.concurrency ?? 12}`);
+
+const glRenderer = args.gl ?? 'angle';
+if (glRenderer !== 'off') {
+  remotionArgs.push(`--gl=${glRenderer}`);
+}
+
+if (args.muted) remotionArgs.push('--muted');
+if (args['jpeg-quality']) remotionArgs.push(`--jpeg-quality=${args['jpeg-quality']}`);
+if (args['x264-preset']) remotionArgs.push(`--x264-preset=${args['x264-preset']}`);
+
+const resolutionLabel = `${resolution.width}x${resolution.height}${resolution.isDefault ? ' (default)' : ''}`;
 
 console.log(`Rendering production intro MP4 (${resolutionLabel} @ 30fps): ${path.relative(cwd, outputPath)}`);
 const result = spawnSync(process.execPath, remotionArgs, {

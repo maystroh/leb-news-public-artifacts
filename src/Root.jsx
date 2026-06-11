@@ -17,8 +17,8 @@ export const Root = () => {
         component={BriefingVideo}
         durationInFrames={calculateDurationInFrames(briefing)}
         fps={30}
-        width={1080}
-        height={1920}
+        width={720}
+        height={1280}
         defaultProps={{briefing}}
       />
       <Composition
@@ -26,15 +26,15 @@ export const Root = () => {
         component={MapFocusVideo}
         durationInFrames={150}
         fps={30}
-        width={1080}
-        height={1920}
+        width={720}
+        height={1280}
       />
       <Composition
         id="ProductionBriefing"
         component={ProductionBriefingVideo}
         fps={30}
-        width={1080}
-        height={1920}
+        width={720}
+        height={1280}
         defaultProps={{briefing, assets: {}}}
         calculateMetadata={({props}) => ({
           durationInFrames: calculateProductionDurationInFrames(props.briefing ?? briefing, 30)
@@ -44,8 +44,8 @@ export const Root = () => {
         id="ProductionIntroOnly"
         component={ProductionIntroOnly}
         fps={30}
-        width={1080}
-        height={1920}
+        width={720}
+        height={1280}
         defaultProps={{briefing, assets: {}}}
         calculateMetadata={({props}) => ({
           durationInFrames: calculateProductionIntroDurationInFrames(props.briefing ?? briefing, 30)

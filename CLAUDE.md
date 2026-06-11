@@ -96,10 +96,17 @@ npm run briefing:launch -- fault-line-map
 npm run briefing:launch -- keyword-radar
 
 # MP4 rendering (run from PowerShell/CMD on Windows, not WSL — faster)
+# Defaults: 720x1280, --concurrency 12, --gl angle (pass --gl off to disable GPU).
+# Default-resolution output stays unsuffixed (radar-beirut-briefing.mp4); use --resolution 1080x1920 for the full-res final cut.
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --log warn
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x960 --log warn
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolutions 540x960,1080x1920 --log warn
 npm run briefing:render:intro -- --folder briefings/YYYY-MM-DD --log warn
+
+# Muted render + audio mux (audio fixes re-mux in seconds instead of re-rendering frames)
+npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --muted --log warn
+npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD
+npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-720x1280.mp4
 
 # Splitting
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD
@@ -122,6 +129,7 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `audio/generate-outlet-audio.mjs` | reads briefing.json → writes Hamsa WAVs + manifest |
 | `scripts/render-briefing-video.mjs` | Remotion MP4 renderer |
 | `scripts/render-briefing-intro-video.mjs` | Remotion intro-only renderer |
+| `scripts/mux-briefing-audio.mjs` | mixes narration WAVs at frame-accurate offsets, muxes into rendered MP4 via ffmpeg |
 | `scripts/split-briefing-video.mjs` | splits completed MP4 into scene clips |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
@@ -203,7 +211,7 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 
 ## Remotion Production Notes
 
-- Composition: `ProductionBriefing` in `src/ProductionBriefingVideo.jsx`, `1080x1920`, `30fps`
+- Composition: `ProductionBriefing` in `src/ProductionBriefingVideo.jsx`, `720x1280` default, `30fps` (no hardcoded sizes — scales from `useVideoConfig()`; pass `--resolution 1080x1920` for full-res)
 - Intro-only: `ProductionIntroOnly` in same file
 - Stage coordinate system: `405x720` scaled into render resolution (matches HTML)
 - RTL layout: outlet logo + tone tag on right, moving accent bar on left
@@ -212,6 +220,8 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 - Scene frame math: `startFrame = round((introSeconds + previousSceneSeconds) * 30)`
 - Scene split grouping: intro+scene-1 together → each middle scene → penultimate+outro together
 - Splitting from the full MP4 is preferred over rendering each scene directly
+- Render defaults: `--concurrency 12 --gl angle` (frame rendering is ~99% of render time; GPU compositing of blur/glow effects is the main win). Override with `--concurrency N`, disable GPU with `--gl off`
+- Audio-fix workflow: render once with `--muted`, then `briefing:mux:audio` attaches narration in seconds (`-c:v copy`). A regenerated WAV may be re-muxed without re-rendering ONLY if it is not longer than the original — longer audio changes scene durations in `timing-config.json`, which shifts every later scene's start frame and invalidates the muted video
 
 ## Audio System
 

@@ -13,7 +13,8 @@ Usage:
 This is an interactive checklist runner for a daily Radar Beirut briefing folder.
 It verifies the corrected briefing source and image assets, then guides you
 through handoff generation, Codex/editorial JSON filling, build, review, timing,
-final HTML generation, MP4 rendering, and scene splitting.
+final HTML generation, muted MP4 rendering, narration audio muxing, and scene
+splitting.
 
 With no argument, the script defaults to today's project-local briefing folder:
   briefings/YYYY-MM-DD
@@ -368,18 +369,20 @@ project_relative_path() {
   esac
 }
 
-wait_for_windows_mp4_render_and_split() {
+wait_for_windows_muted_render_mux_and_split() {
   local folder="$1"
   local output_folder="$2"
   local folder_for_command
-  local expected_video
+  local muted_video
+  local final_video
   local split_output_dir
 
   folder_for_command="$(project_relative_path "$folder")"
-  expected_video="$output_folder/radar-beirut-briefing-540x960.mp4"
-  split_output_dir="$output_folder/scene-videos-540x960"
+  muted_video="$output_folder/radar-beirut-briefing.mp4"
+  final_video="$output_folder/radar-beirut-briefing-final.mp4"
+  split_output_dir="$output_folder/scene-videos"
 
-  while [[ ! -f "$expected_video" ]]; do
+  while [[ ! -f "$muted_video" ]]; do
     cat <<EOF
 
 Manual action required on Windows.
@@ -387,25 +390,65 @@ Manual action required on Windows.
 Open PowerShell or Command Prompt in the project folder:
   C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations
 
-Run this command:
-  npm run briefing:render:mp4 -- --folder $folder_for_command --resolutions 540x960 --log warn
+Run this command (renders the VIDEO ONLY — silence is expected, narration is muxed in afterwards):
+  npm run briefing:render:mp4 -- --folder $folder_for_command --muted --log warn
 
-Expected output:
-  $expected_video
+What to expect:
+  - render defaults: 720x1280, --concurrency 12, --gl angle (GPU compositing)
+  - progress lines for "Bundled code", "Rendered frames", "Encoded video"
+  - "Rendered frames" is the long part: roughly 10-15 minutes for a ~7 minute briefing
+  - output (silent video, unsuffixed filename):
+      $muted_video
+
+For the full-resolution final cut, add: --resolution 1080x1920
+(that writes a -1080x1920 suffixed file; this workflow expects the default unsuffixed one).
 EOF
 
-    read -r -p "Press Enter after the Windows MP4 render finishes..."
+    read -r -p "Press Enter after the Windows muted MP4 render finishes..."
 
-    if [[ ! -f "$expected_video" ]]; then
-      printf '\nStill missing expected video:\n  %s\n' "$expected_video"
+    if [[ ! -f "$muted_video" ]]; then
+      printf '\nStill missing expected muted video:\n  %s\n' "$muted_video"
       printf 'Run the Windows render command above, then try again.\n'
     fi
   done
 
-  printf '\nFound rendered MP4:\n  %s\n' "$expected_video"
-  printf '\nSplitting MP4 into scene videos:\n'
-  printf '  npm run briefing:split:mp4 -- --folder %s --input %s --output-dir %s\n' "$folder_for_command" "$(project_relative_path "$expected_video")" "$(project_relative_path "$split_output_dir")"
-  npm run briefing:split:mp4 -- --folder "$folder_for_command" --input "$(project_relative_path "$expected_video")" --output-dir "$(project_relative_path "$split_output_dir")"
+  if [[ "$output_folder/briefing.json" -nt "$muted_video" ]]; then
+    printf '\nWARNING: the muted video is older than output/briefing.json:\n  %s\n' "$muted_video"
+    printf 'It may be left over from an earlier build of this folder.\n'
+    pause_for_user "If it is stale, re-run the Windows muted render before continuing."
+  fi
+
+  printf '\nFound muted MP4:\n  %s\n' "$muted_video"
+
+  section "Step 8b: Mux Narration Audio Into The Muted MP4 (runs here in WSL)"
+  cat <<EOF
+Mixing all narration tracks (intro + outlet scenes + closing + outro) at
+frame-accurate offsets computed from output/briefing.json, then attaching
+them to the muted video without re-encoding frames:
+  npm run briefing:mux:audio -- --folder $folder_for_command
+
+What to expect:
+  - one line per narration track showing its start offset in seconds
+    (intro @ 0.000s, scene-2 @ ~7.5s, then each scene in order)
+  - ffmpeg finishes in a few seconds because the video stream is copied (-c:v copy)
+  - output (final video WITH audio):
+      $final_video
+
+Audio-fix shortcut for later: if you regenerate a narration WAV and it is the
+SAME length or SHORTER, re-run only this mux command — no Windows re-render.
+If the new WAV is LONGER, scene timings shift and the muted video must be
+re-rendered on Windows first.
+EOF
+
+  npm run briefing:mux:audio -- --folder "$folder_for_command"
+
+  if [[ ! -f "$final_video" ]]; then
+    die "Mux did not produce the expected final video: $final_video"
+  fi
+
+  printf '\nSplitting final MP4 (with audio) into scene videos:\n'
+  printf '  npm run briefing:split:mp4 -- --folder %s --input %s --output-dir %s\n' "$folder_for_command" "$(project_relative_path "$final_video")" "$(project_relative_path "$split_output_dir")"
+  npm run briefing:split:mp4 -- --folder "$folder_for_command" --input "$(project_relative_path "$final_video")" --output-dir "$(project_relative_path "$split_output_dir")"
 }
 
 run_codex_afk() {
@@ -688,8 +731,8 @@ EOF
 
   print_output_duration_summary "$output_folder"
 
-  section "Step 8: Render MP4 On Windows, Then Split Scene Videos"
-  wait_for_windows_mp4_render_and_split "$folder" "$output_folder"
+  section "Step 8: Render Muted MP4 On Windows, Mux Audio, Then Split Scene Videos"
+  wait_for_windows_muted_render_mux_and_split "$folder" "$output_folder"
 
   section "Workflow Complete"
   cat <<EOF
@@ -698,11 +741,14 @@ Final outputs:
   $output_folder/radar-beirut-quote-duel.html
   $output_folder/radar-beirut-fault-line-map.html
   $output_folder/radar-beirut-keyword-radar.html
-  $output_folder/radar-beirut-briefing-540x960.mp4
-  $output_folder/scene-videos-540x960/
+  $output_folder/radar-beirut-briefing.mp4        (muted master — keep for audio-only re-muxes)
+  $output_folder/radar-beirut-briefing-final.mp4  (final video with narration)
+  $output_folder/scene-videos/
 
 Recommended final check:
-  open the four HTML files and the split scene videos in Windows and confirm the latest rebuild preserved your edits.
+  open the four HTML files, radar-beirut-briefing-final.mp4, and the split scene
+  videos in Windows and confirm the latest rebuild preserved your edits and the
+  narration is in sync.
 EOF
 }
 
