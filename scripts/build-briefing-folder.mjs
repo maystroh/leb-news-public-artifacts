@@ -325,7 +325,7 @@ runNodeScript(path.join('scripts', 'build-keyword-radar-html.mjs'), [
   path.join(outputFolder, 'radar-beirut-keyword-radar.html')
 ]);
 
-const fullEditorialHookSuffixes = ['', '-hook-captions', '-hook-coldopen', '-hook-choreography', '-hook-stamps'];
+const fullEditorialHookSuffixes = ['', '-hook-captions', '-hook-stamps'];
 for (const hookSuffix of fullEditorialHookSuffixes) {
   const hookHtmlPath = path.join(outputFolder, `radar-beirut-briefing${hookSuffix}.html`);
   if (fs.existsSync(hookHtmlPath)) {

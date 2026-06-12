@@ -107,8 +107,6 @@ const collectKeywordsBySceneId = () => {
 export const HOOK_VARIANTS = [
   {suffix: '', variant: 'default'},
   {suffix: '-hook-captions', variant: 'captions'},
-  {suffix: '-hook-coldopen', variant: 'coldopen'},
-  {suffix: '-hook-choreography', variant: 'choreography'},
   {suffix: '-hook-stamps', variant: 'stamps'}
 ];
 
