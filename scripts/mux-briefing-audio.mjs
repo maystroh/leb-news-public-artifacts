@@ -99,19 +99,59 @@ if (!audioEntries.length) {
   process.exit(1);
 }
 
+// Optional background music bed: --music [path] (default audio/ambient-radar-bed.mp3),
+// --music-db <level, default -22>, --music-duck off to disable sidechain ducking.
+const DEFAULT_MUSIC_PATH = path.join(cwd, 'audio', 'ambient-radar-bed.mp3');
+const musicPath = args.music === true
+  ? DEFAULT_MUSIC_PATH
+  : args.music
+    ? path.resolve(cwd, args.music)
+    : null;
+const musicDb = Number.isFinite(Number(args['music-db'])) ? Number(args['music-db']) : -22;
+const musicDuck = `${args['music-duck'] ?? 'on'}` !== 'off' && `${args['music-duck']}` !== 'false';
+
+if (musicPath && !fs.existsSync(musicPath)) {
+  console.error(`Missing music bed: ${path.relative(cwd, musicPath)}`);
+  process.exit(1);
+}
+
+let totalMs = frameToMs(cursor);
+if (briefing.outro?.durationSeconds) {
+  totalMs += Math.round(briefing.outro.durationSeconds * 1000);
+}
+
 const filterParts = audioEntries.map((entry, index) =>
   `[${index + 1}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,adelay=${entry.delayMs}:all=1[a${index}]`
 );
 const mixInputs = audioEntries.map((_, index) => `[a${index}]`).join('');
-const filterComplex = [
-  ...filterParts,
-  `${mixInputs}amix=inputs=${audioEntries.length}:normalize=0:dropout_transition=0,apad[aout]`
-].join(';');
+
+let filterComplex;
+if (musicPath) {
+  const bedInputIndex = audioEntries.length + 1;
+  const fadeStartSec = Math.max(0, (totalMs - 1500) / 1000).toFixed(3);
+  const bedChain = [
+    `[${bedInputIndex}:a]aresample=44100`,
+    'aformat=sample_fmts=fltp:channel_layouts=stereo',
+    `volume=${musicDb}dB`,
+    `afade=t=out:st=${fadeStartSec}:d=1.5[bed]`
+  ].join(',');
+  const voiceChain = `${mixInputs}amix=inputs=${audioEntries.length}:normalize=0:dropout_transition=0[voice]`;
+  const mixChain = musicDuck
+    ? `[voice]asplit=2[voiceMix][voiceSc];[bed][voiceSc]sidechaincompress=threshold=0.02:ratio=12:attack=180:release=900[bedduck];[voiceMix][bedduck]amix=inputs=2:normalize=0:dropout_transition=0,apad[aout]`
+    : `[voice][bed]amix=inputs=2:normalize=0:dropout_transition=0,apad[aout]`;
+  filterComplex = [...filterParts, voiceChain, bedChain, mixChain].join(';');
+} else {
+  filterComplex = [
+    ...filterParts,
+    `${mixInputs}amix=inputs=${audioEntries.length}:normalize=0:dropout_transition=0,apad[aout]`
+  ].join(';');
+}
 
 const ffmpegArgs = [
   '-y',
   '-i', inputPath,
   ...audioEntries.flatMap((entry) => ['-i', entry.filePath]),
+  ...(musicPath ? ['-stream_loop', '-1', '-i', musicPath] : []),
   '-filter_complex', filterComplex,
   '-map', '0:v',
   '-map', '[aout]',
@@ -126,6 +166,9 @@ const ffmpegArgs = [
 console.log(`Muxing ${audioEntries.length} narration tracks into ${path.relative(cwd, outputPath)}`);
 for (const entry of audioEntries) {
   console.log(`  ${entry.label.padEnd(10)} @ ${(entry.delayMs / 1000).toFixed(3)}s  ${path.relative(cwd, entry.filePath)}`);
+}
+if (musicPath) {
+  console.log(`  music bed  ${path.relative(cwd, musicPath)} @ ${musicDb}dB, duck=${musicDuck ? 'on' : 'off'}, fade-out 1.5s`);
 }
 
 const result = spawnSync(ffmpegBin, ffmpegArgs, {cwd, stdio: 'inherit'});
