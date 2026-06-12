@@ -397,10 +397,24 @@ const getResolvedVoice = async () => {
 
 fs.mkdirSync(audioDir, {recursive: true});
 
+// Optional per-scene narration text overrides, keyed by scene id ("scene-2",
+// "scene-11", "outro"). Survives briefing rebuilds; edited from the dashboard.
+const textOverridesPath = path.join(audioDir, 'text-overrides.json');
+let textOverrides = {};
+if (fs.existsSync(textOverridesPath)) {
+  try {
+    textOverrides = JSON.parse(fs.readFileSync(textOverridesPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Could not parse ${path.relative(cwd, textOverridesPath)}: ${error.message}`);
+  }
+}
+
 const entries = [];
 
 for (const scene of audioScenes) {
-  const text = selectSceneText(scene, args.textSource);
+  const overrideText = normalizeSpacing(textOverrides[scene.id]);
+  const text = overrideText || selectSceneText(scene, args.textSource);
+  const effectiveTextSource = overrideText ? 'override' : args.textSource;
   const audioKey = scene.outlet?.key || scene.audioKey || scene.id;
   if (!text) {
     entries.push({
@@ -413,7 +427,7 @@ for (const scene of audioScenes) {
       outletLogoFile: scene.outlet?.logoFile ?? null,
       outletLogoPath: scene.outlet?.logoPath ?? null,
       outlet: scene.outlet,
-      textSource: args.textSource,
+      textSource: effectiveTextSource,
       text: '',
       chars: 0,
       requestedSceneDurationSeconds: scene.durationSeconds ?? null,
@@ -439,7 +453,7 @@ for (const scene of audioScenes) {
     outletLogoFile: scene.outlet?.logoFile ?? null,
     outletLogoPath: scene.outlet?.logoPath ?? null,
     outlet: scene.outlet ?? null,
-    textSource: args.textSource,
+    textSource: effectiveTextSource,
     text,
     chars: text.length,
     requestedSceneDurationSeconds: scene.durationSeconds ?? null,
