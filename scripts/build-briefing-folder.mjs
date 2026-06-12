@@ -325,7 +325,13 @@ runNodeScript(path.join('scripts', 'build-keyword-radar-html.mjs'), [
   path.join(outputFolder, 'radar-beirut-keyword-radar.html')
 ]);
 
-rewriteHtmlAssetPaths(path.join(outputFolder, 'radar-beirut-briefing.html'));
+const fullEditorialHookSuffixes = ['', '-hook-captions', '-hook-coldopen', '-hook-choreography', '-hook-stamps'];
+for (const hookSuffix of fullEditorialHookSuffixes) {
+  const hookHtmlPath = path.join(outputFolder, `radar-beirut-briefing${hookSuffix}.html`);
+  if (fs.existsSync(hookHtmlPath)) {
+    rewriteHtmlAssetPaths(hookHtmlPath);
+  }
+}
 rewriteHtmlAssetPaths(path.join(outputFolder, 'radar-beirut-quote-duel.html'));
 rewriteHtmlAssetPaths(path.join(outputFolder, 'radar-beirut-fault-line-map.html'));
 rewriteHtmlAssetPaths(path.join(outputFolder, 'radar-beirut-keyword-radar.html'));

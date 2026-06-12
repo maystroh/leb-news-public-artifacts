@@ -80,10 +80,47 @@ const detectOutletMedia = () => {
   return mapping;
 };
 
-const htmlWithData = replaceScriptTagContents(template, 'briefing-data', encodeBase64(JSON.stringify(briefingData)));
-const html = htmlWithData
-  .replace('__OUTLET_MEDIA_BY_OUTLET_KEY__', JSON.stringify(detectOutletMedia(), null, 2))
-  .replace('__INTRO_AUDIO_SRC__', fs.existsSync(introAudioPath) ? toHtmlRelativePath(introAudioPath) : '');
+const keywordsPath = args.keywords
+  ? path.resolve(cwd, args.keywords)
+  : path.join(path.dirname(dataPath), 'keyword-radar.json');
 
-fs.writeFileSync(htmlPath, html);
-console.log(`Built full editorial HTML at ${htmlPath}`);
+const collectKeywordsBySceneId = () => {
+  if (!fs.existsSync(keywordsPath)) return {};
+
+  try {
+    const keywordData = readJson(keywordsPath);
+    const mapping = {};
+    for (const entry of keywordData.entries ?? []) {
+      if (!entry.sceneId || !Array.isArray(entry.terms)) continue;
+      mapping[entry.sceneId] = entry.terms
+        .filter((term) => term && term.text)
+        .map((term) => ({text: term.text, weight: term.weight ?? 0.5}));
+    }
+    return mapping;
+  } catch (error) {
+    console.warn(`Could not parse keyword data at ${keywordsPath}: ${error.message}`);
+    return {};
+  }
+};
+
+// Hook variants: same briefing, one attention experiment enabled per file.
+export const HOOK_VARIANTS = [
+  {suffix: '', variant: 'default'},
+  {suffix: '-hook-captions', variant: 'captions'},
+  {suffix: '-hook-coldopen', variant: 'coldopen'},
+  {suffix: '-hook-choreography', variant: 'choreography'},
+  {suffix: '-hook-stamps', variant: 'stamps'}
+];
+
+const htmlWithData = replaceScriptTagContents(template, 'briefing-data', encodeBase64(JSON.stringify(briefingData)));
+const baseHtml = htmlWithData
+  .replace('__OUTLET_MEDIA_BY_OUTLET_KEY__', JSON.stringify(detectOutletMedia(), null, 2))
+  .replace('__INTRO_AUDIO_SRC__', fs.existsSync(introAudioPath) ? toHtmlRelativePath(introAudioPath) : '')
+  .replace('__KEYWORDS_BY_SCENE_ID__', JSON.stringify(collectKeywordsBySceneId(), null, 2));
+
+for (const {suffix, variant} of HOOK_VARIANTS) {
+  const variantPath = suffix ? htmlPath.replace(/\.html$/i, `${suffix}.html`) : htmlPath;
+  fs.writeFileSync(variantPath, baseHtml.replace('__HOOK_VARIANT__', variant));
+  console.log(`Built full editorial HTML (${variant}) at ${variantPath}`);
+}
+

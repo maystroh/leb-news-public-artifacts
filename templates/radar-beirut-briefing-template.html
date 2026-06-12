@@ -504,6 +504,185 @@
     display: none !important;
   }
 
+  /* ── Hook variant styles (active only when HOOK_VARIANT != default) ── */
+  #hook-coldopen {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    padding: 30px 26px;
+    text-align: center;
+    background: rgba(2, 8, 13, 0.9);
+    pointer-events: none;
+  }
+
+  #hook-coldopen-quote {
+    font-size: 29px;
+    line-height: 1.62;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  #hook-coldopen-teaser {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  @keyframes hookCutIn {
+    from { opacity: 0; transform: scale(1.45); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .hook-cut-in {
+    animation: hookCutIn 260ms cubic-bezier(.2, .9, .3, 1) both;
+  }
+
+  #hook-captions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    padding: 30px 14px 12px;
+    background: linear-gradient(0deg, rgba(2, 8, 13, 0.94) 0%, rgba(2, 8, 13, 0.8) 58%, transparent 100%);
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.85;
+    font-weight: 500;
+    color: rgba(244, 239, 229, 0.34);
+    min-height: 66px;
+  }
+
+  #hook-captions .hook-word {
+    transition: color 180ms ease, text-shadow 180ms ease;
+  }
+
+  #hook-captions .hook-word.is-on {
+    color: #f4efe5;
+    text-shadow: 0 0 14px rgba(205, 127, 50, 0.45);
+  }
+
+  #hook-stamp {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    pointer-events: none;
+  }
+
+  #hook-stamp-box {
+    border: 2px solid rgba(205, 127, 50, 0.92);
+    border-radius: 10px;
+    background: rgba(3, 9, 14, 0.86);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 0 22px rgba(205, 127, 50, 0.14);
+    padding: 14px 18px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.65;
+    font-weight: 700;
+    color: var(--text);
+    max-width: 100%;
+  }
+
+  #hook-stamp.is-in #hook-stamp-box {
+    animation: hookStampIn 460ms cubic-bezier(.16, 1.2, .3, 1) both;
+  }
+
+  #hook-stamp.is-out {
+    transition: opacity 420ms ease;
+    opacity: 0;
+  }
+
+  @keyframes hookStampIn {
+    0% { opacity: 0; transform: scale(1.45) rotate(1.5deg); }
+    60% { opacity: 1; transform: scale(0.97) rotate(-0.6deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  #hook-chips {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .hook-chip {
+    border: 1px solid rgba(103, 191, 216, 0.6);
+    background: rgba(4, 13, 21, 0.88);
+    color: var(--cyan);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+  }
+
+  .hook-chip.is-in {
+    animation: hookChipIn 420ms cubic-bezier(.2, .9, .25, 1.2) both;
+  }
+
+  @keyframes hookChipIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  #hook-lock {
+    position: absolute;
+    inset: 8px;
+    z-index: 7;
+    opacity: 0;
+    transition: opacity 320ms ease;
+    pointer-events: none;
+  }
+
+  #hook-lock.is-on {
+    opacity: 1;
+  }
+
+  .hook-bracket {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+  }
+
+  .hook-bracket::before,
+  .hook-bracket::after {
+    content: "";
+    position: absolute;
+    background: rgba(205, 127, 50, 0.95);
+    box-shadow: 0 0 10px rgba(205, 127, 50, 0.85);
+  }
+
+  .hook-bracket::before {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+  }
+
+  .hook-bracket::after {
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+  }
+
+  .hook-bracket.tl { top: 0; left: 0; }
+  .hook-bracket.tr { top: 0; right: 0; transform: scaleX(-1); }
+  .hook-bracket.bl { bottom: 0; left: 0; transform: scaleY(-1); }
+  .hook-bracket.br { bottom: 0; right: 0; transform: scale(-1, -1); }
+
   @keyframes scanSweepLoop {
     0% {
       opacity: 0;
@@ -565,6 +744,10 @@
   <div id="scan-line"></div>
   <div id="flash"></div>
   <div id="vignette"></div>
+  <div id="hook-coldopen" class="hidden">
+    <div id="hook-coldopen-quote"></div>
+    <div id="hook-coldopen-teaser" class="hidden"></div>
+  </div>
 
   <div class="ring"></div>
   <div class="ring"></div>
@@ -605,6 +788,17 @@
         <div id="scene-detail-text" class="hidden">
           <div id="scene-detail-body"></div>
         </div>
+        <div id="hook-lock" class="hidden">
+          <div class="hook-bracket tl"></div>
+          <div class="hook-bracket tr"></div>
+          <div class="hook-bracket bl"></div>
+          <div class="hook-bracket br"></div>
+        </div>
+        <div id="hook-stamp" class="hidden">
+          <div id="hook-stamp-box"></div>
+        </div>
+        <div id="hook-chips" class="hidden"></div>
+        <div id="hook-captions" class="hidden"></div>
       </div>
     </section>
 
@@ -703,6 +897,14 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
 
   const OUTLET_MEDIA_BY_OUTLET_KEY = __OUTLET_MEDIA_BY_OUTLET_KEY__;
   const INTRO_AUDIO_SRC = "__INTRO_AUDIO_SRC__";
+  const HOOK_VARIANT = "__HOOK_VARIANT__";
+  const KEYWORDS_BY_SCENE_ID = __KEYWORDS_BY_SCENE_ID__;
+  const HOOKS = {
+    captions: HOOK_VARIANT === 'captions' || HOOK_VARIANT === 'all',
+    coldopen: HOOK_VARIANT === 'coldopen' || HOOK_VARIANT === 'all',
+    choreography: HOOK_VARIANT === 'choreography' || HOOK_VARIANT === 'all',
+    stamps: HOOK_VARIANT === 'stamps' || HOOK_VARIANT === 'all'
+  };
   const FRONT_PAGE_PAN_BY_OUTLET_KEY = {};
   let frontPagePanAnimation = null;
   let mediaSequenceTimer = null;
@@ -857,6 +1059,257 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     fitFrontPageImage(outletKey, sceneDurationMs);
   }
 
+  /* ── Hook engine ── */
+  const hookColdOpen = document.getElementById('hook-coldopen');
+  const hookColdOpenQuote = document.getElementById('hook-coldopen-quote');
+  const hookColdOpenTeaser = document.getElementById('hook-coldopen-teaser');
+  const hookCaptions = document.getElementById('hook-captions');
+  const hookStamp = document.getElementById('hook-stamp');
+  const hookStampBox = document.getElementById('hook-stamp-box');
+  const hookChips = document.getElementById('hook-chips');
+  const hookLock = document.getElementById('hook-lock');
+  let hookTimers = [];
+  let hookLockAnimation = null;
+
+  function scheduleHook(fn, delayMs) {
+    hookTimers.push(setTimeout(fn, Math.max(0, delayMs)));
+  }
+
+  function clearHookTimers() {
+    hookTimers.forEach(clearTimeout);
+    hookTimers = [];
+    if (hookLockAnimation) {
+      hookLockAnimation.cancel();
+      hookLockAnimation = null;
+      sceneDetailImage.style.transformOrigin = '';
+    }
+    hookLock.classList.remove('is-on');
+    hookLock.classList.add('hidden');
+    hookStamp.classList.add('hidden');
+    hookStamp.classList.remove('is-in', 'is-out');
+    hookChips.classList.add('hidden');
+    hookChips.innerHTML = '';
+    hookCaptions.classList.add('hidden');
+    hookCaptions.innerHTML = '';
+  }
+
+  function hookCutReveal(element) {
+    element.classList.remove('hidden', 'hook-cut-in');
+    void element.offsetWidth;
+    element.classList.add('hook-cut-in');
+  }
+
+  function pickColdOpenQuote() {
+    let best = '';
+    for (const scene of BRIEFING.scenes || []) {
+      const quote = (scene.visual?.quote || '').trim();
+      if (quote.length > best.length) best = quote;
+    }
+    return best;
+  }
+
+  function startColdOpenHook() {
+    const quote = pickColdOpenQuote();
+    if (!quote) return;
+
+    hookColdOpenQuote.textContent = `«${quote}»`;
+    hookColdOpenTeaser.textContent = 'ماذا قالت صحف اليوم؟';
+    hookColdOpen.classList.remove('hidden');
+    hookColdOpenTeaser.classList.add('hidden');
+    hookCutReveal(hookColdOpenQuote);
+    flash.animate([{opacity: 0.5}, {opacity: 0}], {duration: 240, fill: 'forwards'});
+
+    scheduleHook(() => {
+      hookColdOpenQuote.classList.add('hidden');
+      hookCutReveal(hookColdOpenTeaser);
+      flash.animate([{opacity: 0.5}, {opacity: 0}], {duration: 240, fill: 'forwards'});
+    }, 1300);
+
+    scheduleHook(() => {
+      hookColdOpen.classList.add('hidden');
+      flash.animate([{opacity: 0.35}, {opacity: 0}], {duration: 320, fill: 'forwards'});
+    }, 2400);
+  }
+
+  function buildCaptionPhrases(text) {
+    const normalized = (text || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return [];
+
+    const sentences = normalized.split(/(?<=[.؟!?])\s+/).filter(Boolean);
+    const phrases = [];
+    for (const sentence of sentences) {
+      const segments = sentence.split(/(?<=[،;:])\s+/).filter(Boolean);
+      for (const segment of segments) {
+        const words = segment.split(' ').filter(Boolean);
+        for (let i = 0; i < words.length; i += 6) {
+          phrases.push(words.slice(i, i + 6));
+        }
+      }
+    }
+    return phrases;
+  }
+
+  function startCaptionHook(scene, sceneDurationMs) {
+    const text = scene.audioText || scene.body || scene.visual?.summary || '';
+    const phrases = buildCaptionPhrases(text);
+    if (!phrases.length) return;
+
+    const narrationMs = scene.audio?.durationSeconds
+      ? scene.audio.durationSeconds * 1000
+      : Math.max(2000, sceneDurationMs - 500);
+    const totalChars = phrases.reduce((sum, words) => sum + words.join(' ').length + 1, 0);
+
+    hookCaptions.classList.remove('hidden');
+    let cursorMs = 180;
+
+    phrases.forEach((words) => {
+      const phraseChars = words.join(' ').length + 1;
+      const phraseMs = (phraseChars / totalChars) * narrationMs;
+      const phraseStartMs = cursorMs;
+
+      scheduleHook(() => {
+        hookCaptions.innerHTML = '';
+        const spans = words.map((word) => {
+          const span = document.createElement('span');
+          span.className = 'hook-word';
+          span.textContent = word;
+          return span;
+        });
+        spans.forEach((span, wordIndex) => {
+          hookCaptions.appendChild(span);
+          if (wordIndex < spans.length - 1) hookCaptions.appendChild(document.createTextNode(' '));
+        });
+        const perWordMs = phraseMs / words.length;
+        spans.forEach((span, wordIndex) => {
+          scheduleHook(() => span.classList.add('is-on'), wordIndex * perWordMs * 0.86);
+        });
+      }, phraseStartMs);
+
+      cursorMs += phraseMs;
+    });
+
+    scheduleHook(() => {
+      hookCaptions.classList.add('hidden');
+      hookCaptions.innerHTML = '';
+    }, Math.min(cursorMs + 600, sceneDurationMs - 200));
+  }
+
+  function runTargetLock(fitMode, holdMs) {
+    if (sceneDetailImage.classList.contains('hidden')) return;
+    if (hookLockAnimation) return;
+
+    hookLock.classList.remove('hidden');
+    void hookLock.offsetWidth;
+    hookLock.classList.add('is-on');
+
+    if (fitMode === 'contain') {
+      hookLockAnimation = sceneDetailImage.animate(
+        [
+          { transform: 'translate(-50%, -50%) scale(1)' },
+          { transform: 'translate(-50%, -50%) scale(1.07)', offset: 0.2 },
+          { transform: 'translate(-50%, -50%) scale(1.07)', offset: 0.8 },
+          { transform: 'translate(-50%, -50%) scale(1)' }
+        ],
+        { duration: holdMs, easing: 'ease-in-out' }
+      );
+    } else {
+      if (frontPagePanAnimation) frontPagePanAnimation.pause();
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(sceneDetailImage).transform);
+      const currentY = matrix.m42;
+      const boxHeight = sceneDetail.clientHeight;
+      const focusY = Math.round(-currentY + boxHeight * 0.35);
+      sceneDetailImage.style.transformOrigin = `50% ${focusY}px`;
+
+      hookLockAnimation = sceneDetailImage.animate(
+        [
+          { transform: `translate(-50%, ${currentY}px) scale(1)` },
+          { transform: `translate(-50%, ${currentY}px) scale(1.5)`, offset: 0.18 },
+          { transform: `translate(-50%, ${currentY}px) scale(1.5)`, offset: 0.82 },
+          { transform: `translate(-50%, ${currentY}px) scale(1)` }
+        ],
+        { duration: holdMs, easing: 'ease-in-out' }
+      );
+    }
+
+    scheduleHook(() => hookLock.classList.remove('is-on'), Math.max(0, holdMs - 360));
+
+    hookLockAnimation.onfinish = () => {
+      hookLock.classList.add('hidden');
+      sceneDetailImage.style.transformOrigin = '';
+      if (frontPagePanAnimation && fitMode !== 'contain') frontPagePanAnimation.play();
+      hookLockAnimation = null;
+    };
+  }
+
+  function startChoreographyHook(fitMode, sceneDurationMs) {
+    if (sceneDurationMs < 14000) return;
+    const lockHoldMs = 4600;
+    const firstLockMs = 5200;
+    const intervalMs = 10400;
+
+    for (let beatMs = firstLockMs; beatMs + lockHoldMs + 2200 < sceneDurationMs; beatMs += intervalMs) {
+      scheduleHook(() => runTargetLock(fitMode, lockHoldMs), beatMs);
+    }
+  }
+
+  function startStampHook(scene, sceneDurationMs) {
+    const quote = (scene.visual?.quote || '').trim();
+    if (quote && sceneDurationMs > 12000) {
+      const stampInMs = Math.max(4200, Math.round(sceneDurationMs * 0.46));
+      const holdMs = Math.max(3600, Math.min(6500, Math.round(sceneDurationMs * 0.2)));
+
+      scheduleHook(() => {
+        hookStampBox.textContent = `«${quote}»`;
+        hookStamp.classList.remove('hidden', 'is-out');
+        void hookStamp.offsetWidth;
+        hookStamp.classList.add('is-in');
+        flash.animate([{opacity: 0.22}, {opacity: 0}], {duration: 320, fill: 'forwards'});
+      }, stampInMs);
+
+      scheduleHook(() => {
+        hookStamp.classList.add('is-out');
+        scheduleHook(() => {
+          hookStamp.classList.add('hidden');
+          hookStamp.classList.remove('is-in', 'is-out');
+        }, 460);
+      }, stampInMs + holdMs);
+    }
+
+    const terms = KEYWORDS_BY_SCENE_ID[scene.id] || [];
+    if (!terms.length) return;
+
+    hookChips.classList.remove('hidden');
+    hookChips.innerHTML = '';
+    const shownTerms = terms.slice(0, 4);
+    const windowStartMs = Math.round(sceneDurationMs * 0.16);
+    const windowEndMs = Math.round(sceneDurationMs * 0.82);
+    const stepMs = shownTerms.length > 1
+      ? (windowEndMs - windowStartMs) / (shownTerms.length - 1)
+      : 0;
+
+    shownTerms.forEach((term, termIndex) => {
+      scheduleHook(() => {
+        const chip = document.createElement('span');
+        chip.className = 'hook-chip is-in';
+        chip.textContent = typeof term === 'string' ? term : term.text;
+        hookChips.appendChild(chip);
+      }, windowStartMs + termIndex * stepMs);
+    });
+
+    scheduleHook(() => {
+      hookChips.classList.add('hidden');
+      hookChips.innerHTML = '';
+    }, Math.round(sceneDurationMs * 0.94));
+  }
+
+  function startSceneHooks(scene, sceneDurationMs, usedMedia, mediaConfig) {
+    if (HOOKS.captions) startCaptionHook(scene, sceneDurationMs);
+    if (HOOKS.choreography && usedMedia && mediaConfig && mediaConfig.items.length === 1) {
+      startChoreographyHook(mediaConfig.fitMode, sceneDurationMs);
+    }
+    if (HOOKS.stamps) startStampHook(scene, sceneDurationMs);
+  }
+
   function getSceneExcerpt(scene) {
     const source = scene.body || scene.visual?.summary || scene.title || '';
     const normalized = source.replace(/\s+/g, ' ').trim();
@@ -988,6 +1441,7 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
   function setScene(scene, index) {
     sceneSummary.textContent = scene.visual?.summary || scene.body;
     clearMediaSequenceTimer();
+    clearHookTimers();
     playSceneAudio(scene);
 
     if (scene.outlet) {
@@ -1005,19 +1459,28 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     const sceneDurationMs = getSceneDurationMs(scene, index);
     const sceneMedia = scene.media || null;
     const outletMedia = scene.outlet ? OUTLET_MEDIA_BY_OUTLET_KEY[scene.outlet.key] : null;
-    if (showSceneDetailMedia(scene, sceneMedia || outletMedia, sceneDurationMs)) {
-      return;
-    } else {
+    const usedMedia = showSceneDetailMedia(scene, sceneMedia || outletMedia, sceneDurationMs);
+    if (!usedMedia) {
       mediaSequenceToken += 1;
       sceneDetailImage.onload = null;
       resetSceneDetailImageStyles();
       sceneDetailImage.removeAttribute('src');
       sceneDetailImage.alt = '';
       sceneDetailImage.classList.add('hidden');
-      sceneDetailBody.textContent = getSceneExcerpt(scene);
-      sceneDetailText.classList.remove('hidden');
+      if (HOOKS.captions) {
+        sceneDetailText.classList.add('hidden');
+      } else {
+        sceneDetailBody.textContent = getSceneExcerpt(scene);
+        sceneDetailText.classList.remove('hidden');
+      }
     }
 
+    startSceneHooks(
+      scene,
+      sceneDurationMs,
+      usedMedia,
+      usedMedia ? normalizeOutletMediaPayload(sceneMedia || outletMedia) : null
+    );
   }
 
   function showIntro() {
@@ -1026,6 +1489,7 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     phaseDuration = PLAYBACK_CONFIG.introMs;
     introStarted = true;
     playIntroAudio();
+    if (HOOKS.coldopen) startColdOpenHook();
 
     flash.animate([{opacity: 0.42}, {opacity: 0}], {duration: 500, fill: 'forwards'});
     bgPhoto.style.opacity = '1';
@@ -1079,6 +1543,7 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     phaseDuration = PLAYBACK_CONFIG.outroMs;
     content.classList.remove('is-visible');
     stopSceneAudio();
+    clearHookTimers();
     playOutroAudio();
     outroCard.classList.remove('hidden');
     outroCard.classList.add('is-visible');
@@ -1094,6 +1559,8 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     outroStarted = false;
     ended = false;
     clearMediaSequenceTimer();
+    clearHookTimers();
+    hookColdOpen.classList.add('hidden');
     stopIntroAudio();
     stopSceneAudio();
     stopOutroAudio();
@@ -1233,4 +1700,5 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
 </script>
 </body>
 </html>
+
 
