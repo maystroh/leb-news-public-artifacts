@@ -19,10 +19,14 @@ briefings/
 
 # Root-level generated HTML outputs (written by build scripts as fallback when --output omitted)
 radar-beirut-briefing.html
+radar-beirut-briefing-hook-*.html
 radar-beirut-fault-line-map.html
 radar-beirut-keyword-radar.html
 radar-beirut-quote-duel.html
 radar-beirut-intro-audio-test.html
+
+# Dashboard frontend build output
+dashboard/web/dist/
 
 # OS & editor artifacts
 .DS_Store
@@ -40,3 +44,4 @@ desktop.ini
 
 # Empty placeholder directory marker
 public/audio/briefing
+.gstack/

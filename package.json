@@ -13,6 +13,9 @@
     "briefing:generate:all": "node ./scripts/generate-all-briefing-formats.mjs",
     "briefing:validate:analysis": "node ./scripts/validate-briefing-analysis-files.mjs",
     "briefing:workflow": "bash ./scripts/guided-briefing-workflow.sh",
+    "briefing:dashboard": "node ./dashboard/server.mjs",
+    "briefing:dashboard:build": "vite build --config dashboard/web/vite.config.mjs",
+    "briefing:dashboard:dev": "vite --config dashboard/web/vite.config.mjs",
     "briefing:image:prompt": "node ./scripts/create-summary-image-prompt.mjs",
     "briefing:image:wire": "node ./scripts/wire-summary-image.mjs",
     "briefing:formats": "node ./scripts/launch-briefing-format.mjs --list",
@@ -38,11 +41,16 @@
   "license": "ISC",
   "dependencies": {
     "@remotion/cli": "4.0.471",
+    "express": "^5.2.1",
     "mp3-duration": "^1.1.0",
     "openai": "^6.41.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "remotion": "4.0.471",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.16"
   }
 }

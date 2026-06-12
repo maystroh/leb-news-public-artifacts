@@ -109,6 +109,47 @@ full-editorial scene flow:
 - Date-folder HTML files are the actual daily generated outputs.
 - [src/BriefingVideo.jsx](C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\src\BriefingVideo.jsx) is still behind the current HTML workflow and should not be treated as the latest visual source until updated.
 
+## Workflow Dashboard
+
+A local web dashboard runs and tracks every step of the daily workflow per date folder.
+
+Launch it (from WSL or any terminal in the project root):
+
+```bash
+npm run briefing:dashboard
+```
+
+Then open **http://127.0.0.1:4600** in your browser. The first launch builds the
+frontend automatically (one-time, a few seconds). The server is local-only
+(binds to 127.0.0.1).
+
+What it gives you:
+
+- A date dropdown listing every `briefings/YYYY-MM-DD` folder (newest first).
+- One card per workflow step (asset check → Codex handoff → Codex AFK →
+  closing image → builds → audio → timing sync → HTML review → server sync →
+  server render → mux → download → scene split), each with a Run button,
+  its own live log, and the artifact files that matter for the next step.
+- Green/red/amber status per step, derived from the files on disk — reopening
+  the dashboard shows exactly where the day's run stands, even for steps run
+  outside the dashboard.
+- A scene narration panel: listen to each scene's WAV and regenerate any single
+  scene (old WAV is backed up, only that scene calls Hamsa, timings resync,
+  outputs rebuild, and you get a longer/shorter verdict telling you whether a
+  re-render or just a re-mux is needed).
+- Server sync, server muted render, server mux, and final-MP4 download run
+  from the dashboard over ssh/rsync (same host/port as the guided script).
+
+Related commands:
+
+```bash
+npm run briefing:dashboard          # start the dashboard on http://127.0.0.1:4600
+npm run briefing:dashboard:build    # rebuild the frontend after editing dashboard/web/
+npm run briefing:dashboard:dev      # Vite dev server on :4601 (proxies API to :4600)
+```
+
+See `dashboard/README.md` for details (status model, state file, env overrides).
+
 ## Core Workflow
 
 The current daily workflow is a `Codex-assisted local workflow`.
@@ -383,6 +424,14 @@ Primary files:
 - [scripts/build-keyword-radar-html.mjs](C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\scripts\build-keyword-radar-html.mjs)
 
 ## Commands
+
+### Workflow Dashboard
+
+```powershell
+npm run briefing:dashboard          # local web UI at http://127.0.0.1:4600
+npm run briefing:dashboard:build    # rebuild frontend (dashboard/web/dist)
+npm run briefing:dashboard:dev      # frontend dev server on :4601
+```
 
 ### Main Daily Workflow
 

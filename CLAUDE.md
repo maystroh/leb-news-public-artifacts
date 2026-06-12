@@ -64,6 +64,10 @@ briefings/YYYY-MM-DD/
     keyword-radar.json
     final_summary_generated.png
     radar-beirut-briefing.html
+    radar-beirut-briefing-hook-captions.html
+    radar-beirut-briefing-hook-coldopen.html
+    radar-beirut-briefing-hook-choreography.html
+    radar-beirut-briefing-hook-stamps.html
     radar-beirut-quote-duel.html
     radar-beirut-fault-line-map.html
     radar-beirut-keyword-radar.html
@@ -73,6 +77,20 @@ briefings/YYYY-MM-DD/
 ```
 
 Generated briefing audio lives in `briefings/YYYY-MM-DD/audio/`, NOT in `output/audio/`.
+
+## Full Editorial Hook Variants (HTML-only A/B experiments)
+
+`build-full-editorial-html.mjs` emits the default briefing HTML plus four social-attention variants, each with exactly ONE hook enabled (gated by `HOOK_VARIANT` in the template; `default` disables all):
+
+| File suffix | Hook |
+|---|---|
+| *(none)* | default — no hooks, unchanged behavior |
+| `-hook-captions` | karaoke captions: full narration text phrase-synced to WAV duration, word-by-word highlight |
+| `-hook-coldopen` | 2.4s hard-cut quote slam folded INSIDE the intro window (longest `visual.quote` of the day); no timing-config change |
+| `-hook-choreography` | bracket target-lock zoom beats on single front-page images every ~10s |
+| `-hook-stamps` | mid-scene quote stamp + keyword chips from `output/keyword-radar.json` terms |
+
+Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Variants are HTML-only; Remotion does NOT mirror them yet. Total video duration is identical across all five files.
 
 ## Key npm Commands
 
@@ -87,6 +105,12 @@ npm run briefing:validate:analysis -- --folder briefings/YYYY-MM-DD
 # Audio
 npm run audio:outlets -- --date YYYY-MM-DD
 node ./scripts/sync-outlet-audio-timing.mjs --folder briefings/YYYY-MM-DD
+
+# Workflow dashboard (local web UI for all steps, per date) — see dashboard/README.md
+npm run briefing:dashboard          # launch → open http://127.0.0.1:4600 (auto-builds frontend once)
+# stop: Ctrl+C in its terminal, or: pkill -f "dashboard/server.mjs"
+npm run briefing:dashboard:build    # rebuild frontend after editing dashboard/web/
+npm run briefing:dashboard:dev      # Vite dev server on :4601 (proxies API to :4600)
 
 # Format launcher
 npm run briefing:formats
@@ -234,6 +258,7 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 - Non-outlet closing scene: `scene-11-scene-11.wav`
 - Outro: `outro-open-question.wav`
 - Existing WAVs are reused by default; pass `--force` only when intentional regeneration is needed
+- Per-scene narration text overrides: `briefings/YYYY-MM-DD/audio/text-overrides.json` (keyed by scene id, e.g. `scene-3`, `scene-11`, `outro`). The generator prefers an override over briefing.json text (`textSource: "override"` in the manifest); overrides survive rebuilds and are edited from the dashboard's Scene narration panel
 - Timing sync adds 0.5s buffer to each WAV duration
 
 ## timing-config.json
