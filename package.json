@@ -25,6 +25,8 @@
     "audio:generate:dry": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs --dry-run",
     "audio:generate": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs",
     "audio:outlets": "node ./audio/generate-outlet-audio.mjs",
+    "audio:scene:guide": "node ./scripts/scene-audio-guide.mjs",
+    "audio:script": "node ./scripts/build-audio-script.mjs",
     "audio:fix:headers": "node ./scripts/fix-wav-headers.mjs",
     "article:screenshot": "python3 ./scripts/article-screenshot.py",
     "logos:prepare": "node ./scripts/prepare-logos.mjs",
