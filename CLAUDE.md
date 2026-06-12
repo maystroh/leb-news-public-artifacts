@@ -65,8 +65,6 @@ briefings/YYYY-MM-DD/
     final_summary_generated.png
     radar-beirut-briefing.html
     radar-beirut-briefing-hook-captions.html
-    radar-beirut-briefing-hook-coldopen.html
-    radar-beirut-briefing-hook-choreography.html
     radar-beirut-briefing-hook-stamps.html
     radar-beirut-quote-duel.html
     radar-beirut-fault-line-map.html
@@ -80,17 +78,17 @@ Generated briefing audio lives in `briefings/YYYY-MM-DD/audio/`, NOT in `output/
 
 ## Full Editorial Hook Variants (HTML-only A/B experiments)
 
-`build-full-editorial-html.mjs` emits the default briefing HTML plus four social-attention variants, each with exactly ONE hook enabled (gated by `HOOK_VARIANT` in the template; `default` disables all):
+`build-full-editorial-html.mjs` emits the default briefing HTML plus two social-attention variants, each with exactly ONE hook enabled (gated by `HOOK_VARIANT` in the template; `default` disables all):
 
 | File suffix | Hook |
 |---|---|
 | *(none)* | default — no hooks, unchanged behavior |
 | `-hook-captions` | karaoke captions: full narration text phrase-synced to WAV duration, word-by-word highlight |
-| `-hook-coldopen` | 2.4s hard-cut quote slam folded INSIDE the intro window (longest `visual.quote` of the day); no timing-config change |
-| `-hook-choreography` | bracket target-lock zoom beats on single front-page images every ~10s |
 | `-hook-stamps` | mid-scene quote stamp + keyword chips from `output/keyword-radar.json` terms |
 
-Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Variants are HTML-only; Remotion does NOT mirror them yet. Total video duration is identical across all five files.
+Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Total video duration is identical across all files. The template still supports `coldopen` and `choreography` hooks (and an `all` mode); they were dropped from the emitted variants after review — re-enable by adding entries back to `HOOK_VARIANTS` in `build-full-editorial-html.mjs`.
+
+Remotion mirrors the `captions` and `stamps` hooks (only those): `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --variant captions|stamps` renders `radar-beirut-briefing-hook-<variant>.mp4`. The hook overlays live in `src/ProductionBriefingVideo.jsx` and must stay in lockstep with the template's HOOKS timings/styles. `briefing:mux:audio --input <variant>.mp4` writes `<variant>-final.mp4`. Dashboard step 12 has variant checkboxes; steps 13–14 mux/download any variant renders found.
 
 ## Key npm Commands
 
@@ -133,6 +131,10 @@ npm run briefing:render:intro -- --folder briefings/YYYY-MM-DD --log warn
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --muted --log warn
 npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD
 npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-720x1280.mp4
+# Optional background music bed (default bed: audio/ambient-radar-bed.mp3, synthesized radar ambient, 60s seamless loop)
+# --music [path] mixes it under narration; --music-db N (default -22); --music-duck off disables sidechain ducking
+npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --music
+npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --music --music-db -18 --music-duck off
 
 # Splitting
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD

@@ -133,10 +133,14 @@ What it gives you:
 - Green/red/amber status per step, derived from the files on disk — reopening
   the dashboard shows exactly where the day's run stands, even for steps run
   outside the dashboard.
-- A scene narration panel: listen to each scene's WAV and regenerate any single
-  scene (old WAV is backed up, only that scene calls Hamsa, timings resync,
-  outputs rebuild, and you get a longer/shorter verdict telling you whether a
-  re-render or just a re-mux is needed).
+- A scene narration panel: shows the exact text Hamsa will read per scene
+  BEFORE generation (available as soon as the first build creates
+  `briefing.json`), with per-scene editing — saved edits persist in
+  `audio/text-overrides.json` and survive rebuilds. After generation, listen
+  to each scene's WAV and regenerate any single scene (old WAV is backed up,
+  only that scene calls Hamsa, timings resync, outputs rebuild, and you get a
+  longer/shorter verdict telling you whether a re-render or just a re-mux is
+  needed). WAVs whose text no longer matches the saved script are flagged.
 - Server sync, server muted render, server mux, and final-MP4 download run
   from the dashboard over ssh/rsync (same host/port as the guided script).
 
@@ -387,6 +391,16 @@ Primary files:
 - [src/data/outlet-map.json](C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\src\data\outlet-map.json)
 - [scripts/prepare-briefing.mjs](C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\scripts\prepare-briefing.mjs)
 - [scripts/build-full-editorial-html.mjs](C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\scripts\build-full-editorial-html.mjs)
+
+Hook variants: `build-full-editorial-html.mjs` also emits two social-attention
+A/B variants alongside the default file — `-hook-captions` (karaoke captions)
+and `-hook-stamps` (quote stamp + keyword chips). Each variant enables exactly
+one hook via the `HOOK_VARIANT` flag in the shared template (never fork the
+template per variant); total video duration is identical across all files.
+Remotion mirrors these two hooks: `briefing:render:mp4 --variant
+captions|stamps` renders the matching MP4, and dashboard step 12 has
+per-variant checkboxes. See the "Full Editorial Hook Variants" section in
+CLAUDE.md.
 
 ### The Quote Duel
 

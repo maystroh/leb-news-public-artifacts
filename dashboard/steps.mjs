@@ -38,6 +38,8 @@ export function getSteps(ctx) {
   const mutedMp4 = path.join(ctx.output, 'radar-beirut-briefing.mp4');
   const htmlFiles = [
     'radar-beirut-briefing.html',
+    'radar-beirut-briefing-hook-captions.html',
+    'radar-beirut-briefing-hook-stamps.html',
     'radar-beirut-quote-duel.html',
     'radar-beirut-fault-line-map.html',
     'radar-beirut-keyword-radar.html'
@@ -224,7 +226,7 @@ export function getSteps(ctx) {
       id: 'first-build',
       title: '6. Build first draft outputs',
       description:
-        'Merges daily sources into output/ (briefing.json, timing-config.json, all four HTMLs) and moves stale closing audio aside if the scene-11 text changed.',
+        'Merges daily sources into output/ (briefing.json, timing-config.json, the four format HTMLs plus the captions/stamps hook variants) and moves stale closing audio aside if the scene-11 text changed.',
       kind: 'run',
       actions: [
         {
@@ -338,7 +340,7 @@ export function getSteps(ctx) {
       id: 'html-review',
       title: '9. Review HTML outputs (manual)',
       description:
-        'Open the four generated HTMLs and check intro timing, tickers, date pill, overflow, screenshots, audio coverage. Mark reviewed when satisfied.',
+        'Open the generated HTMLs (four formats + captions/stamps hook variants) and check intro timing, tickers, date pill, overflow, screenshots, audio coverage. Mark reviewed when satisfied.',
       kind: 'manual',
       actions: [],
       artifacts: () => htmlFiles.map((name) => ({label: name, file: path.join(ctx.output, name), open: true})),
@@ -413,20 +415,40 @@ export function getSteps(ctx) {
       id: 'server-render',
       title: '12. Render muted MP4 on server',
       description:
-        'Runs the muted Remotion render on the render server over ssh. Long-running (~minutes); frames are ~99% of the time.',
+        'Pulls the latest repo on the render server, then runs the muted Remotion render over ssh once per selected variant (normal, hook-captions, hook-stamps). Long-running (~minutes per variant); frames are ~99% of the time.',
       kind: 'run',
       actions: [
         {
           id: 'run',
           label: 'Render on server (muted)',
-          commands: () => [
-            {
-              cmd: 'ssh',
-              args: sshArgs(
-                `cd ${REMOTE_ROOT} && npm run briefing:render:mp4 -- --folder briefings/${ctx.date} --muted --log warn`
-              )
-            }
-          ]
+          options: {
+            id: 'variants',
+            label: 'Variants to render',
+            type: 'multi',
+            choices: [
+              {value: 'default', label: 'Normal briefing'},
+              {value: 'captions', label: 'Hook: karaoke captions'},
+              {value: 'stamps', label: 'Hook: quote stamps + chips'}
+            ],
+            defaultSelected: ['default']
+          },
+          commands: (options) => {
+            const allowed = ['default', 'captions', 'stamps'];
+            const requested = Array.isArray(options?.variants) ? options.variants : [];
+            const variants = allowed.filter((variant) => requested.includes(variant));
+            if (!variants.length) variants.push('default');
+            return [
+              {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin`)},
+              ...variants.map((variant) => ({
+                cmd: 'ssh',
+                args: sshArgs(
+                  `cd ${REMOTE_ROOT} && npm run briefing:render:mp4 -- --folder briefings/${ctx.date} --muted` +
+                    (variant === 'default' ? '' : ` --variant ${variant}`) +
+                    ' --log warn'
+                )
+              }))
+            ];
+          }
         }
       ],
       artifacts: () => [],
@@ -441,15 +463,26 @@ export function getSteps(ctx) {
     {
       id: 'server-mux',
       title: '13. Mux narration audio on server',
-      description: 'Attaches narration WAVs to the muted render on the server (video stream copied, finishes in seconds).',
+      description:
+        'Attaches narration WAVs to the muted render(s) on the server (video stream copied, finishes in seconds). Hook-variant renders found on the server are muxed too.',
       kind: 'run',
       actions: [
         {
           id: 'run',
           label: 'Mux on server',
-          commands: () => [
-            {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && npm run briefing:mux:audio -- --folder briefings/${ctx.date}`)}
-          ]
+          commands: () => {
+            const outputBase = `briefings/${ctx.date}/output/radar-beirut-briefing`;
+            const muxScript =
+              `cd ${REMOTE_ROOT} && status=0; found=0; ` +
+              `if [ -f "${outputBase}.mp4" ]; then found=1; npm run briefing:mux:audio -- --folder briefings/${ctx.date} || status=1; fi; ` +
+              'for variant in hook-captions hook-stamps; do ' +
+              `file="${outputBase}-$variant.mp4"; ` +
+              `if [ -f "$file" ]; then found=1; npm run briefing:mux:audio -- --folder briefings/${ctx.date} --input "$file" || status=1; fi; ` +
+              'done; ' +
+              'if [ "$found" = 0 ]; then echo "No muted renders found on the server — run step 12 first."; status=1; fi; ' +
+              'exit $status';
+            return [{cmd: 'ssh', args: sshArgs(muxScript)}];
+          }
         },
         {
           id: 'local',
@@ -467,12 +500,12 @@ export function getSteps(ctx) {
     {
       id: 'download-final',
       title: '14. Download final MP4 from server',
-      description: 'rsync of the muxed radar-beirut-briefing-final.mp4 back into the local output folder.',
+      description: 'rsync of the muxed *-final.mp4 files (normal + any hook variants) back into the local output folder.',
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Download final MP4',
+          label: 'Download final MP4s',
           commands: () => [
             {
               cmd: 'rsync',
@@ -480,14 +513,28 @@ export function getSteps(ctx) {
                 '-av',
                 '-e',
                 `ssh -p ${SSH_PORT}`,
-                `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/output/radar-beirut-briefing-final.mp4`,
+                `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/output/radar-beirut-briefing*-final.mp4`,
                 `${out}/`
               ]
             }
           ]
         }
       ],
-      artifacts: () => [{label: 'radar-beirut-briefing-final.mp4', file: finalMp4, open: true}],
+      artifacts: () => [
+        {label: 'radar-beirut-briefing-final.mp4', file: finalMp4, open: true},
+        {
+          label: 'radar-beirut-briefing-hook-captions-final.mp4',
+          file: path.join(ctx.output, 'radar-beirut-briefing-hook-captions-final.mp4'),
+          open: true,
+          optional: true
+        },
+        {
+          label: 'radar-beirut-briefing-hook-stamps-final.mp4',
+          file: path.join(ctx.output, 'radar-beirut-briefing-hook-stamps-final.mp4'),
+          open: true,
+          optional: true
+        }
+      ],
       status: () => {
         if (!exists(finalMp4)) return {status: 'pending', detail: 'Final MP4 not downloaded yet.'};
         if (mtimeMs(path.join(ctx.output, 'briefing.json')) > mtimeMs(finalMp4)) {

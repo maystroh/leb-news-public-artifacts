@@ -117,7 +117,7 @@ function computeState(date) {
       title: step.title,
       description: step.description,
       kind: step.kind,
-      actions: step.actions.map(({id, label}) => ({id, label})),
+      actions: step.actions.map(({id, label, options}) => ({id, label, options: options || null})),
       status: status.status,
       statusDetail: status.detail || '',
       artifacts,
@@ -163,7 +163,8 @@ app.post('/api/run', (req, res) => {
   const action = step.actions.find((item) => item.id === actionId) || step.actions[0];
   if (!action) return res.status(400).json({error: `Step ${stepId} has no runnable actions.`});
   try {
-    const run = runner.start({date, stepId: step.id, actionId: action.id, commands: action.commands()});
+    const options = req.body?.options && typeof req.body.options === 'object' ? req.body.options : {};
+    const run = runner.start({date, stepId: step.id, actionId: action.id, commands: action.commands(options)});
     res.json({runId: run.id, stepId: step.id, actionId: action.id});
   } catch (error) {
     res.status(409).json({error: error.message});

@@ -65,12 +65,12 @@ export default function App() {
     return () => es.close();
   }, [date, refresh]);
 
-  const runStep = async (stepId, actionId) => {
+  const runStep = async (stepId, actionId, options) => {
     try {
       await api('/api/run', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({date, stepId, actionId})
+        body: JSON.stringify({date, stepId, actionId, ...(options ? {options} : {})})
       });
     } catch (err) {
       setError(err.message);
@@ -162,7 +162,7 @@ export default function App() {
                 log={logs[step.id] || step.lastRun?.logTail || []}
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
-                onRun={(actionId) => runStep(step.id, actionId)}
+                onRun={(actionId, options) => runStep(step.id, actionId, options)}
                 onReview={step.id === 'html-review' ? setReviewed : null}
               />
             ))}

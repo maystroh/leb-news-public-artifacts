@@ -17,6 +17,7 @@ function formatMtime(mtimeMs) {
 
 export default function StepCard({step, log, busy, running, onRun, onReview}) {
   const [showLog, setShowLog] = useState(false);
+  const [optionSelections, setOptionSelections] = useState({});
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -28,6 +29,20 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
   }, [log, showLog]);
 
   const hasLog = log && log.length > 0;
+
+  const selectedFor = (action) =>
+    optionSelections[action.id] ?? action.options?.defaultSelected ?? [];
+
+  const toggleOption = (action, value) => {
+    const current = selectedFor(action);
+    const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+    setOptionSelections((prev) => ({...prev, [action.id]: next}));
+  };
+
+  const runAction = (action) => {
+    if (!action.options) return onRun(action.id);
+    onRun(action.id, {[action.options.id]: selectedFor(action)});
+  };
 
   return (
     <div className={`card status-${step.status}`}>
@@ -56,13 +71,30 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
         </ul>
       )}
 
+      {step.actions.filter((action) => action.options).map((action) => (
+        <div key={`${action.id}-options`} className="action-options">
+          <span className="action-options-label">{action.options.label}:</span>
+          {action.options.choices.map((choice) => (
+            <label key={choice.value} className="action-option">
+              <input
+                type="checkbox"
+                checked={selectedFor(action).includes(choice.value)}
+                disabled={busy}
+                onChange={() => toggleOption(action, choice.value)}
+              />
+              {choice.label}
+            </label>
+          ))}
+        </div>
+      ))}
+
       <div className="card-actions">
         {step.actions.map((action, index) => (
           <button
             key={action.id}
             className={index === 0 ? 'btn primary' : 'btn'}
-            disabled={busy}
-            onClick={() => onRun(action.id)}
+            disabled={busy || (action.options && selectedFor(action).length === 0)}
+            onClick={() => runAction(action)}
           >
             {running && index === 0 ? 'Running…' : action.label}
           </button>

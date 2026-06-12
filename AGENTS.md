@@ -94,6 +94,17 @@ The goal is to preserve the current visual decisions so future edits do not acci
 - `before_formatting_output/radar-beirut-intro.html` remains only as an older intro reference.
 - `templates/radar-beirut-briefing-template.html` is the active shared full-editorial HTML template used by the builder.
 - `templates/radar-beirut-quote-duel-template.html` is the active shared quote-duel HTML template used by the builder.
+- `scripts/build-full-editorial-html.mjs` currently emits the default full-editorial HTML plus two HTML-only social-attention hook variants:
+  - `radar-beirut-briefing.html`
+  - `radar-beirut-briefing-hook-captions.html`
+  - `radar-beirut-briefing-hook-stamps.html`
+- The full-editorial hook variants are A/B experiments; Remotion mirrors the `captions` and `stamps` hooks via `briefing:render:mp4 --variant captions|stamps` (hook overlays in `src/ProductionBriefingVideo.jsx` must stay in lockstep with the template's HOOKS timings).
+- Full-editorial hooks must stay behind the shared template's `HOOK_VARIANT` / `HOOKS` flags; do not fork the briefing template per hook.
+- Emitted hook variants should preserve the same total video duration as the default full-editorial HTML.
+- The `captions` hook shows karaoke-style narration captions synced across the scene duration.
+- The `stamps` hook shows a mid-scene quote stamp plus keyword chips from `output/keyword-radar.json`.
+- The shared template still contains `coldopen`, `choreography`, and `all` hook support, but those variants are not currently emitted by the builder after review.
+- To re-enable `coldopen` or `choreography` outputs later, add them back to `HOOK_VARIANTS` in `scripts/build-full-editorial-html.mjs` and update dashboard review artifacts accordingly.
 - `scripts/build-fault-line-map-html.mjs` directly generates the Fault Line Map HTML output.
 - `scripts/build-keyword-radar-html.mjs` directly generates The Keyword Radar HTML output.
 - The `full editorial content` scene phase currently uses a single main card layout with the centered date pill and no secondary lanes panel.
@@ -541,6 +552,19 @@ Quote Duel rule of thumb:
 - Existing outlet WAV files are reused by default and should not be regenerated unless `--force` is explicitly used.
 - Use `--existing-only` to refresh `audio/manifest.json` from files already present without calling Hamsa for missing outlets.
 - Use `--first` only for one-audio smoke tests; do not leave a full-date manifest limited to one scene unless intentionally testing.
+- Per-scene narration text overrides live in:
+  - `briefings/YYYY-MM-DD/audio/text-overrides.json`
+- The dashboard scene narration panel should show the exact Hamsa text as soon as `output/briefing.json` exists, before WAV generation.
+- Dashboard text edits should save into `audio/text-overrides.json` and survive later rebuilds.
+- Saving dashboard text does not regenerate audio by itself; it only changes the text source Hamsa will use next.
+- If saved text differs from the text recorded in the existing WAV manifest, the dashboard should flag that scene as stale / WAV outdated.
+- Dashboard single-scene regeneration should:
+  - move the old WAV aside
+  - run `npm run audio:outlets -- --folder briefings/YYYY-MM-DD`
+  - regenerate only the missing moved-aside scene because other WAVs are reused
+  - run `scripts/sync-outlet-audio-timing.mjs`
+  - rebuild folder outputs
+  - report whether the new WAV is longer, same length, or shorter so the user knows whether a re-render or only a re-mux is needed
 - The default Hamsa voice is `Lamees`, Lebanese dialect `leb`, with realtime TTS endpoint:
   - `https://api.tryhamsa.com/v1/realtime/tts`
 - Hamsa auth uses:
@@ -794,7 +818,8 @@ Keyword Radar rule of thumb:
   - write the target editable analysis JSON files into that same briefing folder
   - keep generated `output/timing-config.json` so scene durations can be adjusted manually after generation
   - write the Codex AFK prompt into `output/codex-briefing-prompt.md`
-  - after Codex fills the JSON files, the folder build command should generate the 4 standalone HTML outputs inside `output/`
+  - after Codex fills the JSON files, the folder build command should generate the 4 core standalone HTML format outputs inside `output/`
+  - full-editorial HTML review should also include the currently emitted captions/stamps hook variants
 - The Codex handoff pack currently writes:
   - `output/codex-briefing-prompt.md`
   - `visual-script.json`
@@ -808,6 +833,8 @@ Keyword Radar rule of thumb:
   - `output/fault-line-map.json`
   - `output/keyword-radar.json`
   - `output/radar-beirut-briefing.html`
+  - `output/radar-beirut-briefing-hook-captions.html`
+  - `output/radar-beirut-briefing-hook-stamps.html`
   - `output/radar-beirut-quote-duel.html`
   - `output/radar-beirut-fault-line-map.html`
   - `output/radar-beirut-keyword-radar.html`
@@ -854,7 +881,15 @@ Keyword Radar rule of thumb:
   - outro question WAV
 - If `scene-11.audioText` changed but an old `scene-11` WAV still exists, the guided workflow should move the stale WAV aside before Hamsa generation so it does not reuse audio from old summary narration.
 - After Step 5, HTML review is the verification gate before MP4 generation.
-- The guided workflow should ask the user to review all generated HTML outputs before rendering MP4.
+- HTML review should include the four core generated format outputs plus the currently emitted full-editorial hook variants:
+  - `radar-beirut-briefing.html`
+  - `radar-beirut-briefing-hook-captions.html`
+  - `radar-beirut-briefing-hook-stamps.html`
+  - `radar-beirut-quote-duel.html`
+  - `radar-beirut-fault-line-map.html`
+  - `radar-beirut-keyword-radar.html`
+- The guided workflow and dashboard should ask the user to review these generated HTML outputs before rendering MP4.
+- The dashboard server render step should pull the latest repo on the render server before starting the muted Remotion render.
 - After the final HTML rebuild, the guided workflow should ask the user to run the Windows render command from PowerShell or Command Prompt:
   - `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolutions 540x960 --log warn`
 - The guided workflow should keep asking the user to run/finish that Windows render until it finds:

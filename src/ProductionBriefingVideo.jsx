@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   AbsoluteFill,
   Audio,
@@ -95,6 +95,244 @@ const getSceneExcerpt = (scene) => {
   const sentences = normalized.split(/(?<=[.؟!]|[.!?])\s+/).filter(Boolean);
   const excerpt = sentences.slice(0, 2).join(' ').trim();
   return excerpt.length <= 260 ? excerpt : `${excerpt.slice(0, 257).trim()}...`;
+};
+
+// ── Hook variants ──────────────────────────────────────────────────────────
+// Mirrors the HOOKS logic in templates/radar-beirut-briefing-template.html:
+// timings, thresholds and styles below must stay in lockstep with the HTML
+// captions/stamps implementations so the MP4 matches the HTML variant.
+
+const buildCaptionPhrases = (text) => {
+  const normalized = (text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+
+  const sentences = normalized.split(/(?<=[.؟!?])\s+/).filter(Boolean);
+  const phrases = [];
+  for (const sentence of sentences) {
+    const segments = sentence.split(/(?<=[،;:])\s+/).filter(Boolean);
+    for (const segment of segments) {
+      const words = segment.split(' ').filter(Boolean);
+      for (let i = 0; i < words.length; i += 6) {
+        phrases.push(words.slice(i, i + 6));
+      }
+    }
+  }
+  return phrases;
+};
+
+const buildCaptionSchedule = (scene, sceneDurationMs) => {
+  const text = scene.audioText || scene.body || scene.visual?.summary || '';
+  const phrases = buildCaptionPhrases(text);
+  if (!phrases.length) return null;
+
+  const narrationMs = scene.audio?.durationSeconds
+    ? scene.audio.durationSeconds * 1000
+    : Math.max(2000, sceneDurationMs - 500);
+  const totalChars = phrases.reduce((sum, words) => sum + words.join(' ').length + 1, 0);
+
+  let cursorMs = 180;
+  const schedule = phrases.map((words) => {
+    const phraseChars = words.join(' ').length + 1;
+    const phraseMs = (phraseChars / totalChars) * narrationMs;
+    const entry = {words, startMs: cursorMs, durationMs: phraseMs};
+    cursorMs += phraseMs;
+    return entry;
+  });
+
+  return {schedule, hideMs: Math.min(cursorMs + 600, sceneDurationMs - 200)};
+};
+
+const HookCaptions = ({scene, durationInFrames}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const sceneDurationMs = (durationInFrames / fps) * 1000;
+  const elapsedMs = (frame / fps) * 1000;
+  const plan = useMemo(() => buildCaptionSchedule(scene, sceneDurationMs), [scene, sceneDurationMs]);
+  if (!plan || elapsedMs >= plan.hideMs) return null;
+
+  let current = null;
+  for (const entry of plan.schedule) {
+    if (elapsedMs >= entry.startMs) current = entry;
+    else break;
+  }
+  const perWordMs = current ? current.durationMs / current.words.length : 0;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 5,
+        padding: '30px 14px 12px',
+        background: 'linear-gradient(0deg, rgba(2,8,13,0.94) 0%, rgba(2,8,13,0.8) 58%, transparent 100%)',
+        textAlign: 'center',
+        fontSize: 16,
+        lineHeight: 1.85,
+        fontWeight: 500,
+        minHeight: 66,
+        direction: 'rtl'
+      }}
+    >
+      {current
+        ? current.words.map((word, wordIndex) => {
+          const onMs = current.startMs + wordIndex * perWordMs * 0.86;
+          const on = clamp01((elapsedMs - onMs) / 180);
+          return (
+            <React.Fragment key={`${current.startMs}-${wordIndex}`}>
+              <span
+                style={{
+                  color: `rgba(244,239,229,${0.34 + 0.66 * on})`,
+                  textShadow: on > 0 ? `0 0 14px rgba(205,127,50,${0.45 * on})` : 'none'
+                }}
+              >
+                {word}
+              </span>
+              {wordIndex < current.words.length - 1 ? ' ' : null}
+            </React.Fragment>
+          );
+        })
+        : null}
+    </div>
+  );
+};
+
+const stampTimingFor = (sceneDurationMs) => ({
+  inMs: Math.max(4200, Math.round(sceneDurationMs * 0.46)),
+  holdMs: Math.max(3600, Math.min(6500, Math.round(sceneDurationMs * 0.2)))
+});
+
+const HookStamp = ({quote, durationInFrames}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const sceneDurationMs = (durationInFrames / fps) * 1000;
+  const elapsedMs = (frame / fps) * 1000;
+  if (!quote || sceneDurationMs <= 12000) return null;
+
+  const {inMs, holdMs} = stampTimingFor(sceneDurationMs);
+  const outStartMs = inMs + holdMs;
+  if (elapsedMs < inMs || elapsedMs >= outStartMs + 460) return null;
+
+  const enterMs = elapsedMs - inMs;
+  const scale = interpolate(enterMs, [0, 276, 460], [1.45, 0.97, 1], {extrapolateRight: 'clamp'});
+  const rotate = interpolate(enterMs, [0, 276, 460], [1.5, -0.6, 0], {extrapolateRight: 'clamp'});
+  const enterOpacity = interpolate(enterMs, [0, 276], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const exitOpacity = elapsedMs > outStartMs ? Math.max(0, 1 - (elapsedMs - outStartMs) / 420) : 1;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 6,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 18,
+        direction: 'rtl'
+      }}
+    >
+      <div
+        style={{
+          border: '2px solid rgba(205,127,50,0.92)',
+          borderRadius: 10,
+          background: 'rgba(3,9,14,0.86)',
+          boxShadow: '0 18px 44px rgba(0,0,0,0.5), inset 0 0 22px rgba(205,127,50,0.14)',
+          padding: '14px 18px',
+          textAlign: 'center',
+          fontSize: 18,
+          lineHeight: 1.65,
+          fontWeight: 700,
+          color: '#f4efe5',
+          maxWidth: '100%',
+          opacity: enterOpacity * exitOpacity,
+          transform: `scale(${scale}) rotate(${rotate}deg)`
+        }}
+      >
+        {`«${quote}»`}
+      </div>
+    </div>
+  );
+};
+
+// Approximates the HTML chip pop-in bezier(.2,.9,.25,1.2) — eases out with a
+// slight overshoot past the resting position.
+const chipEase = (t) => {
+  const x = clamp01(t) - 1;
+  return 1 + 1.8 * x * x * x + 0.8 * x * x;
+};
+
+const HookChips = ({terms, durationInFrames}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const sceneDurationMs = (durationInFrames / fps) * 1000;
+  const elapsedMs = (frame / fps) * 1000;
+  const shownTerms = (terms || []).slice(0, 4);
+  if (!shownTerms.length || elapsedMs >= sceneDurationMs * 0.94) return null;
+
+  const windowStartMs = Math.round(sceneDurationMs * 0.16);
+  const windowEndMs = Math.round(sceneDurationMs * 0.82);
+  const stepMs = shownTerms.length > 1 ? (windowEndMs - windowStartMs) / (shownTerms.length - 1) : 0;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 10,
+        right: 10,
+        bottom: 10,
+        zIndex: 6,
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6,
+        justifyContent: 'center',
+        direction: 'rtl'
+      }}
+    >
+      {shownTerms.map((term, termIndex) => {
+        const startMs = windowStartMs + termIndex * stepMs;
+        if (elapsedMs < startMs) return null;
+        const progress = clamp01((elapsedMs - startMs) / 420);
+        const eased = chipEase(progress);
+        const text = typeof term === 'string' ? term : term.text;
+        return (
+          <span
+            key={`${text}-${termIndex}`}
+            style={{
+              border: '1px solid rgba(103,191,216,0.6)',
+              background: 'rgba(4,13,21,0.88)',
+              color: '#67bfd8',
+              borderRadius: 999,
+              padding: '4px 12px',
+              fontSize: 12,
+              fontWeight: 500,
+              opacity: progress,
+              transform: `translateY(${10 * (1 - eased)}px) scale(${0.92 + 0.08 * eased})`
+            }}
+          >
+            {text}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+const SceneHookOverlays = ({hooks, scene, durationInFrames}) => {
+  const variant = hooks?.variant;
+  if (!variant || variant === 'default') return null;
+
+  return (
+    <>
+      {variant === 'captions' ? <HookCaptions scene={scene} durationInFrames={durationInFrames} /> : null}
+      {variant === 'stamps' ? (
+        <>
+          <HookStamp quote={(scene.visual?.quote || '').trim()} durationInFrames={durationInFrames} />
+          <HookChips terms={hooks?.keywordsBySceneId?.[scene.id]} durationInFrames={durationInFrames} />
+        </>
+      ) : null}
+    </>
+  );
 };
 
 const FontFaces = () => (
@@ -484,7 +722,7 @@ const useImageNaturalSize = (src) => {
   return size;
 };
 
-const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
+const SceneMediaDetail = ({media, scene, durationInFrames, stageFont, hooks}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const items = media?.items || [];
@@ -519,26 +757,32 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
     overflow: 'hidden'
   };
 
+  const hookOverlays = <SceneHookOverlays hooks={hooks} scene={scene} durationInFrames={durationInFrames} />;
+
   if (!items.length) {
     return (
       <div style={detailStyle}>
-        <div
-          style={{
-            height: '100%',
-            display: 'grid',
-            alignContent: 'center',
-            gap: 12,
-            padding: '18px 18px 20px',
-            color: 'rgba(235,239,244,0.94)',
-            fontSize: 14,
-            lineHeight: 1.95,
-            fontFamily: stageFont,
-            direction: 'rtl',
-            textAlign: 'right'
-          }}
-        >
-          <div>{getSceneExcerpt(scene)}</div>
-        </div>
+        {/* The captions variant hides the text fallback — the karaoke strip carries the words. */}
+        {hooks?.variant === 'captions' ? null : (
+          <div
+            style={{
+              height: '100%',
+              display: 'grid',
+              alignContent: 'center',
+              gap: 12,
+              padding: '18px 18px 20px',
+              color: 'rgba(235,239,244,0.94)',
+              fontSize: 14,
+              lineHeight: 1.95,
+              fontFamily: stageFont,
+              direction: 'rtl',
+              textAlign: 'right'
+            }}
+          >
+            <div>{getSceneExcerpt(scene)}</div>
+          </div>
+        )}
+        {hookOverlays}
       </div>
     );
   }
@@ -584,6 +828,7 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
             }}
           />
         </div>
+        {hookOverlays}
       </div>
     );
   }
@@ -625,11 +870,12 @@ const SceneMediaDetail = ({media, scene, durationInFrames, stageFont}) => {
           filter: fadeOpacity < 0.4 ? 'blur(8px)' : 'none'
         }}
       />
+      {hookOverlays}
     </div>
   );
 };
 
-const SceneCard = ({scene, dateLabel, assets}) => {
+const SceneCard = ({scene, dateLabel, assets, hooks}) => {
   const frame = useCurrentFrame();
   const {fps, width, height, durationInFrames} = useVideoConfig();
   const fadeOut = interpolate(frame, [durationInFrames - 18, durationInFrames], [1, 0], {
@@ -686,6 +932,20 @@ const SceneCard = ({scene, dateLabel, assets}) => {
       <div style={{position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: 'rgba(205,127,50,0.9)', boxShadow: '0 0 8px rgba(205,127,50,0.82)'}} />
     </div>
   );
+
+  // Stamps variant: the HTML fires a 0.22-opacity white flash when the quote
+  // stamp slams in. The stamp itself only shows when the scene has a quote
+  // and runs longer than 12s, so the flash is gated the same way.
+  let stampFlashOpacity = 0;
+  if (hooks?.variant === 'stamps' && (scene.visual?.quote || '').trim() && (durationInFrames / fps) * 1000 > 12000) {
+    const stampInMs = stampTimingFor((durationInFrames / fps) * 1000).inMs;
+    if (elapsedMs >= stampInMs) {
+      stampFlashOpacity = interpolate(elapsedMs, [stampInMs, stampInMs + 320], [0.22, 0], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp'
+      });
+    }
+  }
 
   return (
     <AbsoluteFill
@@ -753,6 +1013,9 @@ const SceneCard = ({scene, dateLabel, assets}) => {
           }}
         />
         <div style={{position: 'absolute', inset: 0, background: 'radial-gradient(circle at center, transparent 28%, rgba(0,0,0,0.6) 100%)'}} />
+        {stampFlashOpacity > 0 ? (
+          <div style={{position: 'absolute', inset: 0, background: '#fff', opacity: stampFlashOpacity, zIndex: 6}} />
+        ) : null}
         {[0, 1, 2].map((index) => {
           const cycleMs = ((elapsedMs - index * 700) % 2400 + 2400) % 2400;
           const progress = cycleMs / 2400;
@@ -912,7 +1175,7 @@ const SceneCard = ({scene, dateLabel, assets}) => {
             >
               {summary}
             </div>
-            <SceneMediaDetail media={media} scene={scene} durationInFrames={durationInFrames} stageFont={stageFont} />
+            <SceneMediaDetail media={media} scene={scene} durationInFrames={durationInFrames} stageFont={stageFont} hooks={hooks} />
           </section>
         </div>
       </div>
@@ -1116,7 +1379,7 @@ const OutroCard = ({outro, assets}) => {
   );
 };
 
-export const ProductionBriefingVideo = ({briefing, assets = {}}) => {
+export const ProductionBriefingVideo = ({briefing, assets = {}, hooks = {}}) => {
   const {fps} = useVideoConfig();
   const introFrames = fpsFromSeconds(briefing.intro.durationSeconds, fps);
   const outroFrames = fpsFromSeconds(briefing.outro.durationSeconds, fps);
@@ -1141,7 +1404,7 @@ export const ProductionBriefingVideo = ({briefing, assets = {}}) => {
       {sceneSequences.map(({scene, from, durationInFrames}) => (
         <Sequence key={scene.id} from={from} durationInFrames={durationInFrames}>
           {scene.audio?.src ? <Audio src={assetSrc(scene.audio.src)} /> : null}
-          <SceneCard scene={scene} dateLabel={briefing.meta.dateLabel} assets={assets} />
+          <SceneCard scene={scene} dateLabel={briefing.meta.dateLabel} assets={assets} hooks={hooks} />
         </Sequence>
       ))}
       <Sequence from={cursor} durationInFrames={outroFrames}>

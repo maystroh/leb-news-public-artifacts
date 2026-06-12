@@ -70,6 +70,16 @@ try {
   process.exit(1);
 }
 
+// Hook variants mirror the HTML A/B builds: same briefing and duration, one
+// attention hook enabled in the Remotion composition per render.
+const SUPPORTED_HOOK_VARIANTS = new Set(['captions', 'stamps']);
+const hookVariant = args.variant ? String(args.variant).trim().toLowerCase() : 'default';
+if (hookVariant !== 'default' && !SUPPORTED_HOOK_VARIANTS.has(hookVariant)) {
+  console.error(`Unknown --variant "${args.variant}". Use one of: default, ${[...SUPPORTED_HOOK_VARIANTS].join(', ')}.`);
+  process.exit(1);
+}
+const variantSuffix = hookVariant === 'default' ? '' : `-hook-${hookVariant}`;
+
 if (args.output && renderResolutions.length > 1) {
   console.error('Cannot use --output with --resolutions because multiple files will be rendered.');
   process.exit(1);
@@ -94,9 +104,9 @@ const fontFiles = ['Dubai-Regular.ttf', 'Dubai-Medium.ttf', 'Dubai-Bold.ttf'];
 const getOutputPath = (resolution) => {
   if (args.output) return path.resolve(cwd, args.output);
   if (resolution.width && resolution.height && !resolution.isDefault) {
-    return path.join(outputFolder, `radar-beirut-briefing-${resolution.width}x${resolution.height}.mp4`);
+    return path.join(outputFolder, `radar-beirut-briefing${variantSuffix}-${resolution.width}x${resolution.height}.mp4`);
   }
-  return path.join(outputFolder, 'radar-beirut-briefing.mp4');
+  return path.join(outputFolder, `radar-beirut-briefing${variantSuffix}.mp4`);
 };
 
 if (!fs.existsSync(briefingDataPath)) {
@@ -247,6 +257,31 @@ const mediaBySceneId = Object.fromEntries(
     .filter(([, media]) => media)
 );
 
+// Same sceneId → terms mapping the HTML builder injects for the stamps hook.
+const collectKeywordsBySceneId = () => {
+  const keywordsPath = path.join(outputFolder, 'keyword-radar.json');
+  if (!fs.existsSync(keywordsPath)) {
+    if (hookVariant === 'stamps') {
+      warnings.push(`Missing ${path.relative(cwd, keywordsPath)} — stamps variant renders without keyword chips.`);
+    }
+    return {};
+  }
+  try {
+    const keywordData = readJson(keywordsPath);
+    const mapping = {};
+    for (const entry of keywordData.entries ?? []) {
+      if (!entry.sceneId || !Array.isArray(entry.terms)) continue;
+      mapping[entry.sceneId] = entry.terms
+        .filter((term) => term && term.text)
+        .map((term) => ({text: term.text, weight: term.weight ?? 0.5}));
+    }
+    return mapping;
+  } catch (error) {
+    warnings.push(`Could not parse ${path.relative(cwd, keywordsPath)}: ${error.message}`);
+    return {};
+  }
+};
+
 const props = {
   briefing: briefingForRender,
   assets: {
@@ -254,6 +289,10 @@ const props = {
     frontPageSrc: copyAsset(frontPagePath, `background/${path.basename(frontPagePath)}`),
     mediaByOutletKey: detectOutletMedia(),
     mediaBySceneId
+  },
+  hooks: {
+    variant: hookVariant,
+    keywordsBySceneId: hookVariant === 'stamps' ? collectKeywordsBySceneId() : {}
   }
 };
 
@@ -337,7 +376,8 @@ for (const resolution of renderResolutions) {
     remotionArgs.push(`--x264-preset=${args['x264-preset']}`);
   }
 
-  console.log(`Rendering production briefing MP4 (${resolutionLabel} @ 30fps): ${path.relative(cwd, outputPath)}`);
+  const variantLabel = hookVariant === 'default' ? '' : `, hook: ${hookVariant}`;
+  console.log(`Rendering production briefing MP4 (${resolutionLabel} @ 30fps${variantLabel}): ${path.relative(cwd, outputPath)}`);
   const result = spawnSync(process.execPath, remotionArgs, {
     cwd,
     env: {

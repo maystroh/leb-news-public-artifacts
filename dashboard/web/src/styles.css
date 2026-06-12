@@ -236,6 +236,33 @@ select {
   flex-wrap: wrap;
 }
 
+.action-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.action-options-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.action-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.action-option input {
+  accent-color: #cd7f32;
+  cursor: pointer;
+}
+
 .btn {
   background: #21262d;
   color: var(--text);
