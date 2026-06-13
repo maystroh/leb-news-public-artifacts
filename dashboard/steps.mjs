@@ -1,15 +1,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {ANALYSIS_FILES, SSH_HOST, SSH_PORT, REMOTE_ROOT} from './config.mjs';
+import {
+  ANALYSIS_FILES,
+  SSH_HOST,
+  SSH_PORT,
+  REMOTE_ROOT,
+  DATA_SERVER_HOST,
+  DATA_SERVER_ROOT,
+  DATA_SSH_E,
+  remoteBriefingsDir
+} from './config.mjs';
 import {
   assetsReport,
+  countParagraphs,
   exists,
   mtimeMs,
   findSummaryImagePrompt,
   moveStaleClosingAudioIfNeeded,
   outputDurationSummaryLines,
-  readJsonSafe
+  readJsonSafe,
+  uniqueOutletImageKeys
 } from './lib/checks.mjs';
+import {loadState, saveState} from './lib/state.mjs';
 import {audioEntries} from './audio.mjs';
 
 const npmRun = (script, ...extra) => ({cmd: 'npm', args: ['run', script, '--', ...extra]});
@@ -31,7 +43,144 @@ const staleIfBriefingNewer = (ctx, base, finishedAtMs) => {
 
 const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepState.finishedAt) : 0);
 
-export function getSteps(ctx) {
+// A date is "remote-sync" (created from the dashboard, fed by the data server)
+// only when its state was stamped by POST /api/create-date.
+export const isRemoteSyncDate = (state) => state?.remoteSync?.source === 'remote-sync';
+
+const correctedBriefingPath = (ctx) => path.join(ctx.folder, `briefing_${ctx.date}_corrected.txt`);
+
+// Readiness for unlocking later steps: the source briefing text plus at least one
+// image per outlet (unique outlet image keys >= paragraphs - 3). Mirrors the asset
+// math in assetsReport but does not require the corrected file (that is step 00).
+function remotePullReady(ctx) {
+  const source = path.join(ctx.folder, `briefing_${ctx.date}.txt`);
+  if (!exists(source)) {
+    return {ready: false, detail: `Missing ${path.basename(source)} — remote folder not filled yet.`};
+  }
+  const paragraphs = countParagraphs(source);
+  if (paragraphs === 0) return {ready: false, detail: 'Briefing text is empty — remote folder not filled yet.'};
+  const required = paragraphs > 3 ? paragraphs - 3 : 0;
+  const keys = uniqueOutletImageKeys(ctx.folder);
+  if (keys.length < required) {
+    return {ready: false, detail: `Only ${keys.length}/${required} outlet image keys present — waiting for more screenshots.`};
+  }
+  return {ready: true, detail: `${paragraphs} paragraphs, ${keys.length} outlet image keys.`};
+}
+
+function buildRemoteSyncSteps(ctx) {
+  const folder = ctx.folderRel;
+  const remoteDir = remoteBriefingsDir(ctx.date);
+  return [
+    {
+      id: 'remote-pull',
+      title: '0. Sync briefing from data server',
+      description:
+        `rsync of ${DATA_SERVER_HOST}:${remoteDir}/ → ${folder}/. ` +
+        `Fails if the server has not produced ${DATA_SERVER_ROOT}/${ctx.date}/briefings yet — re-run the sync once it exists.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Sync from server',
+          commands: () => [
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', DATA_SSH_E, `${DATA_SERVER_HOST}:${remoteDir}/`, `${ctx.folder}/`]
+            },
+            {
+              label: 'Readiness check',
+              fn: async (emit) => {
+                const report = remotePullReady(ctx);
+                const state = loadState(ctx);
+                state.remoteSync = {
+                  ...(state.remoteSync || {}),
+                  lastPullAt: new Date().toISOString(),
+                  ready: report.ready,
+                  readyDetail: report.detail
+                };
+                saveState(ctx, state);
+                if (report.ready) {
+                  emit(`Remote folder is ready: ${report.detail}`);
+                } else {
+                  emit(`Remote folder not fully filled: ${report.detail}`);
+                  emit('Later steps stay locked. Re-sync once the briefing text and one image per outlet are present.');
+                }
+              }
+            }
+          ]
+        }
+      ],
+      artifacts: () => [{label: 'Source briefing', file: path.join(ctx.folder, `briefing_${ctx.date}.txt`)}],
+      status: (stepState, state) => {
+        const rs = state?.remoteSync;
+        if (stepState?.status === 'failed') {
+          return {
+            status: 'failed',
+            detail: `Last sync failed (exit ${stepState.exitCode ?? '?'}) — the server folder may not exist yet. Re-run when it does.`
+          };
+        }
+        if (!rs?.lastPullAt) return {status: 'pending', detail: 'Not synced yet.'};
+        if (rs.ready) return {status: 'done', detail: `Synced ${rs.lastPullAt} — ${rs.readyDetail}`};
+        return {status: 'attention', detail: `Synced ${rs.lastPullAt} — not filled yet: ${rs.readyDetail}`};
+      }
+    },
+
+    {
+      id: 'remote-correct',
+      title: '00. Correct briefing & resync',
+      description:
+        `Create/edit ${folder}/briefing_${ctx.date}_corrected.txt locally, then click resync to push it back to ` +
+        `${DATA_SERVER_HOST}:${remoteDir}/.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Correct / resync',
+          commands: () => {
+            const corrected = correctedBriefingPath(ctx);
+            return [
+              {
+                label: 'Check corrected file',
+                fn: async (emit) => {
+                  if (!exists(corrected)) {
+                    throw new Error(`Missing ${path.basename(corrected)} — create it locally before resyncing.`);
+                  }
+                  emit(`Found ${path.basename(corrected)}.`);
+                }
+              },
+              {cmd: 'rsync', args: ['-av', '-e', DATA_SSH_E, corrected, `${DATA_SERVER_HOST}:${remoteDir}/`]},
+              {
+                label: 'Record resync',
+                fn: async (emit) => {
+                  const state = loadState(ctx);
+                  state.remoteSync = {...(state.remoteSync || {}), lastPushAt: new Date().toISOString()};
+                  saveState(ctx, state);
+                  emit('Corrected briefing pushed to the server.');
+                }
+              }
+            ];
+          }
+        }
+      ],
+      artifacts: () => [{label: 'Corrected briefing', file: correctedBriefingPath(ctx)}],
+      status: (stepState, state) => {
+        const corrected = correctedBriefingPath(ctx);
+        if (!exists(corrected)) {
+          return {status: 'pending', detail: `Create briefing_${ctx.date}_corrected.txt, then resync.`};
+        }
+        if (stepState?.status === 'failed') return {status: 'failed', detail: 'Last resync failed — review the log.'};
+        const lastPushAt = state?.remoteSync?.lastPushAt;
+        if (!lastPushAt) return {status: 'pending', detail: 'Corrected file present — resync it to the server.'};
+        if (mtimeMs(corrected) > Date.parse(lastPushAt)) {
+          return {status: 'stale', detail: 'Corrected file changed since the last resync — resync again.'};
+        }
+        return {status: 'done', detail: `Resynced ${lastPushAt}`};
+      }
+    }
+  ];
+}
+
+export function getSteps(ctx, state = null) {
   const out = ctx.outputRel;
   const folder = ctx.folderRel;
   const finalMp4 = path.join(ctx.output, 'radar-beirut-briefing-final.mp4');
@@ -45,7 +194,7 @@ export function getSteps(ctx) {
     'radar-beirut-keyword-radar.html'
   ];
 
-  return [
+  const baseSteps = [
     {
       id: 'assets-check',
       title: '1. Verify briefing text and image assets',
@@ -580,8 +729,22 @@ export function getSteps(ctx) {
       }
     }
   ];
+
+  // Manually-created / pre-existing dates behave exactly as before.
+  if (!isRemoteSyncDate(state)) return baseSteps;
+
+  // Remote-sync dates: prepend steps 0/00 and lock the rest until the pull is
+  // ready AND the corrected briefing exists.
+  const correctedExists = exists(correctedBriefingPath(ctx));
+  const ready = state?.remoteSync?.ready === true;
+  const gateOpen = ready && correctedExists;
+  const lockReason = !ready
+    ? 'Locked — sync the briefing from the data server first (step 0).'
+    : 'Locked — create briefing_<date>_corrected.txt and resync it (step 00).';
+  const gatedBase = baseSteps.map((step) => (gateOpen ? step : {...step, locked: true, lockReason}));
+  return [...buildRemoteSyncSteps(ctx), ...gatedBase];
 }
 
-export function getStep(ctx, stepId) {
-  return getSteps(ctx).find((step) => step.id === stepId) || null;
+export function getStep(ctx, stepId, state = null) {
+  return getSteps(ctx, state).find((step) => step.id === stepId) || null;
 }

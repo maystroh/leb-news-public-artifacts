@@ -29,6 +29,7 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
   }, [log, showLog]);
 
   const hasLog = log && log.length > 0;
+  const locked = Boolean(step.locked);
 
   const selectedFor = (action) =>
     optionSelections[action.id] ?? action.options?.defaultSelected ?? [];
@@ -45,13 +46,15 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
   };
 
   return (
-    <div className={`card status-${step.status}`}>
+    <div className={`card status-${step.status}${locked ? ' card-locked' : ''}`}>
       <div className="card-head">
         <span className={`badge badge-${step.status}`}>{STATUS_LABELS[step.status] || step.status}</span>
         <h2>{step.title}</h2>
+        {locked && <span className="lock-chip">🔒 Locked</span>}
       </div>
       <p className="description">{step.description}</p>
       {step.statusDetail && <p className={`status-detail detail-${step.status}`}>{step.statusDetail}</p>}
+      {locked && step.lockReason && <p className="lock-note">{step.lockReason}</p>}
 
       {step.artifacts.length > 0 && (
         <ul className="artifacts">
@@ -79,7 +82,7 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
               <input
                 type="checkbox"
                 checked={selectedFor(action).includes(choice.value)}
-                disabled={busy}
+                disabled={busy || locked}
                 onChange={() => toggleOption(action, choice.value)}
               />
               {choice.label}
@@ -93,19 +96,19 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
           <button
             key={action.id}
             className={index === 0 ? 'btn primary' : 'btn'}
-            disabled={busy || (action.options && selectedFor(action).length === 0)}
+            disabled={busy || locked || (action.options && selectedFor(action).length === 0)}
             onClick={() => runAction(action)}
           >
             {running && index === 0 ? 'Running…' : action.label}
           </button>
         ))}
         {onReview && step.status !== 'done' && (
-          <button className="btn primary" onClick={() => onReview(true)}>
+          <button className="btn primary" disabled={locked} onClick={() => onReview(true)}>
             Mark reviewed
           </button>
         )}
         {onReview && step.status === 'done' && (
-          <button className="btn" onClick={() => onReview(false)}>
+          <button className="btn" disabled={locked} onClick={() => onReview(false)}>
             Unmark review
           </button>
         )}

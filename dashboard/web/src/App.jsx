@@ -17,6 +17,24 @@ export default function App() {
   const [error, setError] = useState(null);
   const esRef = useRef(null);
 
+  const createToday = async () => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    try {
+      await api('/api/create-date', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date: today})
+      });
+      const {dates: list} = await api('/api/dates');
+      setDates(list);
+      setDate(today);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const refresh = useCallback(async (selectedDate) => {
     if (!selectedDate) return;
     try {
@@ -133,6 +151,9 @@ export default function App() {
               {doneCount}/{data.steps.length} steps done
             </span>
           )}
+          <button className="new-date-btn" onClick={createToday}>
+            + New date (today)
+          </button>
           <select value={date || ''} onChange={(event) => setDate(event.target.value)}>
             {dates.map((value) => (
               <option key={value} value={value}>

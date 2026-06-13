@@ -54,6 +54,28 @@ Other commands:
    output live. The muted render (step 12) is the long one.
 5. Only one run can be active per date at a time.
 
+## Creating a date from the data server (remote-sync)
+
+The **+ New date (today)** button in the header creates `briefings/<today>/` and
+flags it as a *remote-sync* date (a `remoteSync` marker in its
+`dashboard-state.json`). Remote-sync dates get two extra steps at the top and
+keep the normal pipeline locked until the briefing is in:
+
+- **Step 0 — Sync briefing from data server:** `rsync` pulls
+  `<DATA_SERVER_HOST>:<DATA_SERVER_ROOT>/<date>/briefings/` into
+  `briefings/<date>/`. If the server has not produced that folder yet the step
+  fails (red) — just re-run it later. After a successful pull it records the
+  last-sync time and checks readiness: the source `briefing_<date>.txt` plus at
+  least one image per outlet. Until both are present the step is amber and the
+  rest stay locked.
+- **Step 00 — Correct briefing & resync:** create/edit
+  `briefing_<date>_corrected.txt` locally, then press **Correct / resync** to
+  `rsync` that one file back to the same server location.
+
+Steps 1–15 unlock only once Step 0 is ready **and** the corrected file exists.
+This applies **only** to dates made with the button — existing and
+manually-created `briefings/` dates are unchanged (no steps 0/00, no locking).
+
 ## Scene narration panel
 
 Below the pipeline, every narration scene (from `output/briefing.json`: outlet
@@ -103,9 +125,14 @@ Defaults live in `dashboard/config.mjs`; override with env vars:
 | `RENDER_SERVER_HOST` | `hassan.alhajj@10.0.10.20` |
 | `RENDER_SERVER_PORT` | `2361` |
 | `RENDER_SERVER_ROOT` | `~/projects/simple-app/leb-news-public-artifacts` |
+| `DATA_SERVER_HOST` | `ubuntu@ec2-54-82-171-205.compute-1.amazonaws.com` |
+| `DATA_SERVER_KEY` | `~/connectionKey.pem` |
+| `DATA_SERVER_ROOT` | `/home/ubuntu/lebanon-media-data/radar-codex-runs` |
 
 Requirements: `codex` CLI in PATH for step 3, `ssh`/`rsync` for the server
-steps, `HAMSA_API_KEY` in `.env` for audio generation/regeneration.
+steps, `HAMSA_API_KEY` in `.env` for audio generation/regeneration. The
+remote-sync steps (0/00) also need `DATA_SERVER_KEY` to point at a readable
+`.pem` (mode `600`) authorized for `DATA_SERVER_HOST`.
 
 ## Layout
 

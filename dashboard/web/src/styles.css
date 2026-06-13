@@ -65,6 +65,20 @@ body {
   color: var(--muted);
 }
 
+.new-date-btn {
+  background: #1f6feb;
+  color: #fff;
+  border: 1px solid #388bfd;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.new-date-btn:hover {
+  background: #388bfd;
+}
+
 select {
   background: var(--panel);
   color: var(--text);
@@ -120,10 +134,30 @@ select {
   border-left-color: var(--amber);
 }
 
+.card.card-locked {
+  opacity: 0.72;
+}
+
 .card-head {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.lock-chip {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+.lock-note {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--amber);
 }
 
 .card-head h2 {
