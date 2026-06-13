@@ -92,7 +92,7 @@ function computeState(date) {
   const state = loadState(ctx);
   const active = runner.activeRun(date);
 
-  const steps = getSteps(ctx).map((step) => {
+  const steps = getSteps(ctx, state).map((step) => {
     const stepState = state.steps?.[step.id] || null;
     let status;
     if (active && active.stepId === step.id) {
@@ -117,6 +117,8 @@ function computeState(date) {
       title: step.title,
       description: step.description,
       kind: step.kind,
+      locked: step.locked || false,
+      lockReason: step.lockReason || '',
       actions: step.actions.map(({id, label, options}) => ({id, label, options: options || null})),
       status: status.status,
       statusDetail: status.detail || '',
@@ -130,6 +132,7 @@ function computeState(date) {
   return {
     date,
     steps,
+    remoteSync: state.remoteSync || null,
     audio: audioEntries(ctx, state),
     reviews: state.reviews || {},
     activeRun: active
@@ -153,13 +156,37 @@ app.get('/api/state', (req, res) => {
   res.json(computeState(date));
 });
 
+// Create a new date folder fed by the data server and flag it for the remote-sync
+// workflow (steps 0/00 + gating). Refuses to touch existing manually-created dates.
+app.post('/api/create-date', (req, res) => {
+  const date = String(req.body?.date || '');
+  if (!DATE_RE.test(date)) {
+    return res.status(400).json({error: 'Missing or invalid date (expected YYYY-MM-DD).'});
+  }
+  const ctx = briefingContext(date);
+  if (fs.existsSync(ctx.folder)) {
+    const existing = loadState(ctx);
+    if (existing.remoteSync?.source === 'remote-sync') {
+      return res.json({ok: true, date, created: false});
+    }
+    return res.status(409).json({error: `briefings/${date} already exists and was not created from the data server.`});
+  }
+  fs.mkdirSync(ctx.output, {recursive: true});
+  const state = loadState(ctx);
+  state.remoteSync = {source: 'remote-sync', createdAt: new Date().toISOString(), ready: false};
+  saveState(ctx, state);
+  res.json({ok: true, date, created: true});
+});
+
 app.post('/api/run', (req, res) => {
   const date = requireDate(req, res);
   if (!date) return;
   const {stepId, actionId} = req.body || {};
   const ctx = briefingContext(date);
-  const step = getStep(ctx, String(stepId || ''));
+  const state = loadState(ctx);
+  const step = getStep(ctx, String(stepId || ''), state);
   if (!step) return res.status(404).json({error: `Unknown step: ${stepId}`});
+  if (step.locked) return res.status(423).json({error: step.lockReason || 'Step is locked.'});
   const action = step.actions.find((item) => item.id === actionId) || step.actions[0];
   if (!action) return res.status(400).json({error: `Step ${stepId} has no runnable actions.`});
   try {

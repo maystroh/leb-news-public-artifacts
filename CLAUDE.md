@@ -109,6 +109,11 @@ npm run briefing:dashboard          # launch → open http://127.0.0.1:4600 (aut
 # stop: Ctrl+C in its terminal, or: pkill -f "dashboard/server.mjs"
 npm run briefing:dashboard:build    # rebuild frontend after editing dashboard/web/
 npm run briefing:dashboard:dev      # Vite dev server on :4601 (proxies API to :4600)
+# "+ New date (today)" creates a remote-sync date: adds steps 0 (rsync-pull the day's
+# briefing from the EC2 data server) and 00 (push briefing_<date>_corrected.txt back),
+# and locks steps 1–15 until the pull is ready AND the corrected file exists. Marker
+# lives in output/dashboard-state.json (remoteSync). Existing/manual dates are unchanged.
+# Data-server env overrides: DATA_SERVER_HOST / DATA_SERVER_KEY (~/connectionKey.pem) / DATA_SERVER_ROOT
 
 # Format launcher
 npm run briefing:formats

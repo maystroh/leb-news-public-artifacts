@@ -7,9 +7,9 @@ export function loadState(ctx) {
   try {
     const raw = fs.readFileSync(stateFile(ctx), 'utf8');
     const parsed = JSON.parse(raw);
-    return {steps: {}, reviews: {}, audio: {}, ...parsed};
+    return {steps: {}, reviews: {}, audio: {}, remoteSync: null, ...parsed};
   } catch {
-    return {steps: {}, reviews: {}, audio: {}};
+    return {steps: {}, reviews: {}, audio: {}, remoteSync: null};
   }
 }
 
