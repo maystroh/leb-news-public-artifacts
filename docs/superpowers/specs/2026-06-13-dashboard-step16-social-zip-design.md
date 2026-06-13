@@ -52,9 +52,26 @@ A new prompt-builder + a Codex run + a validator, mirroring the existing
 
 - `scripts/build-social-captions-prompt.mjs --folder briefings/<date>`
   Reads `output/briefing.json` (scene id, `outlet.name`, `visual.headline` tone tag,
-  `visual.summary`), `output/keyword-radar.json` (per-scene `terms[]`), and the
-  scene-videos manifest (clip `fileName` ↔ `sceneIds`). Writes
-  `output/social-captions-prompt.md` instructing Codex to emit `output/social-captions.json`.
+  `visual.summary`), `output/keyword-radar.json` (per-scene `terms[]`),
+  `visual-script.json` (`outroQuestion`, for the closing clip's context), and a scene-videos
+  manifest (clip `fileName` ↔ `sceneIds`). Writes `output/social-captions-prompt.md`
+  instructing Codex to emit `output/social-captions.json`.
+
+  **Per-scene input extraction.** Most scenes carry `outlet.name` (the outlet) and
+  `visual.headline` (a 2–3 word tone tag). The **closing scene (`scene-11`)** has
+  `outlet: null` and uses `visual.headline`/`title` as its *label* (`خلاصة المشهد`), not a
+  tone tag — for it the builder falls back to `title`/`visual.headline` for the name and
+  marks it as the closing recap (no outlet). The closing scene also has **no
+  `keyword-radar.json` entry** (verified: `keyword-radar.json` has no `scene-11`), so the
+  builder/prompt must tolerate an empty `terms[]` for that scene. The closing clip
+  (`10-scene-11-outro`) also bundles the outro, so the builder feeds
+  `visual-script.json.outroQuestion` into that scene's prompt context.
+
+  **Manifest selection.** A date may have any subset of `scene-videos/`,
+  `scene-videos-hook-captions/`, `scene-videos-hook-stamps/` (e.g. only a hook variant was
+  split). The mappings are identical across variants, so the builder reads the **first
+  present** `scene-videos*/manifest.json`. It errors (pointing at step 15) only when none
+  exist.
 - Codex run: `codex exec --cd <repoRoot> ... -` with the prompt on stdin (same invocation
   shape as step 3), writing `output/social-captions.json`.
 - `scripts/validate-social-captions.mjs --folder briefings/<date>`
@@ -79,7 +96,6 @@ pixels). The YouTube description is likewise one per date.
   "clips": [
     {
       "sceneId": "scene-3",
-      "clipBaseName": "02-scene-3",   // matches the split clip file stem
       "outlet": "اللواء",             // Arabic outlet name (closing scene: e.g. "خلاصة المشهد")
       "caption": "string (1–3 lines, the post body for this clip)",
       "hashtags": ["#لبنان", "#Lebanon", "..."]  // Arabic + English mix
@@ -89,9 +105,10 @@ pixels). The YouTube description is likewise one per date.
 }
 ```
 
-`clipBaseName` is keyed off the scene-videos manifest so the packager can match each entry
-to a clip file regardless of the intro/outro grouping (`01-intro-scene-2`,
-`10-scene-11-outro`, etc.).
+Entries are keyed solely on `sceneId`. The packager matches each manifest segment to its
+entry by `sceneIds[0]` and derives the clip filename (incl. the `NN-` prefix and
+intro/outro grouping) deterministically from the manifest — Codex never reproduces
+filenames, so there is no `clipBaseName` field to get wrong.
 
 ### Component 2 — packaging (Action B, local)
 
@@ -134,20 +151,31 @@ which already enumerates each `*-final.mp4` and its matching `scene-videos[-suff
 - **Action `generate`** — "Generate social captions (Codex)": commands =
   `[build-social-captions-prompt.mjs, codex exec (stdinFile = prompt), validate-social-captions.mjs]`.
   No variant options.
-- **Action `package`** — "Package zip(s)": `options` is a multi-select over the present
-  variants (same shape as step 15's selector), shown only when more than one variant is
-  present. Commands = one `package-social-zip.mjs` invocation per selected variant. Guards:
-  fails loudly if `social-captions.json` is missing (run Action A first).
+- **Action `package`** — "Package zip(s)": mirrors step 15's three-case selector logic
+  (`steps.mjs` lines 740–780):
+  - **>1 variant present** — multi-select `options` over the present variants, defaulting to
+    all; commands = one `package-social-zip.mjs` per selected variant.
+  - **exactly 1 variant** — no selector; packages that variant.
+  - **0 variants** — no selector; still emits one `package-social-zip.mjs` command with the
+    bare `scene-videos`/`*-final.mp4` paths so it fails loudly with the script's
+    missing-input message (matching step 15's fallback).
+  - All paths additionally fail loudly if `social-captions.json` is missing (run Action A
+    first).
 
-`artifacts()` lists `social-captions.json`, `social-captions-prompt.md`, and any `*.zip`
-present in `output/`.
+**Shared zip-name helper.** A single function `socialZipName(mid, date)` →
+`` `radar-beirut-briefing${mid}-${date}.zip` `` (where `mid` is the variant suffix from
+`finalVideoVariants`, e.g. `''`, `'-hook-captions'`) is used by both the package command
+builder (`--output`) and `status()`, so the predicted and written names never drift.
+
+`artifacts()` lists `social-captions.json`, `social-captions-prompt.md`, and the predicted
+zip per present variant.
 
 `status(stepState, state)`:
 - `pending` — `social-captions.json` does not exist.
-- For each present variant, expect `output/<zipName>`. `done` when every present variant has
-  a zip newer than both its `*-final.mp4` and `social-captions.json`; `stale` when a final
-  MP4 or `social-captions.json` is newer than its zip (rebuild needed); `pending` when some
-  expected zip is missing.
+- For each present variant, expect `output/${socialZipName(mid, date)}`. `done` when every
+  present variant has a zip newer than both its `*-final.mp4` and `social-captions.json`;
+  `stale` when a final MP4 or `social-captions.json` is newer than its zip (rebuild needed);
+  `pending` when some expected zip is missing.
 
 ### npm scripts (`package.json`)
 
@@ -163,8 +191,9 @@ New dependency: `archiver`.
 
 ```
 briefing.json ─┐
-keyword-radar.json ─┼─> build-social-captions-prompt.mjs ─> social-captions-prompt.md
-scene-videos/manifest.json ─┘                                        │
+keyword-radar.json ─┤
+visual-script.json ─┼─> build-social-captions-prompt.mjs ─> social-captions-prompt.md
+scene-videos*/manifest.json ─┘  (first present)                     │
                                                                      v
                                             codex exec ──> social-captions.json
                                                                      │  (validate)
@@ -174,10 +203,14 @@ scene-videos/manifest.json ─┘                                        │
 
 ## Error handling
 
-- `build-social-captions-prompt.mjs`: error if `briefing.json` or a scene-videos manifest is
-  missing (split not run yet — point at step 15).
-- `validate-social-captions.mjs`: non-zero exit listing any scene missing a clip entry,
-  malformed hashtags, or empty YouTube description. The dashboard action fails on non-zero.
+- `build-social-captions-prompt.mjs`: error if `briefing.json` is missing, or if **no**
+  `scene-videos*/manifest.json` exists (split not run yet — point at step 15). Missing
+  `visual-script.json` or an absent `scene-11` keyword entry are tolerated (closing clip
+  context is best-effort).
+- `validate-social-captions.mjs`: non-zero exit listing any scene present in `briefing.json`
+  that is missing a clip entry, malformed/empty hashtags, or an empty YouTube description.
+  An empty `terms[]` for the closing scene is **not** an error. The dashboard action fails on
+  non-zero.
 - `package-social-zip.mjs`: error if `social-captions.json`, the `--input` MP4, or the
   `--scene-dir` is missing. A scene clip with no matching caption entry is a hard error
   (caption set is stale relative to the split) rather than a silent skip.
