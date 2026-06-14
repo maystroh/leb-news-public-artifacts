@@ -52,7 +52,14 @@ Other commands:
      The flag goes stale automatically if outputs are rebuilt afterwards.
 4. Server steps (11–14) run rsync/ssh against the render server and stream
    output live. The muted render (step 12) is the long one.
-5. Only one run can be active per date at a time.
+5. **Step 16 (social zip):** _Generate social captions (Codex)_ writes an
+   editable `output/social-captions.json` (per-clip Instagram captions/hashtags +
+   one YouTube description for the full video) — review/tweak it, then
+   _Package zip(s)_ builds one `radar-beirut-briefing[-hook-<variant>]-<date>.zip`
+   per selected video type (full MP4 + split clips + a caption `.txt` beside each
+   clip + `youtube-description.txt` + a combined index). Captions are generated
+   once and reused across types; re-zipping never re-calls Codex.
+6. Only one run can be active per date at a time.
 
 ## Creating a date from the data server (remote-sync)
 

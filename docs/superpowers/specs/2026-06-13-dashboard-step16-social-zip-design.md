@@ -32,16 +32,16 @@ file beside each clip, and a YouTube description file.
 
 ## Decisions (resolved during brainstorming)
 
-| Decision | Choice |
-|---|---|
-| How social copy is produced | **Codex AFK (LLM)** reading existing JSON |
-| Packaging when multiple types selected | **One zip per type** |
-| Zip contents | Full final MP4 + split clips + per-clip hashtag file + YouTube description file |
-| Step actions | **Two actions**: generate (Codex) then package (zip) |
-| Per-clip caption file format | **One `.txt` per clip** + one combined index file |
-| Instagram hashtag language | **Arabic + English mix** |
-| Zip tooling | **`archiver` npm dependency** (Node-native, no CLI/PATH dependency) |
-| Codex host | **Local-only** |
+| Decision                               | Choice                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| How social copy is produced            | **Codex AFK (LLM)** reading existing JSON                                       |
+| Packaging when multiple types selected | **One zip per type**                                                            |
+| Zip contents                           | Full final MP4 + split clips + per-clip hashtag file + YouTube description file |
+| Step actions                           | **Two actions**: generate (Codex) then package (zip)                            |
+| Per-clip caption file format           | **One `.txt` per clip** + one combined index file                               |
+| Instagram hashtag language             | **Arabic + English mix**                                                        |
+| Zip tooling                            | **`archiver` npm dependency** (Node-native, no CLI/PATH dependency)             |
+| Codex host                             | **Local-only**                                                                  |
 
 ## Architecture
 
