@@ -92,7 +92,14 @@ Hamsa-regenerated**. To prevent the source tag silently reverting:
   default to `"ai"` in the UI.
 
 This makes `source` durable across unrelated regens, Step 7 reruns, and
-`--existing-only` refreshes alike.
+`--existing-only` refreshes alike. The record route's stamp (§1 step 3) and the
+generator's carry-forward must write `source` with the identical field name and
+values so the two write paths cannot drift.
+
+Note one intentional consequence: recording a scene and **later
+Hamsa-regenerating that same scene** correctly flips it back to `"ai"` — the
+recorded WAV is backed up as `.stale`, a fresh Hamsa WAV is generated, and it is
+stamped `"ai"`. This is expected, not a bug.
 
 ### 2. Per-date audio-source default + Step 7 gating
 
