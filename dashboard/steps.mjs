@@ -43,6 +43,43 @@ const staleIfBriefingNewer = (ctx, base, finishedAtMs) => {
 
 const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepState.finishedAt) : 0);
 
+// Final (audio-muxed) MP4 variants currently sitting in the output folder, for the
+// split step. Every `radar-beirut-briefing*-final.mp4` maps to its own
+// `scene-videos[-suffix]/` dir so variants never overwrite each other's clips.
+const splitVariantLabel = (mid) => {
+  if (mid === '') return 'Normal briefing';
+  if (mid === '-hook-captions') return 'Hook: karaoke captions';
+  if (mid === '-hook-stamps') return 'Hook: quote stamps + chips';
+  return mid.replace(/^-/, '');
+};
+
+function finalVideoVariants(ctx) {
+  if (!exists(ctx.output)) return [];
+  return fs
+    .readdirSync(ctx.output)
+    .filter((name) => /^radar-beirut-briefing.*-final\.mp4$/.test(name))
+    .sort()
+    .map((fileName) => {
+      const mid = fileName.replace(/^radar-beirut-briefing/, '').replace(/-final\.mp4$/, '');
+      const outputDirName = `scene-videos${mid}`;
+      return {
+        value: fileName,
+        label: splitVariantLabel(mid),
+        fileName,
+        mid,
+        input: path.join(ctx.output, fileName),
+        inputRel: path.posix.join(ctx.outputRel, fileName),
+        outputDir: path.join(ctx.output, outputDirName),
+        outputDirRel: path.posix.join(ctx.outputRel, outputDirName)
+      };
+    });
+}
+
+// Step 16 social zip name for a variant suffix, e.g. '' -> radar-beirut-briefing-<date>.zip,
+// '-hook-captions' -> radar-beirut-briefing-hook-captions-<date>.zip. Shared by the package
+// command (so the script writes here) and status() (so it predicts the same path).
+const socialZipName = (mid, date) => `radar-beirut-briefing${mid}-${date}.zip`;
+
 // A date is "remote-sync" (created from the dashboard, fed by the data server)
 // only when its state was stamped by POST /api/create-date.
 export const isRemoteSyncDate = (state) => state?.remoteSync?.source === 'remote-sync';
@@ -185,6 +222,10 @@ export function getSteps(ctx, state = null) {
   const folder = ctx.folderRel;
   const finalMp4 = path.join(ctx.output, 'radar-beirut-briefing-final.mp4');
   const mutedMp4 = path.join(ctx.output, 'radar-beirut-briefing.mp4');
+  const splitVariants = finalVideoVariants(ctx);
+  // Step 16 can only zip a variant that has BOTH a final MP4 and its split clips present.
+  const packageVariants = splitVariants.filter((variant) => exists(variant.outputDir));
+  const socialCaptions = path.join(ctx.output, 'social-captions.json');
   const htmlFiles = [
     'radar-beirut-briefing.html',
     'radar-beirut-briefing-hook-captions.html',
@@ -696,36 +737,208 @@ export function getSteps(ctx, state = null) {
     {
       id: 'split-scenes',
       title: '15. Split final MP4 into scene videos',
-      description: 'Cuts the final MP4 into per-scene clips in output/scene-videos/ (intro+scene-1, middles, penultimate+outro).',
+      description:
+        'Cuts each downloaded final MP4 into per-scene clips (intro+scene-1, middles, penultimate+outro). ' +
+        'Pick which variants to split — each lands in its own scene-videos[-hook-*]/ folder.',
       kind: 'run',
       actions: [
         {
           id: 'run',
           label: 'Split scenes',
-          commands: () => [
-            npmRun(
-              'briefing:split:mp4',
-              '--folder',
-              folder,
-              '--input',
-              `${out}/radar-beirut-briefing-final.mp4`,
-              '--output-dir',
-              `${out}/scene-videos`
-            )
-          ]
+          options:
+            splitVariants.length > 1
+              ? {
+                  id: 'variants',
+                  label: 'Final MP4s to split',
+                  type: 'multi',
+                  choices: splitVariants.map((variant) => ({value: variant.value, label: variant.label})),
+                  defaultSelected: splitVariants.map((variant) => variant.value)
+                }
+              : undefined,
+          commands: (options) => {
+            if (!splitVariants.length) {
+              // Nothing downloaded yet — fall back to the normal final MP4 path so the
+              // command still fails loudly with the script's "missing MP4" message.
+              return [
+                npmRun(
+                  'briefing:split:mp4',
+                  '--folder',
+                  folder,
+                  '--input',
+                  `${out}/radar-beirut-briefing-final.mp4`,
+                  '--output-dir',
+                  `${out}/scene-videos`
+                )
+              ];
+            }
+            const requested = Array.isArray(options?.variants) ? options.variants : [];
+            const selected = requested.length
+              ? splitVariants.filter((variant) => requested.includes(variant.value))
+              : splitVariants;
+            return (selected.length ? selected : splitVariants).map((variant) =>
+              npmRun(
+                'briefing:split:mp4',
+                '--folder',
+                folder,
+                '--input',
+                variant.inputRel,
+                '--output-dir',
+                variant.outputDirRel
+              )
+            );
+          }
         }
       ],
-      artifacts: () => [{label: 'scene-videos/', file: path.join(ctx.output, 'scene-videos')}],
+      artifacts: () =>
+        splitVariants.length
+          ? splitVariants.map((variant) => ({
+              label: `${path.basename(variant.outputDir)}/ (${variant.label})`,
+              file: variant.outputDir
+            }))
+          : [{label: 'scene-videos/', file: path.join(ctx.output, 'scene-videos')}],
       status: (stepState) => {
-        const dir = path.join(ctx.output, 'scene-videos');
-        if (!exists(dir)) return fromLastRun(stepState, 'No scene videos yet.');
-        const clips = fs.readdirSync(dir).filter((name) => name.endsWith('.mp4'));
-        if (!clips.length) return fromLastRun(stepState, 'scene-videos/ is empty.');
-        const newest = Math.max(...clips.map((name) => mtimeMs(path.join(dir, name))));
-        if (exists(finalMp4) && mtimeMs(finalMp4) > newest) {
-          return {status: 'stale', detail: 'Final MP4 is newer than the split clips — re-split.'};
+        const dirs = (splitVariants.length
+          ? splitVariants.map((variant) => variant.outputDir)
+          : [path.join(ctx.output, 'scene-videos')]
+        ).filter(exists);
+        if (!dirs.length) return fromLastRun(stepState, 'No scene videos yet.');
+        let totalClips = 0;
+        let newestClip = 0;
+        for (const dir of dirs) {
+          const clips = fs.readdirSync(dir).filter((name) => name.endsWith('.mp4'));
+          totalClips += clips.length;
+          for (const name of clips) newestClip = Math.max(newestClip, mtimeMs(path.join(dir, name)));
         }
-        return {status: 'done', detail: `${clips.length} scene clips.`};
+        if (!totalClips) return fromLastRun(stepState, 'scene-videos/ is empty.');
+        const newestFinal = Math.max(0, ...splitVariants.map((variant) => mtimeMs(variant.input)));
+        if (newestFinal > newestClip) {
+          return {status: 'stale', detail: 'A final MP4 is newer than its split clips — re-split.'};
+        }
+        const variantNote = dirs.length > 1 ? ` across ${dirs.length} variants` : '';
+        return {status: 'done', detail: `${totalClips} scene clips${variantNote}.`};
+      }
+    },
+
+    {
+      id: 'social-package',
+      title: '16. Package social zips (video + clips + captions)',
+      description:
+        'Action A runs Codex once to write an editable output/social-captions.json (per-clip Instagram captions/hashtags + ' +
+        'a YouTube description for the full video). Action B zips each selected video type: its full final MP4, split scene ' +
+        'clips, a per-clip caption .txt beside each clip, plus youtube-description.txt and a combined index.',
+      kind: 'run',
+      actions: [
+        {
+          id: 'generate',
+          label: 'Generate social captions (Codex)',
+          commands: () => [
+            npmRun('briefing:social:prompt', '--folder', folder),
+            {
+              cmd: 'codex',
+              args: [
+                'exec',
+                '--cd',
+                ctx.repoRoot,
+                '--sandbox',
+                'workspace-write',
+                '--skip-git-repo-check',
+                '--output-last-message',
+                path.join(ctx.output, 'social-captions-codex-message.md'),
+                '-'
+              ],
+              stdinFile: path.join(ctx.output, 'social-captions-prompt.md')
+            },
+            npmRun('briefing:social:validate', '--folder', folder)
+          ]
+        },
+        {
+          id: 'validate',
+          label: 'Validate captions only',
+          commands: () => [npmRun('briefing:social:validate', '--folder', folder)]
+        },
+        {
+          id: 'package',
+          label: 'Package zip(s)',
+          options:
+            packageVariants.length > 1
+              ? {
+                  id: 'variants',
+                  label: 'Video types to zip',
+                  type: 'multi',
+                  choices: packageVariants.map((variant) => ({value: variant.value, label: variant.label})),
+                  defaultSelected: packageVariants.map((variant) => variant.value)
+                }
+              : undefined,
+          commands: (options) => {
+            const zipFor = (variant) =>
+              npmRun(
+                'briefing:social:zip',
+                '--folder',
+                folder,
+                '--input',
+                variant.inputRel,
+                '--scene-dir',
+                variant.outputDirRel,
+                '--output',
+                path.posix.join(out, socialZipName(variant.mid, ctx.date))
+              );
+            if (!packageVariants.length) {
+              // Nothing zippable yet — emit the normal-variant command so it fails loudly
+              // with the script's missing-input message (mirrors step 15's fallback).
+              return [
+                npmRun(
+                  'briefing:social:zip',
+                  '--folder',
+                  folder,
+                  '--input',
+                  `${out}/radar-beirut-briefing-final.mp4`,
+                  '--scene-dir',
+                  `${out}/scene-videos`,
+                  '--output',
+                  path.posix.join(out, socialZipName('', ctx.date))
+                )
+              ];
+            }
+            const requested = Array.isArray(options?.variants) ? options.variants : [];
+            const selected = requested.length
+              ? packageVariants.filter((variant) => requested.includes(variant.value))
+              : packageVariants;
+            return (selected.length ? selected : packageVariants).map(zipFor);
+          }
+        }
+      ],
+      artifacts: () => {
+        const list = [
+          {label: 'social-captions.json (editable)', file: socialCaptions, optional: true},
+          {label: 'social-captions-prompt.md', file: path.join(ctx.output, 'social-captions-prompt.md'), optional: true}
+        ];
+        for (const variant of packageVariants) {
+          const name = socialZipName(variant.mid, ctx.date);
+          list.push({label: `${name} (${variant.label})`, file: path.join(ctx.output, name), open: true, optional: true});
+        }
+        return list;
+      },
+      status: (stepState) => {
+        if (!exists(socialCaptions)) return fromLastRun(stepState, 'Generate social captions with Codex first.');
+        if (!packageVariants.length) {
+          return {status: 'pending', detail: 'Captions ready — package once a final MP4 and its split clips exist (steps 14/15).'};
+        }
+        const captionsMs = mtimeMs(socialCaptions);
+        let built = 0;
+        let stale = false;
+        for (const variant of packageVariants) {
+          const zipPath = path.join(ctx.output, socialZipName(variant.mid, ctx.date));
+          if (!exists(zipPath)) continue;
+          built += 1;
+          const zipMs = mtimeMs(zipPath);
+          if (mtimeMs(variant.input) > zipMs || captionsMs > zipMs) stale = true;
+        }
+        if (built === 0) return fromLastRun(stepState, `Captions ready — ${packageVariants.length} video type(s) to zip.`);
+        if (built < packageVariants.length) {
+          return {status: 'attention', detail: `${built}/${packageVariants.length} zips built — package the rest.`};
+        }
+        if (stale) return {status: 'stale', detail: 'A final MP4 or the captions changed after a zip was built — re-package.'};
+        return {status: 'done', detail: `${built} zip${built === 1 ? '' : 's'} ready.`};
       }
     }
   ];

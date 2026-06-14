@@ -88,7 +88,7 @@ Generated briefing audio lives in `briefings/YYYY-MM-DD/audio/`, NOT in `output/
 
 Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Total video duration is identical across all files. The template still supports `coldopen` and `choreography` hooks (and an `all` mode); they were dropped from the emitted variants after review — re-enable by adding entries back to `HOOK_VARIANTS` in `build-full-editorial-html.mjs`.
 
-Remotion mirrors the `captions` and `stamps` hooks (only those): `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --variant captions|stamps` renders `radar-beirut-briefing-hook-<variant>.mp4`. The hook overlays live in `src/ProductionBriefingVideo.jsx` and must stay in lockstep with the template's HOOKS timings/styles. `briefing:mux:audio --input <variant>.mp4` writes `<variant>-final.mp4`. Dashboard step 12 has variant checkboxes; steps 13–14 mux/download any variant renders found.
+Remotion mirrors the `captions` and `stamps` hooks (only those): `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --variant captions|stamps` renders `radar-beirut-briefing-hook-<variant>.mp4`. The hook overlays live in `src/ProductionBriefingVideo.jsx` and must stay in lockstep with the template's HOOKS timings/styles. `briefing:mux:audio --input <variant>.mp4` writes `<variant>-final.mp4`. Dashboard step 12 has variant checkboxes; steps 13–14 mux/download any variant renders found. Step 15 (split) auto-detects every `radar-beirut-briefing*-final.mp4` in `output/` and shows a checkbox per downloaded variant; each splits into its own `scene-videos[-hook-<variant>]/` folder (one selector appears only when more than one final MP4 is present). Step 16 (social-zip) generates `output/social-captions.json` once via Codex (per-clip Instagram captions/hashtags + a YouTube description for the full video; editable and reused across types), then packages one `radar-beirut-briefing[-hook-<variant>]-<date>.zip` per selected video type — each containing the full MP4, its split clips, a per-clip caption `.txt` beside each clip, `youtube-description.txt`, and a combined index.
 
 ## Key npm Commands
 
@@ -145,6 +145,12 @@ npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --music --music-db -
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-540x960.mp4 --output-dir briefings/YYYY-MM-DD/output/scene-videos-540x960
 
+# Social packaging (dashboard step 16) — captions via Codex, then one zip per video type
+npm run briefing:social:prompt -- --folder briefings/YYYY-MM-DD   # writes output/social-captions-prompt.md
+# feed that prompt to `codex exec` → writes output/social-captions.json (editable, reused across types)
+npm run briefing:social:validate -- --folder briefings/YYYY-MM-DD
+npm run briefing:social:zip -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-final.mp4 --scene-dir briefings/YYYY-MM-DD/output/scene-videos
+
 # Smoke tests (do not replace real output)
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x960 --frames 0-2 --log warn --output briefings/YYYY-MM-DD/output/smoke.mp4
 ```
@@ -164,6 +170,9 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/render-briefing-intro-video.mjs` | Remotion intro-only renderer |
 | `scripts/mux-briefing-audio.mjs` | mixes narration WAVs at frame-accurate offsets, muxes into rendered MP4 via ffmpeg |
 | `scripts/split-briefing-video.mjs` | splits completed MP4 into scene clips |
+| `scripts/build-social-captions-prompt.mjs` | writes the Codex prompt for per-clip Instagram captions + YouTube description |
+| `scripts/validate-social-captions.mjs` | validates output/social-captions.json against briefing.json |
+| `scripts/package-social-zip.mjs` | zips one video type: full MP4 + split clips + per-clip caption .txt + YouTube description (via `archiver`) |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
 

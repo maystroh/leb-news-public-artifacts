@@ -24,6 +24,9 @@
     "briefing:render:intro": "node ./scripts/render-briefing-intro-video.mjs",
     "briefing:mux:audio": "node ./scripts/mux-briefing-audio.mjs",
     "briefing:split:mp4": "node ./scripts/split-briefing-video.mjs",
+    "briefing:social:prompt": "node ./scripts/build-social-captions-prompt.mjs",
+    "briefing:social:validate": "node ./scripts/validate-social-captions.mjs",
+    "briefing:social:zip": "node ./scripts/package-social-zip.mjs",
     "narration:prepare": "npm run briefing:prepare && node ./scripts/prepare-narration.mjs",
     "audio:generate:dry": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs --dry-run",
     "audio:generate": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs",
@@ -41,6 +44,7 @@
   "license": "ISC",
   "dependencies": {
     "@remotion/cli": "4.0.471",
+    "archiver": "^8.0.0",
     "express": "^5.2.1",
     "mp3-duration": "^1.1.0",
     "openai": "^6.41.0",
