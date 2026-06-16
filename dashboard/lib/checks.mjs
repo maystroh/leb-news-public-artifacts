@@ -39,6 +39,22 @@ export function uniqueOutletImageKeys(folder) {
   return [...keys].sort();
 }
 
+// How many outlets may lack a screenshot and still count as "ready". Some sources
+// (e.g. 180post) are article-only websites we don't always grab a screenshot for.
+export const MISSING_OUTLET_TOLERANCE = 1;
+
+// Authoritative expected outlet count. Prefer the meta JSON's sources_found list
+// (one entry per outlet/website the pipeline found that day); fall back to the
+// paragraph-count heuristic (paragraphs - 3 for opening + summary + outro) only
+// when no meta file is present. Avoids the heuristic overcounting on days with an
+// extra non-outlet roundup paragraph.
+export function expectedOutletCount(ctx, paragraphCount) {
+  const meta = readJsonSafe(path.join(ctx.folder, `briefing_meta_${ctx.date}.json`));
+  const sources = meta?.sources_found;
+  if (Array.isArray(sources) && sources.length) return sources.length;
+  return paragraphCount > 3 ? paragraphCount - 3 : 0;
+}
+
 export function briefingSourceFile(ctx) {
   const corrected = path.join(ctx.folder, `briefing_${ctx.date}_corrected.txt`);
   const plain = path.join(ctx.folder, `briefing_${ctx.date}.txt`);
@@ -54,19 +70,20 @@ export function assetsReport(ctx) {
   const paragraphCount = countParagraphs(source);
   const images = usableImages(ctx.folder);
   const keys = uniqueOutletImageKeys(ctx.folder);
-  const requiredKeys = paragraphCount > 3 ? paragraphCount - 3 : 0;
+  const requiredKeys = expectedOutletCount(ctx, paragraphCount);
+  const minKeys = Math.max(0, requiredKeys - MISSING_OUTLET_TOLERANCE);
   const problems = [];
   if (!fs.existsSync(plain)) problems.push(`Missing source briefing: ${path.basename(plain)}`);
   if (!fs.existsSync(corrected)) problems.push(`Missing corrected briefing: ${path.basename(corrected)}`);
   if (paragraphCount === 0) {
     problems.push('No readable briefing text found, cannot estimate scenes.');
-  } else if (keys.length !== requiredKeys) {
+  } else if (keys.length < minKeys) {
     problems.push(
-      `Unique outlet image keys (${keys.length}) must equal paragraph count - 3 (${requiredKeys}). ` +
-        'Add or rename outlet/article screenshots in the date folder.'
+      `Unique outlet image keys (${keys.length}) below expected ${requiredKeys} ` +
+        `(tolerating ${MISSING_OUTLET_TOLERANCE} missing). Add or rename outlet/article screenshots in the date folder.`
     );
   }
-  return {paragraphCount, requiredKeys, images, keys, problems, ok: problems.length === 0};
+  return {paragraphCount, requiredKeys, minKeys, images, keys, problems, ok: problems.length === 0};
 }
 
 export function findSummaryImagePrompt(outputFolder) {
