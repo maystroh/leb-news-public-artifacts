@@ -203,6 +203,13 @@ const stampTimingFor = (sceneDurationMs) => ({
   holdMs: Math.max(3600, Math.min(6500, Math.round(sceneDurationMs * 0.2)))
 });
 
+const CAPTION_STAMP_EXCLUDED_OUTLET_KEYS = new Set(['asas-media', 'almodon']);
+
+const shouldShowCaptionStamp = (scene) => {
+  const outletKey = scene.outlet?.key;
+  return Boolean(outletKey && !CAPTION_STAMP_EXCLUDED_OUTLET_KEYS.has(outletKey));
+};
+
 const HookStamp = ({quote, durationInFrames}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
@@ -249,7 +256,7 @@ const HookStamp = ({quote, durationInFrames}) => {
           transform: `scale(${scale}) rotate(${rotate}deg)`
         }}
       >
-        {`«${quote}»`}
+        {quote}
       </div>
     </div>
   );
@@ -324,7 +331,14 @@ const SceneHookOverlays = ({hooks, scene, durationInFrames}) => {
 
   return (
     <>
-      {variant === 'captions' ? <HookCaptions scene={scene} durationInFrames={durationInFrames} /> : null}
+      {variant === 'captions' ? (
+        <>
+          <HookCaptions scene={scene} durationInFrames={durationInFrames} />
+          {shouldShowCaptionStamp(scene) ? (
+            <HookStamp quote={(scene.visual?.quote || '').trim()} durationInFrames={durationInFrames} />
+          ) : null}
+        </>
+      ) : null}
       {variant === 'stamps' ? (
         <>
           <HookStamp quote={(scene.visual?.quote || '').trim()} durationInFrames={durationInFrames} />
@@ -933,11 +947,15 @@ const SceneCard = ({scene, dateLabel, assets, hooks}) => {
     </div>
   );
 
-  // Stamps variant: the HTML fires a 0.22-opacity white flash when the quote
-  // stamp slams in. The stamp itself only shows when the scene has a quote
-  // and runs longer than 12s, so the flash is gated the same way.
+  // The HTML fires a 0.22-opacity white flash when the quote stamp slams in.
+  // For captions, the mid-screen box is shown only on outlet scenes; the
+  // summary scene keeps captions only.
   let stampFlashOpacity = 0;
-  if (hooks?.variant === 'stamps' && (scene.visual?.quote || '').trim() && (durationInFrames / fps) * 1000 > 12000) {
+  const shouldShowStampFlash =
+    (hooks?.variant === 'stamps' || (hooks?.variant === 'captions' && shouldShowCaptionStamp(scene))) &&
+    (scene.visual?.quote || '').trim() &&
+    (durationInFrames / fps) * 1000 > 12000;
+  if (shouldShowStampFlash) {
     const stampInMs = stampTimingFor((durationInFrames / fps) * 1000).inMs;
     if (elapsedMs >= stampInMs) {
       stampFlashOpacity = interpolate(elapsedMs, [stampInMs, stampInMs + 320], [0.22, 0], {

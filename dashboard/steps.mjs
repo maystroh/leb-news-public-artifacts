@@ -14,6 +14,8 @@ import {
   assetsReport,
   countParagraphs,
   exists,
+  expectedOutletCount,
+  MISSING_OUTLET_TOLERANCE,
   mtimeMs,
   findSummaryImagePrompt,
   moveStaleClosingAudioIfNeeded,
@@ -48,7 +50,7 @@ const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepSt
 // `scene-videos[-suffix]/` dir so variants never overwrite each other's clips.
 const splitVariantLabel = (mid) => {
   if (mid === '') return 'Normal briefing';
-  if (mid === '-hook-captions') return 'Hook: karaoke captions';
+  if (mid === '-hook-captions') return 'Hook: captions + focus boxes';
   if (mid === '-hook-stamps') return 'Hook: quote stamps + chips';
   return mid.replace(/^-/, '');
 };
@@ -96,12 +98,13 @@ function remotePullReady(ctx) {
   }
   const paragraphs = countParagraphs(source);
   if (paragraphs === 0) return {ready: false, detail: 'Briefing text is empty — remote folder not filled yet.'};
-  const required = paragraphs > 3 ? paragraphs - 3 : 0;
+  const required = expectedOutletCount(ctx, paragraphs);
+  const minKeys = Math.max(0, required - MISSING_OUTLET_TOLERANCE);
   const keys = uniqueOutletImageKeys(ctx.folder);
-  if (keys.length < required) {
+  if (keys.length < minKeys) {
     return {ready: false, detail: `Only ${keys.length}/${required} outlet image keys present — waiting for more screenshots.`};
   }
-  return {ready: true, detail: `${paragraphs} paragraphs, ${keys.length} outlet image keys.`};
+  return {ready: true, detail: `${paragraphs} paragraphs, ${keys.length}/${required} outlet image keys.`};
 }
 
 function buildRemoteSyncSteps(ctx) {
@@ -617,7 +620,7 @@ export function getSteps(ctx, state = null) {
             type: 'multi',
             choices: [
               {value: 'default', label: 'Normal briefing'},
-              {value: 'captions', label: 'Hook: karaoke captions'},
+              {value: 'captions', label: 'Hook: captions + focus boxes'},
               {value: 'stamps', label: 'Hook: quote stamps + chips'}
             ],
             defaultSelected: ['default']
