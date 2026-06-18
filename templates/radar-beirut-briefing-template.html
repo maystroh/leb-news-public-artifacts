@@ -905,6 +905,11 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     choreography: HOOK_VARIANT === 'choreography' || HOOK_VARIANT === 'all',
     stamps: HOOK_VARIANT === 'stamps' || HOOK_VARIANT === 'all'
   };
+  const CAPTION_STAMP_EXCLUDED_OUTLET_KEYS = new Set(['asas-media', 'almodon']);
+  const shouldShowCaptionStamp = (scene) => {
+    const outletKey = scene.outlet?.key;
+    return Boolean(outletKey && !CAPTION_STAMP_EXCLUDED_OUTLET_KEYS.has(outletKey));
+  };
   const FRONT_PAGE_PAN_BY_OUTLET_KEY = {};
   let frontPagePanAnimation = null;
   let mediaSequenceTimer = null;
@@ -1252,14 +1257,15 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     }
   }
 
-  function startStampHook(scene, sceneDurationMs) {
+  function startStampHook(scene, sceneDurationMs, options = {}) {
+    const includeChips = options.includeChips !== false;
     const quote = (scene.visual?.quote || '').trim();
     if (quote && sceneDurationMs > 12000) {
       const stampInMs = Math.max(4200, Math.round(sceneDurationMs * 0.46));
       const holdMs = Math.max(3600, Math.min(6500, Math.round(sceneDurationMs * 0.2)));
 
       scheduleHook(() => {
-        hookStampBox.textContent = `«${quote}»`;
+        hookStampBox.textContent = quote;
         hookStamp.classList.remove('hidden', 'is-out');
         void hookStamp.offsetWidth;
         hookStamp.classList.add('is-in');
@@ -1274,6 +1280,8 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
         }, 460);
       }, stampInMs + holdMs);
     }
+
+    if (!includeChips) return;
 
     const terms = KEYWORDS_BY_SCENE_ID[scene.id] || [];
     if (!terms.length) return;
@@ -1304,6 +1312,9 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
 
   function startSceneHooks(scene, sceneDurationMs, usedMedia, mediaConfig) {
     if (HOOKS.captions) startCaptionHook(scene, sceneDurationMs);
+    if (HOOKS.captions && !HOOKS.stamps && shouldShowCaptionStamp(scene)) {
+      startStampHook(scene, sceneDurationMs, {includeChips: false});
+    }
     if (HOOKS.choreography && usedMedia && mediaConfig && mediaConfig.items.length === 1) {
       startChoreographyHook(mediaConfig.fitMode, sceneDurationMs);
     }

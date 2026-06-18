@@ -50,7 +50,7 @@ const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepSt
 // `scene-videos[-suffix]/` dir so variants never overwrite each other's clips.
 const splitVariantLabel = (mid) => {
   if (mid === '') return 'Normal briefing';
-  if (mid === '-hook-captions') return 'Hook: karaoke captions';
+  if (mid === '-hook-captions') return 'Hook: captions + focus boxes';
   if (mid === '-hook-stamps') return 'Hook: quote stamps + chips';
   return mid.replace(/^-/, '');
 };
@@ -620,7 +620,7 @@ export function getSteps(ctx, state = null) {
             type: 'multi',
             choices: [
               {value: 'default', label: 'Normal briefing'},
-              {value: 'captions', label: 'Hook: karaoke captions'},
+              {value: 'captions', label: 'Hook: captions + focus boxes'},
               {value: 'stamps', label: 'Hook: quote stamps + chips'}
             ],
             defaultSelected: ['default']
