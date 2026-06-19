@@ -8,7 +8,7 @@ const DEFAULTS = {
   endpoint: 'https://api.tryhamsa.com/v1/realtime/tts',
   projectEndpoint: 'https://api.tryhamsa.com/v1/projects/by-api-key',
   voicesEndpoint: 'https://api.tryhamsa.com/v2/tts/voices',
-  speaker: 'Lamees',
+  speakerPool: ['Lamees', 'Marwan', 'Nabil', 'Gassan'],
   dialect: 'leb',
   outputFormat: 'wav',
   textSource: 'body'
@@ -172,6 +172,35 @@ const findLatestBriefingFolder = (cwd) => {
 };
 
 const normalizeSpacing = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
+
+const parseList = (value) => String(value ?? '')
+  .split(',')
+  .map((item) => normalizeSpacing(item))
+  .filter(Boolean);
+
+const getStableHash = (value) => {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const seededShuffle = (items, seed) => {
+  const shuffled = [...items];
+  let state = getStableHash(seed) || 1;
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    state = Math.imul(state ^ (state >>> 15), 2246822507) >>> 0;
+    state = Math.imul(state ^ (state >>> 13), 3266489909) >>> 0;
+    const swapIndex = state % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+};
 
 const selectSceneText = (scene, textSource) => {
   if (textSource === 'body') {
@@ -191,6 +220,67 @@ const selectSceneText = (scene, textSource) => {
   }
 
   throw new Error(`Unsupported --text-source value: ${textSource}`);
+};
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const removeScene2OutletHandoff = (text, outletName) => {
+  let cleaned = normalizeSpacing(text);
+  if (!outletName) return cleaned;
+  const outletPattern = escapeRegExp(outletName);
+  const patterns = [
+    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
+    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
+    new RegExp(`^${outletPattern}\\s*[،,]\\s*`)
+  ];
+
+  for (const pattern of patterns) {
+    cleaned = cleaned.replace(pattern, '').trim();
+  }
+
+  return cleaned;
+};
+
+const ensureScene2AudioPrefix = (scene, text) => {
+  const normalized = normalizeSpacing(text);
+  if (scene.id !== 'scene-2' || !normalized || normalized.startsWith(SCENE_2_AUDIO_PREFIX)) {
+    return normalized;
+  }
+
+  const outletName = normalizeSpacing(scene.outlet?.name || scene.shortLabel || '');
+  const withoutHandoff = removeScene2OutletHandoff(normalized, outletName);
+  if (!outletName) return `${SCENE_2_AUDIO_PREFIX} ${withoutHandoff}`.trim();
+  return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
+};
+
+const getScene2CaptionText = (scene, audioText) => {
+  let captionText = normalizeSpacing(audioText);
+  if (scene.id !== 'scene-2') return captionText;
+
+  if (captionText.startsWith(SCENE_2_AUDIO_PREFIX)) {
+    captionText = captionText.slice(SCENE_2_AUDIO_PREFIX.length).trim();
+  }
+
+  const outletName = normalizeSpacing(scene.outlet?.name || scene.shortLabel || '');
+  captionText = removeScene2OutletHandoff(captionText, outletName);
+  captionText = captionText.replace(/^حيث\s+/, '').trim();
+  return captionText;
+};
+
+const getCaptionStartOffsetSeconds = ({scene, audioText, captionText, audioDurationSeconds}) => {
+  if (scene.id !== 'scene-2' || typeof audioDurationSeconds !== 'number' || audioDurationSeconds <= 0) {
+    return 0;
+  }
+
+  const normalizedAudioText = normalizeSpacing(audioText);
+  const normalizedCaptionText = normalizeSpacing(captionText);
+  if (!normalizedAudioText || !normalizedCaptionText || !normalizedAudioText.endsWith(normalizedCaptionText)) {
+    return 0;
+  }
+
+  const prefixChars = normalizedAudioText.length - normalizedCaptionText.length;
+  if (prefixChars <= 0) return 0;
+  return Number(((prefixChars / normalizedAudioText.length) * audioDurationSeconds).toFixed(3));
 };
 
 const getWavDurationSeconds = (buffer) => {
@@ -325,6 +415,23 @@ const resolveHamsaVoice = async ({apiKey, speaker, dialect}) => {
   };
 };
 
+const getRealtimeTtsSpeaker = (voice, fallbackSpeaker) => {
+  if (voice.source === 'env' && voice.id) {
+    return voice.id;
+  }
+
+  return normalizeSpacing(voice.name || fallbackSpeaker);
+};
+
+const shouldTryNextVoice = (error) => {
+  if (error instanceof HamsaApiError) {
+    return ![401, 402, 403, 429].includes(error.status);
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('Could not find Hamsa voice');
+};
+
 const cwd = process.cwd();
 const loadedEnvFiles = loadEnvFiles(cwd);
 const args = parseCliArgs(process.argv.slice(2));
@@ -361,23 +468,35 @@ const audioScenes = [
       }
     : null
 ].filter(Boolean).slice(0, args.limit ?? undefined);
-const hamsaSpeaker = process.env.HAMSA_TTS_SPEAKER || DEFAULTS.speaker;
+const voiceSelectionSeed = path.basename(briefingFolder);
+const configuredSpeakerPool = process.env.HAMSA_TTS_SPEAKER
+  ? [process.env.HAMSA_TTS_SPEAKER]
+  : parseList(process.env.HAMSA_TTS_SPEAKERS);
+const hamsaSpeakerCandidates = process.env.HAMSA_TTS_SPEAKER
+  ? configuredSpeakerPool
+  : seededShuffle(configuredSpeakerPool.length ? configuredSpeakerPool : DEFAULTS.speakerPool, voiceSelectionSeed);
+const hamsaSpeaker = hamsaSpeakerCandidates[0] || DEFAULTS.speakerPool[0];
 const hamsaDialect = process.env.HAMSA_TTS_DIALECT || DEFAULTS.dialect;
-let resolvedVoice = null;
+const resolvedVoiceBySpeaker = new Map();
+const failedSpeakers = new Set();
+const voiceFallbackAttempts = [];
+let selectedResolvedVoice = null;
+let selectedTtsSpeaker = null;
 
-const getResolvedVoice = async () => {
-  if (resolvedVoice) {
-    return resolvedVoice;
+const getResolvedVoice = async (speaker) => {
+  if (resolvedVoiceBySpeaker.has(speaker)) {
+    return resolvedVoiceBySpeaker.get(speaker);
   }
 
   if (args.dryRun) {
-    resolvedVoice = {
+    const dryRunVoice = {
       id: null,
-      name: hamsaSpeaker,
+      name: speaker,
       dialect: {languageCode: hamsaDialect},
       source: 'dry-run'
     };
-    return resolvedVoice;
+    resolvedVoiceBySpeaker.set(speaker, dryRunVoice);
+    return dryRunVoice;
   }
 
   if (!process.env.HAMSA_API_KEY) {
@@ -387,12 +506,69 @@ const getResolvedVoice = async () => {
     throw new Error(`${envHint} Set HAMSA_API_KEY to generate missing audio, or use --existing-only to refresh the manifest without calling Hamsa.`);
   }
 
-  resolvedVoice = await resolveHamsaVoice({
+  const resolvedVoice = await resolveHamsaVoice({
     apiKey: process.env.HAMSA_API_KEY,
-    speaker: hamsaSpeaker,
+    speaker,
     dialect: hamsaDialect
   });
+
+  resolvedVoiceBySpeaker.set(speaker, resolvedVoice);
   return resolvedVoice;
+};
+
+const getVoiceAttemptOrder = () => [
+  ...(selectedTtsSpeaker && !failedSpeakers.has(selectedTtsSpeaker) ? [selectedTtsSpeaker] : []),
+  ...hamsaSpeakerCandidates.filter((speaker) => speaker !== selectedTtsSpeaker && !failedSpeakers.has(speaker))
+];
+
+const generateHamsaAudioWithFallback = async (text) => {
+  const attempts = [];
+
+  for (const candidateSpeaker of getVoiceAttemptOrder()) {
+    try {
+      const voice = await getResolvedVoice(candidateSpeaker);
+      const ttsSpeaker = getRealtimeTtsSpeaker(voice, candidateSpeaker);
+      const audio = await callHamsaRealtimeTts({
+        apiKey: process.env.HAMSA_API_KEY,
+        text,
+        speaker: ttsSpeaker,
+        dialect: hamsaDialect,
+        endpoint: process.env.HAMSA_TTS_ENDPOINT || DEFAULTS.endpoint
+      });
+
+      selectedResolvedVoice = voice;
+      selectedTtsSpeaker = candidateSpeaker;
+      return {
+        audio,
+        voice,
+        ttsSpeaker,
+        attempts
+      };
+    } catch (error) {
+      const attempt = {
+        speaker: candidateSpeaker,
+        status: error instanceof HamsaApiError ? error.status : null,
+        errorCategory: classifyError(error),
+        error: error instanceof Error ? error.message : String(error)
+      };
+      attempts.push(attempt);
+      voiceFallbackAttempts.push(attempt);
+
+      if (!shouldTryNextVoice(error)) {
+        error.voiceAttempts = attempts;
+        throw error;
+      }
+
+      failedSpeakers.add(candidateSpeaker);
+    }
+  }
+
+  const lastAttempt = attempts[attempts.length - 1];
+  const error = new Error(lastAttempt
+    ? `All Hamsa voice candidates failed. Last error for ${lastAttempt.speaker}: ${lastAttempt.error}`
+    : 'No Hamsa voice candidates were available.');
+  error.voiceAttempts = attempts;
+  throw error;
 };
 
 fs.mkdirSync(audioDir, {recursive: true});
@@ -409,13 +585,32 @@ if (fs.existsSync(textOverridesPath)) {
   }
 }
 
+// The manifest is rebuilt from scratch on every run, so a scene's "source"
+// (how its WAV was produced: "ai" Hamsa vs "recorded") would be lost whenever
+// any *other* scene is regenerated. Read the prior manifest and carry each
+// scene's source forward for WAVs we reuse; freshly generated WAVs are "ai".
+let priorSourceByScene = {};
+if (fs.existsSync(manifestPath)) {
+  try {
+    const priorManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    for (const entry of priorManifest.entries ?? []) {
+      if (entry?.sceneId && entry.source) priorSourceByScene[entry.sceneId] = entry.source;
+    }
+  } catch {
+    priorSourceByScene = {};
+  }
+}
+
 const entries = [];
 
 for (const scene of audioScenes) {
   const overrideText = normalizeSpacing(textOverrides[scene.id]);
-  const text = overrideText || selectSceneText(scene, args.textSource);
+  const selectedText = overrideText || selectSceneText(scene, args.textSource);
+  const text = ensureScene2AudioPrefix(scene, selectedText);
   const effectiveTextSource = overrideText ? 'override' : args.textSource;
+  const captionText = getScene2CaptionText(scene, text);
   const audioKey = scene.outlet?.key || scene.audioKey || scene.id;
+  const carriedSource = priorSourceByScene[scene.id] || 'ai';
   if (!text) {
     entries.push({
       id: scene.id,
@@ -428,7 +623,10 @@ for (const scene of audioScenes) {
       outletLogoPath: scene.outlet?.logoPath ?? null,
       outlet: scene.outlet,
       textSource: effectiveTextSource,
+      source: carriedSource,
       text: '',
+      captionText: '',
+      captionStartOffsetSeconds: 0,
       chars: 0,
       requestedSceneDurationSeconds: scene.durationSeconds ?? null,
       audioDurationSeconds: null,
@@ -454,7 +652,10 @@ for (const scene of audioScenes) {
     outletLogoPath: scene.outlet?.logoPath ?? null,
     outlet: scene.outlet ?? null,
     textSource: effectiveTextSource,
+    source: carriedSource,
     text,
+    captionText,
+    captionStartOffsetSeconds: 0,
     chars: text.length,
     requestedSceneDurationSeconds: scene.durationSeconds ?? null,
     audioDurationSeconds: null,
@@ -472,9 +673,16 @@ for (const scene of audioScenes) {
       fs.writeFileSync(outputPath, existingBuffer);
       console.log(`Repaired WAV header sizes: ${relativeOutputPath}`);
     }
+    const audioDurationSeconds = getWavDurationSeconds(existingBuffer);
     entries.push({
       ...baseEntry,
-      audioDurationSeconds: getWavDurationSeconds(existingBuffer),
+      captionStartOffsetSeconds: getCaptionStartOffsetSeconds({
+        scene,
+        audioText: text,
+        captionText,
+        audioDurationSeconds
+      }),
+      audioDurationSeconds,
       status: 'reused'
     });
     continue;
@@ -489,20 +697,27 @@ for (const scene of audioScenes) {
   }
 
   try {
-    const voice = await getResolvedVoice();
-    const audio = await callHamsaRealtimeTts({
-      apiKey: process.env.HAMSA_API_KEY,
-      text,
-      speaker: voice.id || voice.name,
-      dialect: hamsaDialect,
-      endpoint: process.env.HAMSA_TTS_ENDPOINT || DEFAULTS.endpoint
-    });
+    const result = await generateHamsaAudioWithFallback(text);
 
-    patchWavHeaderSizes(audio);
-    fs.writeFileSync(outputPath, audio);
+    patchWavHeaderSizes(result.audio);
+    fs.writeFileSync(outputPath, result.audio);
     entries.push({
       ...baseEntry,
-      audioDurationSeconds: getWavDurationSeconds(audio),
+      // Freshly generated by Hamsa — always "ai", overriding any carried-forward
+      // value (e.g. re-generating a previously recorded scene flips it back to ai).
+      source: 'ai',
+      speaker: result.ttsSpeaker,
+      resolvedSpeakerId: result.voice.id ?? null,
+      resolvedSpeakerName: result.voice.name ?? null,
+      resolvedSpeakerSource: result.voice.source ?? null,
+      voiceFallbackAttempts: result.attempts,
+      audioDurationSeconds: getWavDurationSeconds(result.audio),
+      captionStartOffsetSeconds: getCaptionStartOffsetSeconds({
+        scene,
+        audioText: text,
+        captionText,
+        audioDurationSeconds: getWavDurationSeconds(result.audio)
+      }),
       status: 'generated'
     });
   } catch (error) {
@@ -511,6 +726,7 @@ for (const scene of audioScenes) {
       status: 'failed',
       errorCategory: classifyError(error),
       errorStatus: error instanceof HamsaApiError ? error.status : null,
+      voiceFallbackAttempts: error.voiceAttempts ?? [],
       error: error instanceof Error ? error.message : String(error)
     });
   }
@@ -523,10 +739,13 @@ const manifest = {
     briefingFolder: path.relative(cwd, briefingFolder).replace(/\\/g, '/'),
     provider: 'hamsa',
     endpoint: process.env.HAMSA_TTS_ENDPOINT || DEFAULTS.endpoint,
-    speaker: hamsaSpeaker,
-    resolvedSpeakerId: resolvedVoice?.id ?? null,
-    resolvedSpeakerName: resolvedVoice?.name ?? null,
-    resolvedSpeakerSource: resolvedVoice?.source ?? null,
+    speaker: selectedTtsSpeaker ?? hamsaSpeaker,
+    speakerCandidates: hamsaSpeakerCandidates,
+    speakerSelectionSeed: voiceSelectionSeed,
+    voiceFallbackAttempts,
+    resolvedSpeakerId: selectedResolvedVoice?.id ?? null,
+    resolvedSpeakerName: selectedResolvedVoice?.name ?? null,
+    resolvedSpeakerSource: selectedResolvedVoice?.source ?? null,
     dialect: hamsaDialect,
     outputFormat: DEFAULTS.outputFormat,
     textSource: args.textSource,
@@ -548,6 +767,8 @@ const manifest = {
         sceneId: entry.sceneId,
         audioPath: entry.audioPath,
         durationSeconds: entry.audioDurationSeconds,
+        captionText: entry.captionText,
+        captionStartOffsetSeconds: entry.captionStartOffsetSeconds,
         status: entry.status
       }
     ])
@@ -561,6 +782,8 @@ const manifest = {
         outletName: entry.outletName,
         audioPath: entry.audioPath,
         durationSeconds: entry.audioDurationSeconds,
+        captionText: entry.captionText,
+        captionStartOffsetSeconds: entry.captionStartOffsetSeconds,
         status: entry.status
       }
     ])

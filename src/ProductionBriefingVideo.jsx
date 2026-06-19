@@ -121,19 +121,23 @@ const buildCaptionPhrases = (text) => {
 };
 
 const buildCaptionSchedule = (scene, sceneDurationMs) => {
-  const text = scene.audioText || scene.body || scene.visual?.summary || '';
+  const text = scene.audio?.captionText || scene.captionText || scene.audioText || scene.body || scene.visual?.summary || '';
   const phrases = buildCaptionPhrases(text);
   if (!phrases.length) return null;
 
   const narrationMs = scene.audio?.durationSeconds
     ? scene.audio.durationSeconds * 1000
     : Math.max(2000, sceneDurationMs - 500);
+  const captionStartOffsetMs = scene.audio?.captionStartOffsetSeconds
+    ? scene.audio.captionStartOffsetSeconds * 1000
+    : 0;
+  const captionNarrationMs = Math.max(800, narrationMs - captionStartOffsetMs);
   const totalChars = phrases.reduce((sum, words) => sum + words.join(' ').length + 1, 0);
 
-  let cursorMs = 180;
+  let cursorMs = captionStartOffsetMs + 180;
   const schedule = phrases.map((words) => {
     const phraseChars = words.join(' ').length + 1;
-    const phraseMs = (phraseChars / totalChars) * narrationMs;
+    const phraseMs = (phraseChars / totalChars) * captionNarrationMs;
     const entry = {words, startMs: cursorMs, durationMs: phraseMs};
     cursorMs += phraseMs;
     return entry;

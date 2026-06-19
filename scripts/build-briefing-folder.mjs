@@ -228,6 +228,8 @@ const attachOutletAudio = () => {
   const toBriefingAudio = (audio) => ({
     src: toRelativeAudio(audio),
     durationSeconds: audio.durationSeconds,
+    captionText: audio.captionText,
+    captionStartOffsetSeconds: audio.captionStartOffsetSeconds,
     status: audio.status,
     outletKey: audio.outletKey,
     outletName: audio.outletName
