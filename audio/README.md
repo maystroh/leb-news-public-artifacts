@@ -23,7 +23,7 @@ Defaults:
 - Provider: Hamsa realtime TTS
 - Endpoint: `https://api.tryhamsa.com/v1/realtime/tts`
 - Auth header: `Authorization: Token <API key>`
-- Speaker: `Lamees`
+- Speaker pool: `Lamees`, `Marwan`, `Nabil`, `Gassan`
 - Dialect: `leb`
 - Text source: scene `audioText` when present, otherwise scene `body`
 - Output: `briefings/YYYY-MM-DD/audio/`
@@ -59,6 +59,17 @@ For full-editorial `scene-11`, `body` may include opening context plus the
 penultimate summary for analysis/display context, but `audioText` should contain
 only the penultimate summary paragraph. Hamsa generation prefers `audioText` so
 the closing WAV does not repeat the opening paragraph.
+
+The script shuffles the speaker pool from the date folder name, so each briefing
+day gets one stable first-choice voice. If that voice fails during generation,
+the script tries the remaining voices and keeps using the first working fallback
+for that run. Override the pool with comma-separated `HAMSA_TTS_SPEAKERS`, or
+force one voice with `HAMSA_TTS_SPEAKER`.
+
+The script validates configured speakers through Hamsa's voice catalog and
+records the resolved voice id in the manifest. For built-in catalog voices it
+still sends the voice name to realtime TTS; `HAMSA_TTS_SPEAKER_ID` is reserved
+for an explicitly configured custom/preloaded voice id.
 
 For a one-audio smoke test on the latest date folder:
 

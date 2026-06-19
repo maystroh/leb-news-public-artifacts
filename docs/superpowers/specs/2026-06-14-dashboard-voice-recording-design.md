@@ -1,7 +1,7 @@
 # Dashboard per-scene voice recording — design
 
 **Date:** 2026-06-14
-**Status:** Approved (brainstorm); pending implementation plan
+**Status:** Implemented
 
 ## Goal
 

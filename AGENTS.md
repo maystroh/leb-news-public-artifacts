@@ -98,10 +98,12 @@ The goal is to preserve the current visual decisions so future edits do not acci
   - `radar-beirut-briefing.html`
   - `radar-beirut-briefing-hook-captions.html`
   - `radar-beirut-briefing-hook-stamps.html`
-- The full-editorial hook variants are A/B experiments; Remotion mirrors the `captions` and `stamps` hooks via `briefing:render:mp4 --variant captions|stamps` (hook overlays in `src/ProductionBriefingVideo.jsx` must stay in lockstep with the template's HOOKS timings).
+- The full-editorial hook variants are A/B experiments; Remotion mirrors the `captions` and `stamps` hooks via `briefing:render:mp4 --variant captions|stamps` (hook overlays in `src/ProductionBriefingVideo.jsx` must stay in lockstep with the template's HOOKS timings and exclusions).
 - Full-editorial hooks must stay behind the shared template's `HOOK_VARIANT` / `HOOKS` flags; do not fork the briefing template per hook.
 - Emitted hook variants should preserve the same total video duration as the default full-editorial HTML.
-- The `captions` hook shows karaoke-style narration captions synced across the scene duration.
+- The `captions` hook shows karaoke-style narration captions synced across the scene duration plus a mid-screen brown focus quote box on most outlet scenes.
+- The `captions` hook focus box reuses the quote stamp timing/style, but should not show keyword chips and should not add `« »` around the box text.
+- The `captions` hook focus box should not appear on the summary/closing scene, and should not appear on article-screenshot contain scenes for `asas-media` or `almodon`.
 - The `stamps` hook shows a mid-scene quote stamp plus keyword chips from `output/keyword-radar.json`.
 - The shared template still contains `coldopen`, `choreography`, and `all` hook support, but those variants are not currently emitted by the builder after review.
 - To re-enable `coldopen` or `choreography` outputs later, add them back to `HOOK_VARIANTS` in `scripts/build-full-editorial-html.mjs` and update dashboard review artifacts accordingly.
@@ -153,6 +155,9 @@ The goal is to preserve the current visual decisions so future edits do not acci
   - Remotion uses the staged Dubai font files from `fonts/` so Arabic typography stays aligned with the HTML output.
   - Front-page media in Remotion uses cover behavior with a vertical object-position animation to approximate the HTML overflow pan when the image does not fit in the outlet image box.
   - Article screenshots with `fitMode: contain`, such as `asas-media` and `almodon`, stay contained inside the image box and rotate when multiple screenshots exist.
+  - Remotion `--variant captions` mirrors the HTML captions hook: bottom karaoke captions plus mid-screen focus quote boxes on eligible outlet scenes only.
+  - Remotion captions focus boxes are excluded from the summary/closing scene and from `asas-media` / `almodon`; the flash should follow the same eligibility rule.
+  - Dashboard step 12 labels this variant as `Hook: captions + focus boxes` and still renders it with `--variant captions`.
 - The default full MP4 render command is:
   - `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --log warn`
 - The default full MP4 output path is:
@@ -266,6 +271,7 @@ If revisiting any of those, confirm with the user first.
 - Prefer using the shared intro direction as a family resemblance across formats, while allowing the scene phase to diverge by editorial logic.
 - Prefer keeping scenes readable for vertical short-form viewing over adding more text density.
 - Prefer explicit editorial compression written in source data over renderer-side auto-summarization.
+- Ask before creating a new Git branch or pushing to any non-main branch; the default publishing target is `main` unless the user explicitly says otherwise.
 - If a new format idea becomes stable, document its editorial rules here in `AGENTS.md`.
 
 ## Note About Memory
@@ -283,6 +289,10 @@ If revisiting any of those, confirm with the user first.
   - Fault Line Map intro title is now `خريطة الانقسام`, not `خريطة خط الانقسام`
   - full-editorial closing/synthesis scene analysis/body may combine opening + penultimate summary for context, but audio must use only the penultimate paragraph
   - full-editorial Hamsa audio now covers outlet scenes, the closing/synthesis scene, and the outro question
+  - `radar-beirut-briefing-hook-captions.html` / `--variant captions` now combine bottom full-narration karaoke captions with mid-screen focus quote boxes on eligible outlet scenes
+  - captions focus boxes exclude the summary/closing scene, `asas-media`, and `almodon`, and they do not show keyword chips or `« »` wrappers
+  - pause notation for AI audio such as `...`, `....`, spaced dot runs like `. . .`, or the ellipsis glyph `…` may remain in narration/audio text to shape speech, but captions should strip runs of three or more dots in both the HTML captions hook and Remotion `--variant captions`
+  - when committing/pushing, do not create branches or push feature branches without asking first; if the user asks to push and does not specify a branch, confirm or use `main` according to the user's latest instruction
 
 ## Full Editorial Content Memory
 - The agreed name for this scene-content approach is `full editorial content`.
@@ -565,11 +575,15 @@ Quote Duel rule of thumb:
   - run `scripts/sync-outlet-audio-timing.mjs`
   - rebuild folder outputs
   - report whether the new WAV is longer, same length, or shorter so the user knows whether a re-render or only a re-mux is needed
-- The default Hamsa voice is `Lamees`, Lebanese dialect `leb`, with realtime TTS endpoint:
+- The default Hamsa voice pool is `Lamees`, `Marwan`, `Nabil`, `Gassan`, Lebanese dialect `leb`, with realtime TTS endpoint:
   - `https://api.tryhamsa.com/v1/realtime/tts`
 - Hamsa auth uses:
   - `Authorization: Token <API key>`
-- The script resolves `Lamees` through the Hamsa voice catalog and may record the resolved voice id in the manifest.
+- The audio generator shuffles the voice pool by date folder, so each briefing day gets one stable first-choice voice.
+- If the selected voice fails, the generator tries the remaining voices and keeps using the first working fallback for that run.
+- `HAMSA_TTS_SPEAKERS` may override the pool with comma-separated names; `HAMSA_TTS_SPEAKER` forces one voice for manual testing.
+- The script resolves the configured voice through the Hamsa voice catalog and may record the resolved voice id in the manifest.
+- For built-in catalog voices, realtime TTS should receive the voice name, not the catalog UUID; `HAMSA_TTS_SPEAKER_ID` is reserved for explicitly configured custom/preloaded voice ids.
 - `audio/manifest.json` is the integration surface for later pipeline work.
 - The manifest should include:
   - `audioByOutlet`

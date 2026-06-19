@@ -76,19 +76,19 @@ briefings/YYYY-MM-DD/
 
 Generated briefing audio lives in `briefings/YYYY-MM-DD/audio/`, NOT in `output/audio/`.
 
-## Full Editorial Hook Variants (HTML-only A/B experiments)
+## Full Editorial Hook Variants (HTML + MP4 A/B experiments)
 
 `build-full-editorial-html.mjs` emits the default briefing HTML plus two social-attention variants, each with exactly ONE hook enabled (gated by `HOOK_VARIANT` in the template; `default` disables all):
 
 | File suffix | Hook |
 |---|---|
 | *(none)* | default — no hooks, unchanged behavior |
-| `-hook-captions` | karaoke captions: full narration text phrase-synced to WAV duration, word-by-word highlight |
+| `-hook-captions` | bottom karaoke captions plus mid-screen focus quote boxes on most outlet scenes |
 | `-hook-stamps` | mid-scene quote stamp + keyword chips from `output/keyword-radar.json` terms |
 
-Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Total video duration is identical across all files. The template still supports `coldopen` and `choreography` hooks (and an `all` mode); they were dropped from the emitted variants after review — re-enable by adding entries back to `HOOK_VARIANTS` in `build-full-editorial-html.mjs`.
+Rules: hooks live in `templates/radar-beirut-briefing-template.html` behind the `HOOKS` flags — never fork the template per variant. Total video duration is identical across all files. In `-hook-captions`, bottom captions show the full narration phrase-synced to WAV duration with word-by-word highlight; mid-screen focus boxes reuse the quote stamp styling but do **not** show keyword chips and do **not** wrap text in `« »`. Captions focus boxes should appear only on outlet scenes, excluding the summary/closing scene and the article-screenshot contain scenes `asas-media` and `almodon`. The template still supports `coldopen` and `choreography` hooks (and an `all` mode); they were dropped from the emitted variants after review — re-enable by adding entries back to `HOOK_VARIANTS` in `build-full-editorial-html.mjs`.
 
-Remotion mirrors the `captions` and `stamps` hooks (only those): `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --variant captions|stamps` renders `radar-beirut-briefing-hook-<variant>.mp4`. The hook overlays live in `src/ProductionBriefingVideo.jsx` and must stay in lockstep with the template's HOOKS timings/styles. `briefing:mux:audio --input <variant>.mp4` writes `<variant>-final.mp4`. Dashboard step 12 has variant checkboxes; steps 13–14 mux/download any variant renders found. Step 15 (split) auto-detects every `radar-beirut-briefing*-final.mp4` in `output/` and shows a checkbox per downloaded variant; each splits into its own `scene-videos[-hook-<variant>]/` folder (one selector appears only when more than one final MP4 is present). Step 16 (social-zip) generates `output/social-captions.json` once via Codex (per-clip Instagram captions/hashtags + a YouTube description for the full video; editable and reused across types), then packages one `radar-beirut-briefing[-hook-<variant>]-<date>.zip` per selected video type — each containing the full MP4, its split clips, a per-clip caption `.txt` beside each clip, `youtube-description.txt`, and a combined index.
+Remotion mirrors the `captions` and `stamps` hooks (only those): `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --variant captions|stamps` renders `radar-beirut-briefing-hook-<variant>.mp4`. The hook overlays live in `src/ProductionBriefingVideo.jsx` and must stay in lockstep with the template's HOOKS timings/styles, including the captions focus-box exclusions. `briefing:mux:audio --input <variant>.mp4` writes `<variant>-final.mp4`. Dashboard step 12 has variant checkboxes and labels the captions variant as `Hook: captions + focus boxes`; steps 13–14 mux/download any variant renders found. Step 15 (split) auto-detects every `radar-beirut-briefing*-final.mp4` in `output/` and shows a checkbox per downloaded variant; each splits into its own `scene-videos[-hook-<variant>]/` folder (one selector appears only when more than one final MP4 is present). Step 16 generates `output/social-captions.json` once via Codex with per-clip Instagram captions/hashtags, a YouTube description, a YouTube thumbnail prompt, and an Instagram Reel cover prompt; the prompt copy fields belong inside step 16, while the Post now panel below the steps uses the final MP4s, split clips, and posting text.
 
 ## Key npm Commands
 
@@ -145,11 +145,12 @@ npm run briefing:mux:audio -- --folder briefings/YYYY-MM-DD --music --music-db -
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD
 npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-540x960.mp4 --output-dir briefings/YYYY-MM-DD/output/scene-videos-540x960
 
-# Social packaging (dashboard step 16) — captions via Codex, then one zip per video type
+# Social captions (dashboard step 16) — captions via Codex, then use Post now panel
 npm run briefing:social:prompt -- --folder briefings/YYYY-MM-DD   # writes output/social-captions-prompt.md
-# feed that prompt to `codex exec` → writes output/social-captions.json (editable, reused across types)
+# feed that prompt to `codex exec` → writes output/social-captions.json
+# JSON includes per-clip Instagram copy, YouTube description, YouTube thumbnail prompt, and Instagram Reel cover prompt
 npm run briefing:social:validate -- --folder briefings/YYYY-MM-DD
-npm run briefing:social:zip -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-final.mp4 --scene-dir briefings/YYYY-MM-DD/output/scene-videos
+npm run briefing:social:thumbnail-prompt -- --folder briefings/YYYY-MM-DD  # writes output/youtube-thumbnail-prompt.md + output/instagram-reel-cover-prompt.md
 
 # Smoke tests (do not replace real output)
 npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x960 --frames 0-2 --log warn --output briefings/YYYY-MM-DD/output/smoke.mp4
@@ -170,9 +171,10 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/render-briefing-intro-video.mjs` | Remotion intro-only renderer |
 | `scripts/mux-briefing-audio.mjs` | mixes narration WAVs at frame-accurate offsets, muxes into rendered MP4 via ffmpeg |
 | `scripts/split-briefing-video.mjs` | splits completed MP4 into scene clips |
-| `scripts/build-social-captions-prompt.mjs` | writes the Codex prompt for per-clip Instagram captions + YouTube description |
+| `scripts/build-social-captions-prompt.mjs` | writes the Codex prompt for per-clip Instagram captions, YouTube description, and social asset prompts |
 | `scripts/validate-social-captions.mjs` | validates output/social-captions.json against briefing.json |
-| `scripts/package-social-zip.mjs` | zips one video type: full MP4 + split clips + per-clip caption .txt + YouTube description (via `archiver`) |
+| `scripts/write-youtube-thumbnail-prompt.mjs` | extracts youtube.thumbnailPrompt and instagram.reelCoverPrompt to prompt markdown files |
+| `scripts/package-social-zip.mjs` | standalone legacy utility: zips one video type with full MP4, split clips, captions, and YouTube description |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
 
@@ -269,12 +271,14 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 
 - Provider: Hamsa realtime TTS (`https://api.tryhamsa.com/v1/realtime/tts`)
 - Auth: `Authorization: Token <API key>` — key in `.env` as `HAMSA_API_KEY`
-- Voice: `Lamees`, dialect `leb`
+- Voice pool: `Lamees`, `Marwan`, `Nabil`, `Gassan`; the generator shuffles by date folder and uses one stable first-choice voice per day, then falls back through the remaining pool if Hamsa rejects that voice
 - WAV files: `briefings/YYYY-MM-DD/audio/scene-{id}-{outletKey}.wav`
 - Non-outlet closing scene: `scene-11-scene-11.wav`
 - Outro: `outro-open-question.wav`
 - Existing WAVs are reused by default; pass `--force` only when intentional regeneration is needed
 - Per-scene narration text overrides: `briefings/YYYY-MM-DD/audio/text-overrides.json` (keyed by scene id, e.g. `scene-3`, `scene-11`, `outro`). The generator prefers an override over briefing.json text (`textSource: "override"` in the manifest); overrides survive rebuilds and are edited from the dashboard's Scene narration panel
+- Per-scene source: each manifest entry carries `source: "ai" | "recorded"`. `audio:outlets` rebuilds the manifest from scratch every run, so it reads the **prior** manifest and carries forward each reused WAV's `source`; freshly Hamsa-generated WAVs are stamped `"ai"`. Absent/legacy entries default to `"ai"`. The field is durable across all rebuilds (unrelated regens, Step 7, `--existing-only`)
+- Human-recorded narration: the dashboard can record a take per scene (browser MediaRecorder → `ffmpeg` convert to mono 16-bit/16 kHz PCM WAV at the scene path), backing up any prior WAV to `.stale-<timestamp>.wav` and stamping the manifest `source: "recorded"`. A recorded WAV is identical to a Hamsa one for the renderer/mux/splitter (no pipeline changes). A per-date `audioSource: "ai" | "human"` flag in `output/dashboard-state.json` gates Step 7 (`human` → `audio:outlets --existing-only`, no API spend); per-scene Generate/Record always work regardless of it
 - Timing sync adds 0.5s buffer to each WAV duration
 
 ## timing-config.json

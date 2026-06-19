@@ -4,8 +4,9 @@ import path from 'node:path';
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 
 // Validates output/social-captions.json against the day's briefing.json: every
-// scene must have a clip entry with a caption + hashtags, and the YouTube block
-// must be filled. Non-zero exit on problems. Step 16, end of Action A.
+// scene must have a clip entry with a caption + hashtags, and the YouTube /
+// Instagram prompt blocks must be filled. Non-zero exit on problems. Step 16,
+// end of Action A.
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -49,7 +50,12 @@ const validHashtags = (tags) =>
 const youtube = captions.youtube || {};
 if (!isNonEmpty(youtube.title)) errors.push('youtube.title is empty.');
 if (!isNonEmpty(youtube.description)) errors.push('youtube.description is empty.');
+if (!isNonEmpty(youtube.thumbnailPrompt)) errors.push('youtube.thumbnailPrompt is empty.');
 if (!validHashtags(youtube.hashtags)) errors.push('youtube.hashtags must be a non-empty array of #tags (no spaces).');
+
+// Instagram block.
+const instagram = captions.instagram || {};
+if (!isNonEmpty(instagram.reelCoverPrompt)) errors.push('instagram.reelCoverPrompt is empty.');
 
 // Clips: one per scene, keyed by sceneId.
 const clips = Array.isArray(captions.clips) ? captions.clips : [];
@@ -75,4 +81,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`social-captions.json is valid: ${clips.length} clip(s) + YouTube description for ${scenes.length} scene(s).`);
+console.log(`social-captions.json is valid: ${clips.length} clip(s) + YouTube/Instagram prompts for ${scenes.length} scene(s).`);
