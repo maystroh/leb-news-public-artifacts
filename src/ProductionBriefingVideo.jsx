@@ -102,8 +102,13 @@ const getSceneExcerpt = (scene) => {
 // timings, thresholds and styles below must stay in lockstep with the HTML
 // captions/stamps implementations so the MP4 matches the HTML variant.
 
+const cleanCaptionText = (text) => (text || '')
+  .replace(/(?:\s*(?:\.|…)\s*){3,}/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 const buildCaptionPhrases = (text) => {
-  const normalized = (text || '').replace(/\s+/g, ' ').trim();
+  const normalized = cleanCaptionText(text);
   if (!normalized) return [];
 
   const sentences = normalized.split(/(?<=[.؟!?])\s+/).filter(Boolean);

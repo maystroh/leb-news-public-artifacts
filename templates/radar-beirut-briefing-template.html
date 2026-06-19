@@ -1136,8 +1136,15 @@ eyJtZXRhIjp7InNvdXJjZVBhdGgiOiJDOlxcVXNlcnNcXEhhc3NhbkFsaGFqalxcRGVza3RvcFxcTXlQ
     }, 2400);
   }
 
+  function cleanCaptionText(text) {
+    return (text || '')
+      .replace(/(?:\s*(?:\.|…)\s*){3,}/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function buildCaptionPhrases(text) {
-    const normalized = (text || '').replace(/\s+/g, ' ').trim();
+    const normalized = cleanCaptionText(text);
     if (!normalized) return [];
 
     const sentences = normalized.split(/(?<=[.؟!?])\s+/).filter(Boolean);
