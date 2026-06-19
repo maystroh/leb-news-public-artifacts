@@ -15,9 +15,17 @@ function formatMtime(mtimeMs) {
   return d.toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'});
 }
 
-export default function StepCard({step, log, busy, running, onRun, onReview}) {
+async function copyText(text, setCopied, key) {
+  if (!text) return;
+  await navigator.clipboard.writeText(text);
+  setCopied(key);
+  window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500);
+}
+
+export default function StepCard({step, social, log, busy, running, onRun, onReview}) {
   const [showLog, setShowLog] = useState(false);
   const [optionSelections, setOptionSelections] = useState({});
+  const [copied, setCopied] = useState(null);
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +38,8 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
 
   const hasLog = log && log.length > 0;
   const locked = Boolean(step.locked);
+  const thumbnailPrompt = step.id === 'social-package' ? social?.youtube?.thumbnailPrompt || '' : '';
+  const reelCoverPrompt = step.id === 'social-package' ? social?.instagram?.reelCoverPrompt || '' : '';
 
   const selectedFor = (action) =>
     optionSelections[action.id] ?? action.options?.defaultSelected ?? [];
@@ -55,6 +65,26 @@ export default function StepCard({step, log, busy, running, onRun, onReview}) {
       <p className="description">{step.description}</p>
       {step.statusDetail && <p className={`status-detail detail-${step.status}`}>{step.statusDetail}</p>}
       {locked && step.lockReason && <p className="lock-note">{step.lockReason}</p>}
+
+      {thumbnailPrompt && (
+        <div className="step-output">
+          <label>YouTube thumbnail prompt</label>
+          <textarea className="step-thumbnail-prompt" readOnly value={thumbnailPrompt} />
+          <button className="btn" onClick={() => copyText(thumbnailPrompt, setCopied, 'thumbnail-prompt')}>
+            {copied === 'thumbnail-prompt' ? 'Copied' : 'Copy thumbnail prompt'}
+          </button>
+        </div>
+      )}
+
+      {reelCoverPrompt && (
+        <div className="step-output">
+          <label>Instagram Reel cover prompt</label>
+          <textarea className="step-thumbnail-prompt" readOnly value={reelCoverPrompt} />
+          <button className="btn" onClick={() => copyText(reelCoverPrompt, setCopied, 'reel-cover-prompt')}>
+            {copied === 'reel-cover-prompt' ? 'Copied' : 'Copy Reel cover prompt'}
+          </button>
+        </div>
+      )}
 
       {step.artifacts.length > 0 && (
         <ul className="artifacts">

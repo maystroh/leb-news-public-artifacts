@@ -26,6 +26,7 @@
     "briefing:split:mp4": "node ./scripts/split-briefing-video.mjs",
     "briefing:social:prompt": "node ./scripts/build-social-captions-prompt.mjs",
     "briefing:social:validate": "node ./scripts/validate-social-captions.mjs",
+    "briefing:social:thumbnail-prompt": "node ./scripts/write-youtube-thumbnail-prompt.mjs",
     "briefing:social:zip": "node ./scripts/package-social-zip.mjs",
     "narration:prepare": "npm run briefing:prepare && node ./scripts/prepare-narration.mjs",
     "audio:generate:dry": "npm run narration:prepare && node ./scripts/generate-voiceover.mjs --dry-run",

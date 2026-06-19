@@ -24,7 +24,7 @@ import {
   uniqueOutletImageKeys
 } from './lib/checks.mjs';
 import {loadState, saveState} from './lib/state.mjs';
-import {audioEntries} from './audio.mjs';
+import {audioEntries, loadAudioSource} from './audio.mjs';
 
 const npmRun = (script, ...extra) => ({cmd: 'npm', args: ['run', script, '--', ...extra]});
 const sshArgs = (remoteCommand) => ['-p', SSH_PORT, '-o', 'ConnectTimeout=8', SSH_HOST, remoteCommand];
@@ -76,11 +76,6 @@ function finalVideoVariants(ctx) {
       };
     });
 }
-
-// Step 16 social zip name for a variant suffix, e.g. '' -> radar-beirut-briefing-<date>.zip,
-// '-hook-captions' -> radar-beirut-briefing-hook-captions-<date>.zip. Shared by the package
-// command (so the script writes here) and status() (so it predicts the same path).
-const socialZipName = (mid, date) => `radar-beirut-briefing${mid}-${date}.zip`;
 
 // A date is "remote-sync" (created from the dashboard, fed by the data server)
 // only when its state was stamped by POST /api/create-date.
@@ -226,9 +221,9 @@ export function getSteps(ctx, state = null) {
   const finalMp4 = path.join(ctx.output, 'radar-beirut-briefing-final.mp4');
   const mutedMp4 = path.join(ctx.output, 'radar-beirut-briefing.mp4');
   const splitVariants = finalVideoVariants(ctx);
-  // Step 16 can only zip a variant that has BOTH a final MP4 and its split clips present.
-  const packageVariants = splitVariants.filter((variant) => exists(variant.outputDir));
   const socialCaptions = path.join(ctx.output, 'social-captions.json');
+  const youtubeThumbnailPrompt = path.join(ctx.output, 'youtube-thumbnail-prompt.md');
+  const instagramReelCoverPrompt = path.join(ctx.output, 'instagram-reel-cover-prompt.md');
   const htmlFiles = [
     'radar-beirut-briefing.html',
     'radar-beirut-briefing-hook-captions.html',
@@ -459,11 +454,19 @@ export function getSteps(ctx, state = null) {
       id: 'audio-generate',
       title: '7. Generate briefing narration audio',
       description:
-        'Generates Hamsa WAVs for every scene plus closing and outro. Existing WAVs are reused; only missing ones are generated. ' +
-        'Check and edit the exact narration text per scene in the "Scene narration audio" panel below BEFORE generating.',
+        'In AI mode, generates Hamsa WAVs for every scene plus closing and outro (existing WAVs are reused; only missing ones ' +
+        'are generated). In Human mode, only refreshes the manifest from existing WAVs (no Hamsa calls) — record each scene in ' +
+        'the "Scene narration audio" panel below. Set the AI/Human default and edit the exact narration text in that panel BEFORE generating.',
       kind: 'run',
       actions: [
-        {id: 'run', label: 'Generate audio', commands: () => [npmRun('audio:outlets', '--folder', folder)]},
+        {
+          id: 'run',
+          label: 'Generate audio',
+          commands: () => {
+            const human = loadAudioSource(ctx) === 'human';
+            return [npmRun('audio:outlets', '--folder', folder, ...(human ? ['--existing-only'] : []))];
+          }
+        },
         {
           id: 'existing-only',
           label: 'Refresh manifest from existing WAVs',
@@ -824,11 +827,10 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'social-package',
-      title: '16. Package social zips (video + clips + captions)',
+      title: '16. Generate social captions',
       description:
         'Action A runs Codex once to write an editable output/social-captions.json (per-clip Instagram captions/hashtags + ' +
-        'a YouTube description for the full video). Action B zips each selected video type: its full final MP4, split scene ' +
-        'clips, a per-clip caption .txt beside each clip, plus youtube-description.txt and a combined index.',
+        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). The Post now section below uses that JSON with the final MP4s and split clips.',
       kind: 'run',
       actions: [
         {
@@ -851,97 +853,37 @@ export function getSteps(ctx, state = null) {
               ],
               stdinFile: path.join(ctx.output, 'social-captions-prompt.md')
             },
-            npmRun('briefing:social:validate', '--folder', folder)
+            npmRun('briefing:social:validate', '--folder', folder),
+            npmRun('briefing:social:thumbnail-prompt', '--folder', folder)
           ]
         },
         {
           id: 'validate',
           label: 'Validate captions only',
-          commands: () => [npmRun('briefing:social:validate', '--folder', folder)]
-        },
-        {
-          id: 'package',
-          label: 'Package zip(s)',
-          options:
-            packageVariants.length > 1
-              ? {
-                  id: 'variants',
-                  label: 'Video types to zip',
-                  type: 'multi',
-                  choices: packageVariants.map((variant) => ({value: variant.value, label: variant.label})),
-                  defaultSelected: packageVariants.map((variant) => variant.value)
-                }
-              : undefined,
-          commands: (options) => {
-            const zipFor = (variant) =>
-              npmRun(
-                'briefing:social:zip',
-                '--folder',
-                folder,
-                '--input',
-                variant.inputRel,
-                '--scene-dir',
-                variant.outputDirRel,
-                '--output',
-                path.posix.join(out, socialZipName(variant.mid, ctx.date))
-              );
-            if (!packageVariants.length) {
-              // Nothing zippable yet — emit the normal-variant command so it fails loudly
-              // with the script's missing-input message (mirrors step 15's fallback).
-              return [
-                npmRun(
-                  'briefing:social:zip',
-                  '--folder',
-                  folder,
-                  '--input',
-                  `${out}/radar-beirut-briefing-final.mp4`,
-                  '--scene-dir',
-                  `${out}/scene-videos`,
-                  '--output',
-                  path.posix.join(out, socialZipName('', ctx.date))
-                )
-              ];
-            }
-            const requested = Array.isArray(options?.variants) ? options.variants : [];
-            const selected = requested.length
-              ? packageVariants.filter((variant) => requested.includes(variant.value))
-              : packageVariants;
-            return (selected.length ? selected : packageVariants).map(zipFor);
-          }
+          commands: () => [
+            npmRun('briefing:social:validate', '--folder', folder),
+            npmRun('briefing:social:thumbnail-prompt', '--folder', folder)
+          ]
         }
       ],
       artifacts: () => {
-        const list = [
+        return [
           {label: 'social-captions.json (editable)', file: socialCaptions, optional: true},
-          {label: 'social-captions-prompt.md', file: path.join(ctx.output, 'social-captions-prompt.md'), optional: true}
+          {label: 'social-captions-prompt.md', file: path.join(ctx.output, 'social-captions-prompt.md'), optional: true},
+          {label: 'youtube-thumbnail-prompt.md', file: youtubeThumbnailPrompt, optional: true},
+          {label: 'instagram-reel-cover-prompt.md', file: instagramReelCoverPrompt, optional: true},
+          {label: 'instagram-reel-cover.png', file: path.join(ctx.output, 'instagram-reel-cover.png'), optional: true}
         ];
-        for (const variant of packageVariants) {
-          const name = socialZipName(variant.mid, ctx.date);
-          list.push({label: `${name} (${variant.label})`, file: path.join(ctx.output, name), open: true, optional: true});
-        }
-        return list;
       },
       status: (stepState) => {
         if (!exists(socialCaptions)) return fromLastRun(stepState, 'Generate social captions with Codex first.');
-        if (!packageVariants.length) {
-          return {status: 'pending', detail: 'Captions ready — package once a final MP4 and its split clips exist (steps 14/15).'};
+        if (!exists(youtubeThumbnailPrompt) || !exists(instagramReelCoverPrompt)) {
+          return {status: 'attention', detail: 'Captions ready — run Validate captions only to write the social asset prompts.'};
         }
-        const captionsMs = mtimeMs(socialCaptions);
-        let built = 0;
-        let stale = false;
-        for (const variant of packageVariants) {
-          const zipPath = path.join(ctx.output, socialZipName(variant.mid, ctx.date));
-          if (!exists(zipPath)) continue;
-          built += 1;
-          const zipMs = mtimeMs(zipPath);
-          if (mtimeMs(variant.input) > zipMs || captionsMs > zipMs) stale = true;
+        if (mtimeMs(socialCaptions) > Math.min(mtimeMs(youtubeThumbnailPrompt), mtimeMs(instagramReelCoverPrompt))) {
+          return {status: 'stale', detail: 'social-captions.json changed after the social asset prompts — validate to refresh them.'};
         }
-        if (built === 0) return fromLastRun(stepState, `Captions ready — ${packageVariants.length} video type(s) to zip.`);
-        if (built < packageVariants.length) {
-          return {status: 'attention', detail: `${built}/${packageVariants.length} zips built — package the rest.`};
-        }
-        if (stale) return {status: 'stale', detail: 'A final MP4 or the captions changed after a zip was built — re-package.'};
-        return {status: 'done', detail: `${built} zip${built === 1 ? '' : 's'} ready.`};
+        return staleIfBriefingNewer(ctx, {status: 'done', detail: 'Social captions, YouTube description, and social asset prompts are ready.'}, mtimeMs(socialCaptions));
       }
     }
   ];

@@ -52,13 +52,15 @@ Other commands:
      The flag goes stale automatically if outputs are rebuilt afterwards.
 4. Server steps (11–14) run rsync/ssh against the render server and stream
    output live. The muted render (step 12) is the long one.
-5. **Step 16 (social zip):** _Generate social captions (Codex)_ writes an
-   editable `output/social-captions.json` (per-clip Instagram captions/hashtags +
-   one YouTube description for the full video) — review/tweak it, then
-   _Package zip(s)_ builds one `radar-beirut-briefing[-hook-<variant>]-<date>.zip`
-   per selected video type (full MP4 + split clips + a caption `.txt` beside each
-   clip + `youtube-description.txt` + a combined index). Captions are generated
-   once and reused across types; re-zipping never re-calls Codex.
+5. **Step 16 (social captions):** _Generate social captions (Codex)_ writes an
+   editable `output/social-captions.json` (per-clip Instagram captions/hashtags,
+   one YouTube description, one YouTube thumbnail-generation prompt, and one
+   Instagram Reel cover prompt), then extracts the asset prompts to
+   `output/youtube-thumbnail-prompt.md` and
+   `output/instagram-reel-cover-prompt.md`. Save the generated Reel cover image
+   as `output/instagram-reel-cover.png`; the phone upload includes it with the
+   scene clips. The **Post now** panel appears below the numbered steps and uses
+   the same JSON with the final MP4s and split clips.
 6. Only one run can be active per date at a time.
 
 ## Creating a date from the data server (remote-sync)
@@ -86,9 +88,10 @@ manually-created `briefings/` dates are unchanged (no steps 0/00, no locking).
 ## Scene narration panel
 
 Below the pipeline, every narration scene (from `output/briefing.json`: outlet
-scenes, closing scene, outro question) gets a row with the **exact text Hamsa
-will read**, an editable RTL text area, and — once a WAV exists — an inline
-player and a **Regenerate** button.
+scenes, closing scene, outro question) gets a row with the **exact text** read
+per scene, a per-scene **source tag** (`AI` / `recorded`), an editable RTL text
+area, and — once a WAV exists — an inline player, a **Regenerate** button (Hamsa
+AI), and a **Record** button (your own voice).
 
 **Check/edit the script BEFORE step 7:** the panel appears as soon as step 6
 builds `briefing.json`, before any audio exists. Edit a scene's text and press
@@ -99,7 +102,7 @@ manifest entry `textSource: "override"`. **Reset to briefing text** removes the
 override.
 
 If a WAV already exists and you save different text, the row (and step 7) turn
-amber — **WAV outdated** — until you regenerate that scene. Regenerate:
+amber — **WAV outdated** — until you regenerate or re-record that scene. Regenerate:
 
 1. moves the current WAV to a `.stale-<timestamp>.wav` backup
 2. reruns `audio:outlets` — existing WAVs are reused, so only this scene calls Hamsa
@@ -107,7 +110,31 @@ amber — **WAV outdated** — until you regenerate that scene. Regenerate:
 4. compares durations and shows a verdict badge:
    - **longer — re-render needed**: scene timings shifted; the muted video is
      invalid and must be re-rendered before muxing
-   - **regenerated — re-mux ok**: same length or shorter; re-running the mux is enough
+   - **updated — re-mux ok**: same length or shorter; re-running the mux is enough
+
+### AI vs Human narration (record your own voice)
+
+A panel-header **AI (Hamsa) / Human (record)** toggle sets the per-date default
+(stored as `audioSource` in `output/dashboard-state.json`) that gates **step 7**:
+
+- **AI** → step 7 runs `audio:outlets` (Hamsa generates every missing scene).
+- **Human** → step 7 runs `audio:outlets --existing-only` (manifest skeleton
+  only, **no Hamsa calls / no API spend**); scenes with no WAV show *no WAV yet*
+  until you record them.
+
+The toggle only changes the bulk default — per-scene **Regenerate** (Hamsa) and
+**Record** always work in both directions regardless of it.
+
+**Record** captures mic audio in the browser (MediaRecorder), lets you preview
+the take, then **Save take** uploads it. The server converts the blob to a mono
+16-bit/16 kHz PCM WAV (`ffmpeg`) at the scene's exact path, backing up any prior
+WAV to `.stale-<timestamp>.wav` first, then runs the same timing-resync → rebuild
+tail and verdict badge as a Hamsa regen. The recorded WAV is indistinguishable to
+the renderer/mux/splitter, so no render-pipeline changes are needed. The scene is
+stamped `source: "recorded"` in the manifest; this tag is carried forward across
+all later `audio:outlets` runs (the generator preserves the prior `source` for
+reused WAVs and stamps freshly Hamsa-generated ones `"ai"`). Re-running Hamsa on a
+recorded scene correctly flips it back to `"ai"`. Recording needs `ffmpeg` in PATH.
 
 ## How status is derived
 
@@ -137,9 +164,10 @@ Defaults live in `dashboard/config.mjs`; override with env vars:
 | `DATA_SERVER_ROOT` | `/home/ubuntu/lebanon-media-data/radar-codex-runs` |
 
 Requirements: `codex` CLI in PATH for step 3, `ssh`/`rsync` for the server
-steps, `HAMSA_API_KEY` in `.env` for audio generation/regeneration. The
-remote-sync steps (0/00) also need `DATA_SERVER_KEY` to point at a readable
-`.pem` (mode `600`) authorized for `DATA_SERVER_HOST`.
+steps, `HAMSA_API_KEY` in `.env` for audio generation/regeneration, `ffmpeg` in
+PATH for saving voice recordings. The remote-sync steps (0/00) also need
+`DATA_SERVER_KEY` to point at a readable `.pem` (mode `600`) authorized for
+`DATA_SERVER_HOST`.
 
 ## Layout
 
@@ -148,9 +176,9 @@ dashboard/
   server.mjs       Express server: API, SSE log streaming, static serving
   steps.mjs        step definitions (commands, artifacts, status derivation)
   runner.mjs       sequential command runner, one active run per date
-  audio.mjs        manifest listing + per-scene regeneration pipeline
+  audio.mjs        manifest listing + per-scene regen/record pipeline + audioSource
   config.mjs       ports, ssh host, paths
   lib/checks.mjs   asset checks, WAV duration parser, stale-audio check, duration summary
   lib/state.mjs    dashboard-state.json read/write
-  web/             React + Vite frontend (dist/ is gitignored)
+  web/             React + Vite frontend (dist/ is gitignored; useRecorder.js = mic hook)
 ```

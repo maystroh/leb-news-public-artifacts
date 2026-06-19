@@ -24,6 +24,12 @@ export const DATA_SERVER_HOST = process.env.DATA_SERVER_HOST || 'ubuntu@ec2-54-8
 export const DATA_SERVER_KEY = expandHome(process.env.DATA_SERVER_KEY || '~/connectionKey.pem');
 export const DATA_SERVER_ROOT = process.env.DATA_SERVER_ROOT || '/home/ubuntu/lebanon-media-data/radar-codex-runs';
 
+export const PHONE_SSH_HOST = process.env.PHONE_SSH_HOST || '192.168.1.23';
+export const PHONE_SSH_PORT = process.env.PHONE_SSH_PORT || '5938';
+export const PHONE_SSH_USER = process.env.PHONE_SSH_USER || 'pc';
+export const PHONE_REMOTE_ROOT = process.env.PHONE_REMOTE_ROOT || '/device/My_files';
+export const PHONE_CURL_INTERFACE = process.env.PHONE_CURL_INTERFACE || '';
+
 // rsync -e transport string and the remote briefings dir for a given date.
 export const DATA_SSH_E = `ssh -i ${DATA_SERVER_KEY} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8`;
 export const remoteBriefingsDir = (date) => `${DATA_SERVER_ROOT}/${date}/briefings`;

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import StepCard from './StepCard.jsx';
 import AudioPanel from './AudioPanel.jsx';
+import SocialPostingPanel from './SocialPostingPanel.jsx';
 
 async function api(url, options) {
   const res = await fetch(url, options);
@@ -132,6 +133,50 @@ export default function App() {
     }
   };
 
+  const recordAudio = async (sceneId, blob, mimeType) => {
+    try {
+      await api(`/api/audio/record?date=${date}&sceneId=${encodeURIComponent(sceneId)}`, {
+        method: 'POST',
+        headers: {'Content-Type': mimeType || 'audio/webm'},
+        body: blob
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const setAudioSource = async (audioSource) => {
+    try {
+      await api('/api/audio/source', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date, audioSource})
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const uploadPhoneScenes = async ({mid, password}) => {
+    const result = await api('/api/phone/upload-scenes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, mid, password})
+    });
+    await refresh(date);
+    return result;
+  };
+
+  const deletePhoneFolder = async ({password}) => {
+    const result = await api('/api/phone/delete-folder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, password})
+    });
+    await refresh(date);
+    return result;
+  };
+
   const doneCount = data ? data.steps.filter((step) => step.status === 'done').length : 0;
   const busy = Boolean(data?.activeRun);
   const audioRegenActive = data?.activeRun?.stepId?.startsWith('audio-regen:')
@@ -180,6 +225,7 @@ export default function App() {
               <StepCard
                 key={step.id}
                 step={step}
+                social={step.id === 'social-package' ? data.social : null}
                 log={logs[step.id] || step.lastRun?.logTail || []}
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
@@ -189,13 +235,18 @@ export default function App() {
             ))}
           </section>
 
+          <SocialPostingPanel social={data.social} onUploadPhoneScenes={uploadPhoneScenes} onDeletePhoneFolder={deletePhoneFolder} />
+
           <AudioPanel
             entries={data.audio}
             busy={busy}
+            audioSource={data.audioSource || 'ai'}
             activeSceneId={audioRegenActive}
             log={audioRegenActive ? logs[`audio-regen:${audioRegenActive}`] || [] : []}
             onRegenerate={regenerateAudio}
             onSaveText={saveAudioText}
+            onRecord={recordAudio}
+            onSetAudioSource={setAudioSource}
           />
         </main>
       )}
