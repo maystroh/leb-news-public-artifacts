@@ -207,8 +207,22 @@ const applyTimingOverrides = (preparedData, timingConfig, quoteDuel) => {
   }));
 
   const quoteDuelTiming = timingConfig?.quoteDuel ?? {};
+  const quoteDuelSceneTiming = quoteDuelTiming.scenes ?? {};
   if (quoteDuel) {
     applyIntroTimingOverrides(quoteDuel.intro, quoteDuelTiming);
+    if (typeof quoteDuelTiming.outroSeconds === 'number' && quoteDuel.outro) {
+      quoteDuel.outro.durationSeconds = quoteDuelTiming.outroSeconds;
+    }
+    // Per-duel audio-driven durations (audio + 0.5s buffer) written by
+    // generate-quote-duel-audio.mjs into timingConfig.quoteDuel.scenes. Applying
+    // them here keeps them durable across rebuilds (output/quote-duel.json is
+    // regenerated wholesale every run), mirroring the briefing scene timing.
+    quoteDuel.scenes = (quoteDuel.scenes || []).map((scene) => ({
+      ...scene,
+      durationSeconds: typeof quoteDuelSceneTiming[scene.id] === 'number'
+        ? quoteDuelSceneTiming[scene.id]
+        : scene.durationSeconds
+    }));
   }
 };
 
