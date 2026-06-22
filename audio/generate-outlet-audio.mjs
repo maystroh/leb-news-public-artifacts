@@ -8,7 +8,7 @@ const DEFAULTS = {
   endpoint: 'https://api.tryhamsa.com/v1/realtime/tts',
   projectEndpoint: 'https://api.tryhamsa.com/v1/projects/by-api-key',
   voicesEndpoint: 'https://api.tryhamsa.com/v2/tts/voices',
-  speakerPool: ['Lamees', 'Marwan', 'Nabil', 'Gassan'],
+  speakerPool: ['Lamees', 'Nabil', 'Gassan'],
   dialect: 'leb',
   outputFormat: 'wav',
   textSource: 'body'
@@ -172,6 +172,7 @@ const findLatestBriefingFolder = (cwd) => {
 };
 
 const normalizeSpacing = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
 const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
 
 const parseList = (value) => String(value ?? '')
@@ -200,6 +201,21 @@ const seededShuffle = (items, seed) => {
   }
 
   return shuffled;
+};
+
+const textFingerprint = (value) => String(getStableHash(normalizeSpacing(value)));
+
+const normalizeOverrideStore = (raw) => {
+  if (!raw || typeof raw !== 'object') return {};
+  return raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : raw;
+};
+
+const resolveOverrideText = ({overrides, sceneId, defaultText}) => {
+  const entry = overrides?.[sceneId];
+  if (typeof entry === 'string') return normalizeSpacing(entry);
+  if (!entry || typeof entry !== 'object') return '';
+  if (entry.defaultTextHash && entry.defaultTextHash !== textFingerprint(defaultText)) return '';
+  return normalizeSpacing(entry.text);
 };
 
 const selectSceneText = (scene, textSource) => {
@@ -243,7 +259,12 @@ const removeScene2OutletHandoff = (text, outletName) => {
 
 const ensureScene2AudioPrefix = (scene, text) => {
   const normalized = normalizeSpacing(text);
-  if (scene.id !== 'scene-2' || !normalized || normalized.startsWith(SCENE_2_AUDIO_PREFIX)) {
+  if (
+    scene.id !== 'scene-2' ||
+    !normalized ||
+    normalized.startsWith(SCENE_2_AUDIO_PREFIX) ||
+    normalized.startsWith(SCENE_2_GREETING_PREFIX)
+  ) {
     return normalized;
   }
 
@@ -253,12 +274,20 @@ const ensureScene2AudioPrefix = (scene, text) => {
   return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
 };
 
+const materializeSceneAudioText = (scene, text) => ensureScene2AudioPrefix(scene, text);
+
 const getScene2CaptionText = (scene, audioText) => {
   let captionText = normalizeSpacing(audioText);
   if (scene.id !== 'scene-2') return captionText;
 
   if (captionText.startsWith(SCENE_2_AUDIO_PREFIX)) {
     captionText = captionText.slice(SCENE_2_AUDIO_PREFIX.length).trim();
+  } else if (captionText.startsWith(SCENE_2_GREETING_PREFIX)) {
+    captionText = captionText.slice(SCENE_2_GREETING_PREFIX.length).trim();
+    captionText = captionText
+      .replace(/^[؛،,.!؟\s]*/, '')
+      .replace(/^(?:ب?ملخص\s+الصحافة\s+اليوم|اليوم\s+البداية\s+من)\s*/u, '')
+      .trim();
   }
 
   const outletName = normalizeSpacing(scene.outlet?.name || scene.shortLabel || '');
@@ -266,6 +295,13 @@ const getScene2CaptionText = (scene, audioText) => {
   captionText = captionText.replace(/^حيث\s+/, '').trim();
   return captionText;
 };
+
+const stripTtsCueTextForCaptions = (text) => normalizeSpacing(String(text ?? '')
+  // Pause/emotion cues may be useful for Hamsa, but should not leak into the
+  // karaoke captions displayed on video.
+  .replace(/\p{Extended_Pictographic}/gu, '')
+  .replace(/\uFE0F/gu, '')
+  .replace(/\.{3,}|…/g, ''));
 
 const getCaptionStartOffsetSeconds = ({scene, audioText, captionText, audioDurationSeconds}) => {
   if (scene.id !== 'scene-2' || typeof audioDurationSeconds !== 'number' || audioDurationSeconds <= 0) {
@@ -579,7 +615,7 @@ const textOverridesPath = path.join(audioDir, 'text-overrides.json');
 let textOverrides = {};
 if (fs.existsSync(textOverridesPath)) {
   try {
-    textOverrides = JSON.parse(fs.readFileSync(textOverridesPath, 'utf8'));
+    textOverrides = normalizeOverrideStore(JSON.parse(fs.readFileSync(textOverridesPath, 'utf8')));
   } catch (error) {
     throw new Error(`Could not parse ${path.relative(cwd, textOverridesPath)}: ${error.message}`);
   }
@@ -590,25 +626,34 @@ if (fs.existsSync(textOverridesPath)) {
 // any *other* scene is regenerated. Read the prior manifest and carry each
 // scene's source forward for WAVs we reuse; freshly generated WAVs are "ai".
 let priorSourceByScene = {};
+let priorEntryByScene = {};
 if (fs.existsSync(manifestPath)) {
   try {
     const priorManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     for (const entry of priorManifest.entries ?? []) {
-      if (entry?.sceneId && entry.source) priorSourceByScene[entry.sceneId] = entry.source;
+      if (!entry?.sceneId) continue;
+      priorEntryByScene[entry.sceneId] = entry;
+      if (entry.source) priorSourceByScene[entry.sceneId] = entry.source;
     }
   } catch {
     priorSourceByScene = {};
+    priorEntryByScene = {};
   }
 }
 
 const entries = [];
 
 for (const scene of audioScenes) {
-  const overrideText = normalizeSpacing(textOverrides[scene.id]);
-  const selectedText = overrideText || selectSceneText(scene, args.textSource);
-  const text = ensureScene2AudioPrefix(scene, selectedText);
+  const defaultText = materializeSceneAudioText(scene, selectSceneText(scene, args.textSource));
+  const overrideText = resolveOverrideText({
+    overrides: textOverrides,
+    sceneId: scene.id,
+    defaultText
+  });
+  const text = materializeSceneAudioText(scene, overrideText || defaultText);
   const effectiveTextSource = overrideText ? 'override' : args.textSource;
-  const captionText = getScene2CaptionText(scene, text);
+  const rawCaptionText = getScene2CaptionText(scene, text);
+  const captionText = stripTtsCueTextForCaptions(rawCaptionText);
   const audioKey = scene.outlet?.key || scene.audioKey || scene.id;
   const carriedSource = priorSourceByScene[scene.id] || 'ai';
   if (!text) {
@@ -668,24 +713,49 @@ for (const scene of audioScenes) {
   }
 
   if (!args.force && fs.existsSync(outputPath)) {
-    const existingBuffer = fs.readFileSync(outputPath);
-    if (patchWavHeaderSizes(existingBuffer)) {
-      fs.writeFileSync(outputPath, existingBuffer);
-      console.log(`Repaired WAV header sizes: ${relativeOutputPath}`);
+    const priorEntry = priorEntryByScene[scene.id];
+    const priorText = normalizeSpacing(priorEntry?.text);
+    const priorAudioPath = normalizeSpacing(priorEntry?.audioPath);
+    const existingAudioMatchesText = priorText === text && priorAudioPath === relativeOutputPath;
+
+    if (!existingAudioMatchesText) {
+      const staleReason = priorEntry
+        ? 'Existing WAV was created for different narration text; regenerate audio before muxing.'
+        : 'Existing WAV has no prior manifest text; regenerate audio before muxing.';
+
+      if (args.existingOnly) {
+        entries.push({
+          ...baseEntry,
+          audioPath: null,
+          staleAudioPath: relativeOutputPath,
+          priorText: priorText || null,
+          status: 'stale',
+          error: staleReason
+        });
+        continue;
+      }
+
+      console.log(`Regenerating stale audio: ${relativeOutputPath}`);
+    } else {
+      const existingBuffer = fs.readFileSync(outputPath);
+      if (patchWavHeaderSizes(existingBuffer)) {
+        fs.writeFileSync(outputPath, existingBuffer);
+        console.log(`Repaired WAV header sizes: ${relativeOutputPath}`);
+      }
+      const audioDurationSeconds = getWavDurationSeconds(existingBuffer);
+      entries.push({
+        ...baseEntry,
+        captionStartOffsetSeconds: getCaptionStartOffsetSeconds({
+          scene,
+          audioText: text,
+          captionText: rawCaptionText,
+          audioDurationSeconds
+        }),
+        audioDurationSeconds,
+        status: 'reused'
+      });
+      continue;
     }
-    const audioDurationSeconds = getWavDurationSeconds(existingBuffer);
-    entries.push({
-      ...baseEntry,
-      captionStartOffsetSeconds: getCaptionStartOffsetSeconds({
-        scene,
-        audioText: text,
-        captionText,
-        audioDurationSeconds
-      }),
-      audioDurationSeconds,
-      status: 'reused'
-    });
-    continue;
   }
 
   if (args.existingOnly) {
@@ -715,7 +785,7 @@ for (const scene of audioScenes) {
       captionStartOffsetSeconds: getCaptionStartOffsetSeconds({
         scene,
         audioText: text,
-        captionText,
+        captionText: rawCaptionText,
         audioDurationSeconds: getWavDurationSeconds(result.audio)
       }),
       status: 'generated'
@@ -797,12 +867,13 @@ const generatedCount = entries.filter((entry) => entry.status === 'generated').l
 const reusedCount = entries.filter((entry) => entry.status === 'reused').length;
 const missingCount = entries.filter((entry) => entry.status === 'missing').length;
 const failedCount = entries.filter((entry) => entry.status === 'failed').length;
+const staleCount = entries.filter((entry) => entry.status === 'stale').length;
 const actionLabel = args.dryRun ? 'Prepared' : 'Processed';
-console.log(`${actionLabel} ${entries.length} briefing audio entries (${generatedCount} generated, ${reusedCount} reused, ${missingCount} missing, ${failedCount} failed).`);
+console.log(`${actionLabel} ${entries.length} briefing audio entries (${generatedCount} generated, ${reusedCount} reused, ${staleCount} stale, ${missingCount} missing, ${failedCount} failed).`);
 console.log(`Manifest: ${path.relative(cwd, manifestPath)}`);
-if (entries.some((entry) => entry.status === 'missing' || entry.status === 'failed')) {
+if (entries.some((entry) => entry.status === 'missing' || entry.status === 'failed' || entry.status === 'stale')) {
   console.log('Audio issues:');
-  for (const entry of entries.filter((item) => item.status === 'missing' || item.status === 'failed')) {
+  for (const entry of entries.filter((item) => item.status === 'missing' || item.status === 'failed' || item.status === 'stale')) {
     const label = [entry.sceneId, entry.outletName || entry.outletKey].filter(Boolean).join(' / ');
     console.log(`- ${label}: ${entry.status}${entry.error ? ` (${entry.error})` : ''}`);
   }

@@ -23,7 +23,7 @@ Defaults:
 - Provider: Hamsa realtime TTS
 - Endpoint: `https://api.tryhamsa.com/v1/realtime/tts`
 - Auth header: `Authorization: Token <API key>`
-- Speaker pool: `Lamees`, `Marwan`, `Nabil`, `Gassan`
+- Speaker pool: `Lamees`, `Nabil`, `Gassan`
 - Dialect: `leb`
 - Text source: scene `audioText` when present, otherwise scene `body`
 - Output: `briefings/YYYY-MM-DD/audio/`

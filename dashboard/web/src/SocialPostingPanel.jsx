@@ -141,7 +141,7 @@ export default function SocialPostingPanel({social, onUploadPhoneScenes, onDelet
                 placeholder="Phone password"
                 autoComplete="current-password"
               />
-              <button className="btn primary" disabled={phoneBusy || phoneCopied || !active?.clips?.length} onClick={uploadToPhone}>
+              <button className="btn primary" disabled={phoneBusy || phoneCopied || !active} onClick={uploadToPhone}>
                 {phoneBusy === 'upload' ? 'Uploading…' : 'Upload folder'}
               </button>
               <button className="btn ghost danger" disabled={phoneBusy || !phoneCopied} onClick={deleteFromPhone}>
@@ -154,32 +154,6 @@ export default function SocialPostingPanel({social, onUploadPhoneScenes, onDelet
             ) : (
               <p className="hint warn">Reel cover image not found yet: save it as output/instagram-reel-cover.png to include it in phone upload.</p>
             )}
-          </div>
-          <div className="story-list">
-            {(active?.clips || []).map((clip, index) => (
-              <div className="story-row" key={`${clip.fileName}-${clip.sceneId}`}>
-                <div className="story-meta">
-                  <strong>{String(index + 1).padStart(2, '0')}. {clip.outlet || clip.label}</strong>
-                  <span>{clip.fileName}</span>
-                </div>
-                <div className="story-actions">
-                  {clip.url && (
-                    <a className="btn" href={clip.url} target="_blank" rel="noreferrer">
-                      Open clip
-                    </a>
-                  )}
-                  {clip.copyPath && (
-                    <button className="btn" onClick={() => copyText(clip.copyPath, setCopied, `clip-path-${index}`)}>
-                      {copied === `clip-path-${index}` ? 'Copied' : 'Copy path'}
-                    </button>
-                  )}
-                  <button className="btn primary" onClick={() => copyText(clip.copyText, setCopied, `clip-${index}`)}>
-                    {copied === `clip-${index}` ? 'Copied' : 'Copy caption'}
-                  </button>
-                </div>
-              </div>
-            ))}
-            {!active?.clips?.length && <p className="hint">Split clips are not ready yet. Run step 15.</p>}
           </div>
         </div>
       </div>

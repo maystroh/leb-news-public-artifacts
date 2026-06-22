@@ -575,7 +575,7 @@ Quote Duel rule of thumb:
   - run `scripts/sync-outlet-audio-timing.mjs`
   - rebuild folder outputs
   - report whether the new WAV is longer, same length, or shorter so the user knows whether a re-render or only a re-mux is needed
-- The default Hamsa voice pool is `Lamees`, `Marwan`, `Nabil`, `Gassan`, Lebanese dialect `leb`, with realtime TTS endpoint:
+- The default Hamsa voice pool is `Lamees`, `Nabil`, `Gassan`, Lebanese dialect `leb`, with realtime TTS endpoint:
   - `https://api.tryhamsa.com/v1/realtime/tts`
 - Hamsa auth uses:
   - `Authorization: Token <API key>`

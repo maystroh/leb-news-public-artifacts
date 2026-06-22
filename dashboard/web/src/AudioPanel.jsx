@@ -8,6 +8,51 @@ const fmtElapsed = (ms) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
 
+const TTS_CUES = [
+  {
+    group: 'Pause',
+    items: [
+      {label: 'Short', value: '، ', title: 'Short natural pause. Hamsa docs recommend punctuation for natural pauses.'},
+      {label: 'Stop', value: '. ', title: 'Sentence stop with a clearer pause.'},
+      {label: 'Long', value: '... ', title: 'Longer emphasis pause. Captions strip long dot runs later.'},
+      {label: 'Paragraph', value: '\n\n', title: 'Break long text into shorter paragraphs for clearer pacing.'}
+    ]
+  },
+  {
+    group: 'Emotion',
+    items: [
+      {label: 'Urgent', value: '! ', title: 'Adds stronger emphasis through punctuation.'},
+      {label: 'Question', value: '؟ ', title: 'Question intonation cue.'},
+      {label: 'Concern', value: '😟 ', title: 'Supported emojis can affect voice delivery in Hamsa Media.'},
+      {label: 'Warm', value: '🙂 ', title: 'Supported emojis can affect voice delivery in Hamsa Media.'}
+    ]
+  },
+  {
+    group: 'Natural',
+    items: [
+      {label: 'Umm', value: ' أممم، ', title: 'Natural filler; Hamsa docs list fillers for realism.'},
+      {label: 'Uh', value: ' آه، ', title: 'Natural filler; useful before a careful turn.'}
+    ]
+  }
+];
+
+const insertAtSelectionStart = (text, selectionStart, cue) => {
+  const start = Math.max(0, selectionStart ?? text.length);
+  return `${text.slice(0, start)}${cue}${text.slice(start)}`;
+};
+
+const paceSelection = (text, selectionStart, selectionEnd, mode) => {
+  const start = Math.max(0, selectionStart ?? text.length);
+  const end = Math.max(start, selectionEnd ?? start);
+  const selected = text.slice(start, end);
+  if (!selected) return text;
+  const replacement =
+    mode === 'faster'
+      ? selected.replace(/\s*[،,]\s*/g, ' ').replace(/\s*\.\.\.+\s*/g, ' ').replace(/\n{2,}/g, ' ')
+      : selected.replace(/\s*[،,]\s*/g, '، ').replace(/([.؟!])\s+/g, '$1 ... ');
+  return `${text.slice(0, start)}${replacement}${text.slice(end)}`;
+};
+
 function RegenBadge({regen}) {
   if (!regen) return null;
   if (regen.verdict === 'failed') return <span className="badge badge-failed">regen failed</span>;
@@ -95,6 +140,7 @@ function SceneRow({entry, busy, regenerating, log, onRegenerate, onSaveText, onR
   const [draft, setDraft] = useState(entry.effectiveText);
   const [saving, setSaving] = useState(false);
   const logRef = useRef(null);
+  const editorRef = useRef(null);
 
   // Refresh the editor when server state changes (save, regenerate, rebuild),
   // but never while the user has unsaved local edits.
@@ -125,6 +171,31 @@ function SceneRow({entry, busy, regenerating, log, onRegenerate, onSaveText, onR
     } finally {
       setSaving(false);
     }
+  };
+
+  const insertCue = (cue) => {
+    const textarea = editorRef.current;
+    const start = textarea?.selectionStart ?? draft.length;
+    const next = insertAtSelectionStart(draft, start, cue);
+    setDraft(next);
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      const cursor = start + cue.length;
+      textarea?.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const applyPace = (mode) => {
+    const textarea = editorRef.current;
+    const start = textarea?.selectionStart ?? 0;
+    const end = textarea?.selectionEnd ?? 0;
+    if (start === end) return;
+    const next = paceSelection(draft, start, end, mode);
+    setDraft(next);
+    window.requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(start, start + (next.length - draft.length) + (end - start));
+    });
   };
 
   return (
@@ -169,7 +240,39 @@ function SceneRow({entry, busy, regenerating, log, onRegenerate, onSaveText, onR
         <RecordControl entry={entry} busy={busy} dirty={dirty} onRecord={onRecord} />
       </div>
 
+      <div className="tts-cue-bar" aria-label="Hamsa text cues">
+        {TTS_CUES.map((group) => (
+          <div className="tts-cue-group" key={group.group}>
+            <span className="tts-cue-label">{group.group}</span>
+            {group.items.map((item) => (
+              <button key={item.label} type="button" className="btn cue-btn" title={item.title} onClick={() => insertCue(item.value)}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+        <div className="tts-cue-group">
+          <span className="tts-cue-label">Selection</span>
+          <button
+            type="button"
+            className="btn cue-btn"
+            title="Tightens selected text by removing pause punctuation. Hamsa realtime API does not expose inline speed control."
+            onClick={() => applyPace('faster')}
+          >
+            Faster
+          </button>
+          <button
+            type="button"
+            className="btn cue-btn"
+            title="Adds heavier pauses to selected text. Hamsa realtime API does not expose inline speed control."
+            onClick={() => applyPace('slower')}
+          >
+            Slower
+          </button>
+        </div>
+      </div>
       <textarea
+        ref={editorRef}
         className="rtl script-editor"
         rows={Math.min(8, Math.max(2, Math.ceil(draft.length / 110)))}
         value={draft}
@@ -247,7 +350,11 @@ export default function AudioPanel({entries, busy, audioSource, activeSceneId, l
         This is the exact text read per scene{hasAnyWav ? '' : ' when you run step 7'}. Edit and save any scene before
         generating or recording — edits are stored in <code>audio/text-overrides.json</code> and survive rebuilds. Use{' '}
         <strong>Generate/Regenerate</strong> for Hamsa AI or <strong>Record</strong> to capture your own voice; either
-        drops a WAV at the scene path and resyncs timings. In <strong>Human</strong> mode step 7 spends no Hamsa API calls.
+        drops a WAV at the scene path and resyncs timings. In <strong>Human</strong> mode step 7 spends no Hamsa API calls.{' '}
+        Text cues use documented Hamsa behaviors: punctuation/paragraphs for pauses, fillers for realism, and supported
+        emojis for emotional delivery. Speed and expressiveness sliders are documented in Hamsa Media, but the realtime API
+        used here only accepts text, speaker, and dialect; the Faster/Slower buttons therefore reshape selected punctuation
+        instead of setting true per-sentence speed.
       </p>
       {entries.map((entry) => (
         <SceneRow

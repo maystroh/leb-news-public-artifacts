@@ -24,9 +24,23 @@ if (!fs.existsSync(briefingDataPath)) {
   throw new Error(`Missing ${path.relative(cwd, briefingDataPath)} — run briefing:build:folder first (dashboard step 6/10).`);
 }
 
+const toNumber = (value, fallback = 0) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
+const roundSeconds = (value) => Number(value.toFixed(3));
+const slug = (value) => String(value || 'segment')
+  .toLowerCase()
+  .replace(/[^a-z0-9-]+/g, '-')
+  .replace(/^-+|-+$/g, '') || 'segment';
+
+const briefing = readJson(briefingDataPath);
+const scenes = briefing.scenes ?? [];
+if (!scenes.length) {
+  throw new Error(`No scenes found in ${path.relative(cwd, briefingDataPath)}`);
+}
+
 // First present scene-videos*/manifest.json. Clip filenames and scene mapping are
-// identical across the normal/hook split folders, so any one is fine. Error only
-// when none exist (split not run yet — dashboard step 15).
+// identical across the normal/hook split folders, so any one is fine. If no split
+// manifest exists yet, derive the same plan from briefing.json so social captions
+// can be generated before step 15 runs.
 const findSceneManifest = () => {
   if (!fs.existsSync(outputFolder)) return null;
   const dirs = fs
@@ -38,24 +52,86 @@ const findSceneManifest = () => {
   return dirs[0] || null;
 };
 
-const sceneManifestPath = findSceneManifest();
-if (!sceneManifestPath) {
-  throw new Error('No scene-videos*/manifest.json found — split the final MP4 first (dashboard step 15).');
-}
+const createSegmentPlan = () => {
+  const introSeconds = toNumber(briefing.intro?.durationSeconds);
+  const outroSeconds = toNumber(briefing.outro?.durationSeconds);
+  const sceneStarts = [];
+  let cursor = introSeconds;
+  for (const scene of scenes) {
+    sceneStarts.push(roundSeconds(cursor));
+    cursor += toNumber(scene.durationSeconds);
+  }
+  const totalDurationSeconds = roundSeconds(cursor + outroSeconds);
 
-const briefing = readJson(briefingDataPath);
-const manifest = readJson(sceneManifestPath);
+  if (scenes.length === 1) {
+    return [{
+      index: 1,
+      id: `intro-${scenes[0].id}-outro`,
+      label: `Intro + ${scenes[0].id} + outro`,
+      sceneIds: [scenes[0].id],
+      includesIntro: true,
+      includesOutro: true,
+      startSeconds: 0,
+      durationSeconds: totalDurationSeconds
+    }];
+  }
+
+  const segments = [{
+    index: 1,
+    id: `intro-${scenes[0].id}`,
+    label: `Intro + ${scenes[0].id}`,
+    sceneIds: [scenes[0].id],
+    includesIntro: true,
+    includesOutro: false,
+    startSeconds: 0,
+    durationSeconds: roundSeconds(introSeconds + toNumber(scenes[0].durationSeconds))
+  }];
+
+  for (let sceneIndex = 1; sceneIndex < scenes.length - 1; sceneIndex += 1) {
+    const scene = scenes[sceneIndex];
+    segments.push({
+      index: segments.length + 1,
+      id: scene.id,
+      label: scene.id,
+      sceneIds: [scene.id],
+      includesIntro: false,
+      includesOutro: false,
+      startSeconds: sceneStarts[sceneIndex],
+      durationSeconds: roundSeconds(toNumber(scene.durationSeconds))
+    });
+  }
+
+  const lastScene = scenes[scenes.length - 1];
+  segments.push({
+    index: segments.length + 1,
+    id: `${lastScene.id}-outro`,
+    label: `${lastScene.id} + outro`,
+    sceneIds: [lastScene.id],
+    includesIntro: false,
+    includesOutro: true,
+    startSeconds: sceneStarts[scenes.length - 1],
+    durationSeconds: roundSeconds(toNumber(lastScene.durationSeconds) + outroSeconds)
+  });
+
+  return segments;
+};
+
+const sceneManifestPath = findSceneManifest();
+const manifest = sceneManifestPath
+  ? readJson(sceneManifestPath)
+  : {
+      generatedFrom: path.relative(cwd, briefingDataPath).replace(/\\/g, '/'),
+      segments: createSegmentPlan().map((segment) => ({
+        ...segment,
+        fileName: `${String(segment.index).padStart(2, '0')}-${slug(segment.id)}.mp4`
+      }))
+    };
 const keywordRadar = fs.existsSync(path.join(outputFolder, 'keyword-radar.json'))
   ? readJson(path.join(outputFolder, 'keyword-radar.json'))
   : {entries: []};
 const visualScript = fs.existsSync(path.join(briefingFolder, 'visual-script.json'))
   ? readJson(path.join(briefingFolder, 'visual-script.json'))
   : {};
-
-const scenes = briefing.scenes ?? [];
-if (!scenes.length) {
-  throw new Error(`No scenes found in ${path.relative(cwd, briefingDataPath)}`);
-}
 
 const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -160,5 +236,7 @@ const promptPath = path.join(outputFolder, 'social-captions-prompt.md');
 fs.writeFileSync(promptPath, prompt);
 
 console.log(`Wrote social captions prompt: ${path.relative(cwd, promptPath)}`);
-console.log(`Scene manifest used: ${path.relative(cwd, sceneManifestPath)}`);
+console.log(sceneManifestPath
+  ? `Scene manifest used: ${path.relative(cwd, sceneManifestPath)}`
+  : 'Scene manifest used: derived from briefing.json (split can run later)');
 console.log(`Codex should write: ${path.relative(cwd, captionsPath)}`);

@@ -44,6 +44,39 @@ const staleIfBriefingNewer = (ctx, base, finishedAtMs) => {
 };
 
 const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepState.finishedAt) : 0);
+const POST180_PARAGRAPH_PATTERN = /(?:180\s*(?:post|بوست)|١٨٠\s*بوست)/iu;
+
+function removePost180ParagraphFromCorrectedBriefing(correctedPath) {
+  const raw = fs.readFileSync(correctedPath, 'utf8');
+  const hadTrailingNewline = /\r?\n$/.test(raw);
+  const paragraphs = raw
+    .split(/\r?\n\s*\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const kept = paragraphs.filter((paragraph) => !POST180_PARAGRAPH_PATTERN.test(paragraph));
+  const removedCount = paragraphs.length - kept.length;
+
+  if (removedCount > 0) {
+    fs.writeFileSync(correctedPath, `${kept.join('\n\n')}${hadTrailingNewline ? '\n' : ''}`);
+  }
+
+  return {removedCount, paragraphCountBefore: paragraphs.length, paragraphCountAfter: kept.length};
+}
+
+function post180CleanupStatus(correctedPath, state) {
+  if (!exists(correctedPath)) return null;
+  const currentHasParagraph = POST180_PARAGRAPH_PATTERN.test(fs.readFileSync(correctedPath, 'utf8'));
+  if (currentHasParagraph) return '180post paragraph found in corrected briefing; resync will remove it before pushing.';
+
+  const cleanup = state?.remoteSync?.post180Cleanup;
+  if (cleanup?.result === 'removed') {
+    return `180post paragraph was found and removed during the last resync (${cleanup.removedCount} paragraph${cleanup.removedCount === 1 ? '' : 's'}).`;
+  }
+  if (cleanup?.result === 'not-found') {
+    return '180post paragraph was not found during the last resync.';
+  }
+  return '180post paragraph not found in corrected briefing.';
+}
 
 // Final (audio-muxed) MP4 variants currently sitting in the output folder, for the
 // split step. Every `radar-beirut-briefing*-final.mp4` maps to its own
@@ -175,12 +208,33 @@ function buildRemoteSyncSteps(ctx) {
             const corrected = correctedBriefingPath(ctx);
             return [
               {
-                label: 'Check corrected file',
+                label: 'Check and clean corrected file',
                 fn: async (emit) => {
                   if (!exists(corrected)) {
                     throw new Error(`Missing ${path.basename(corrected)} — create it locally before resyncing.`);
                   }
                   emit(`Found ${path.basename(corrected)}.`);
+                  const cleanup = removePost180ParagraphFromCorrectedBriefing(corrected);
+                  const state = loadState(ctx);
+                  state.remoteSync = {
+                    ...(state.remoteSync || {}),
+                    post180Cleanup: {
+                      checkedAt: new Date().toISOString(),
+                      result: cleanup.removedCount > 0 ? 'removed' : 'not-found',
+                      removedCount: cleanup.removedCount,
+                      paragraphCountBefore: cleanup.paragraphCountBefore,
+                      paragraphCountAfter: cleanup.paragraphCountAfter
+                    }
+                  };
+                  saveState(ctx, state);
+                  if (cleanup.removedCount > 0) {
+                    emit(
+                      `Found and removed ${cleanup.removedCount} 180post paragraph` +
+                      `${cleanup.removedCount === 1 ? '' : 's'} from ${path.basename(corrected)} before resync.`
+                    );
+                  } else {
+                    emit(`Could not find an 180post paragraph in ${path.basename(corrected)}; file left unchanged.`);
+                  }
                 }
               },
               {cmd: 'rsync', args: ['-av', '-e', DATA_SSH_E, corrected, `${DATA_SERVER_HOST}:${remoteDir}/`]},
@@ -205,11 +259,20 @@ function buildRemoteSyncSteps(ctx) {
         }
         if (stepState?.status === 'failed') return {status: 'failed', detail: 'Last resync failed — review the log.'};
         const lastPushAt = state?.remoteSync?.lastPushAt;
-        if (!lastPushAt) return {status: 'pending', detail: 'Corrected file present — resync it to the server.'};
-        if (mtimeMs(corrected) > Date.parse(lastPushAt)) {
-          return {status: 'stale', detail: 'Corrected file changed since the last resync — resync again.'};
+        const cleanupDetail = post180CleanupStatus(corrected, state);
+        if (!lastPushAt) {
+          return {
+            status: 'pending',
+            detail: `Corrected file present — resync it to the server.${cleanupDetail ? ` ${cleanupDetail}` : ''}`
+          };
         }
-        return {status: 'done', detail: `Resynced ${lastPushAt}`};
+        if (mtimeMs(corrected) > Date.parse(lastPushAt)) {
+          return {
+            status: 'stale',
+            detail: `Corrected file changed since the last resync — resync again.${cleanupDetail ? ` ${cleanupDetail}` : ''}`
+          };
+        }
+        return {status: 'done', detail: `Resynced ${lastPushAt}.${cleanupDetail ? ` ${cleanupDetail}` : ''}`};
       }
     }
   ];
@@ -747,6 +810,8 @@ export function getSteps(ctx, state = null) {
         'Cuts each downloaded final MP4 into per-scene clips (intro+scene-1, middles, penultimate+outro). ' +
         'Pick which variants to split — each lands in its own scene-videos[-hook-*]/ folder.',
       kind: 'run',
+      locked: splitVariants.length === 0,
+      lockReason: 'Locked — download at least one final MP4 first (step 14).',
       actions: [
         {
           id: 'run',
@@ -807,7 +872,12 @@ export function getSteps(ctx, state = null) {
           ? splitVariants.map((variant) => variant.outputDir)
           : [path.join(ctx.output, 'scene-videos')]
         ).filter(exists);
-        if (!dirs.length) return fromLastRun(stepState, 'No scene videos yet.');
+        if (!dirs.length) {
+          if (splitVariants.length) {
+            return {status: 'attention', detail: 'Final MP4 downloaded — choose which variant(s) to split.'};
+          }
+          return fromLastRun(stepState, 'Download a final MP4 first.');
+        }
         let totalClips = 0;
         let newestClip = 0;
         for (const dir of dirs) {
@@ -830,8 +900,11 @@ export function getSteps(ctx, state = null) {
       title: '16. Generate social captions',
       description:
         'Action A runs Codex once to write an editable output/social-captions.json (per-clip Instagram captions/hashtags + ' +
-        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). The Post now section below uses that JSON with the final MP4s and split clips.',
+        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). This can run as soon as a final MP4 is downloaded; ' +
+        'the Post now section below uses that JSON with the final MP4s and split clips.',
       kind: 'run',
+      locked: splitVariants.length === 0,
+      lockReason: 'Locked — download at least one final MP4 first (step 14).',
       actions: [
         {
           id: 'generate',
@@ -876,7 +949,12 @@ export function getSteps(ctx, state = null) {
         ];
       },
       status: (stepState) => {
-        if (!exists(socialCaptions)) return fromLastRun(stepState, 'Generate social captions with Codex first.');
+        if (!exists(socialCaptions)) {
+          if (splitVariants.length) {
+            return {status: 'attention', detail: 'Final MP4 downloaded — generate social captions when ready.'};
+          }
+          return fromLastRun(stepState, 'Download a final MP4 first.');
+        }
         if (!exists(youtubeThumbnailPrompt) || !exists(instagramReelCoverPrompt)) {
           return {status: 'attention', detail: 'Captions ready — run Validate captions only to write the social asset prompts.'};
         }

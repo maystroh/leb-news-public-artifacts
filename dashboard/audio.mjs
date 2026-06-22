@@ -5,30 +5,119 @@ import {readJsonSafe, wavDurationSeconds, exists, mtimeMs} from './lib/checks.mj
 import {loadState, saveState} from './lib/state.mjs';
 
 const normalize = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
+const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
 
 const overridesPath = (ctx) => path.join(ctx.audioDir, 'text-overrides.json');
 
+const getStableHash = (value) => {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return String(hash >>> 0);
+};
+
+const textFingerprint = (value) => getStableHash(normalize(value));
+
+const normalizeOverrideStore = (raw) => {
+  if (!raw || typeof raw !== 'object') return {};
+  return raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : raw;
+};
+
+const overrideTextForScene = (overrides, sceneId, defaultText) => {
+  const entry = overrides?.[sceneId];
+  if (typeof entry === 'string') return normalize(entry);
+  if (!entry || typeof entry !== 'object') return '';
+  if (entry.defaultTextHash && entry.defaultTextHash !== textFingerprint(defaultText)) return '';
+  return normalize(entry.text);
+};
+
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const removeScene2OutletHandoff = (text, outletName) => {
+  let cleaned = normalize(text);
+  if (!outletName) return cleaned;
+  const outletPattern = escapeRegExp(outletName);
+  const patterns = [
+    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
+    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
+    new RegExp(`^${outletPattern}\\s*[،,]\\s*`)
+  ];
+
+  for (const pattern of patterns) {
+    cleaned = cleaned.replace(pattern, '').trim();
+  }
+
+  return cleaned;
+};
+
+const ensureScene2AudioPrefix = (scene, text) => {
+  const normalized = normalize(text);
+  if (
+    scene.id !== 'scene-2' ||
+    !normalized ||
+    normalized.startsWith(SCENE_2_AUDIO_PREFIX) ||
+    normalized.startsWith(SCENE_2_GREETING_PREFIX)
+  ) {
+    return normalized;
+  }
+
+  const outletName = normalize(scene.outlet?.name || scene.outletName || '');
+  const withoutHandoff = removeScene2OutletHandoff(normalized, outletName);
+  if (!outletName) return `${SCENE_2_AUDIO_PREFIX} ${withoutHandoff}`.trim();
+  return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
+};
+
+const materializeSceneAudioText = (scene, text) => ensureScene2AudioPrefix(scene, text);
+
 export function loadTextOverrides(ctx) {
-  return readJsonSafe(overridesPath(ctx)) || {};
+  const raw = normalizeOverrideStore(readJsonSafe(overridesPath(ctx)));
+  const scenes = narrationScenes(ctx);
+  if (!scenes.length) {
+    return Object.fromEntries(
+      Object.entries(raw).map(([sceneId, entry]) => [
+        sceneId,
+        typeof entry === 'string' ? normalize(entry) : normalize(entry?.text)
+      ]).filter(([, text]) => text)
+    );
+  }
+
+  return Object.fromEntries(
+    scenes.map((scene) => [scene.id, overrideTextForScene(raw, scene.id, scene.defaultText)])
+      .filter(([, text]) => text)
+  );
 }
 
 export function saveTextOverride(ctx, sceneId, text) {
-  const overrides = loadTextOverrides(ctx);
+  const rawOverrides = normalizeOverrideStore(readJsonSafe(overridesPath(ctx)));
   const normalized = normalize(text);
   const scenes = narrationScenes(ctx);
   const scene = scenes.find((item) => item.id === sceneId);
   if (!normalized || (scene && normalized === scene.defaultText)) {
-    delete overrides[sceneId];
+    delete rawOverrides[sceneId];
   } else {
-    overrides[sceneId] = normalized;
+    rawOverrides[sceneId] = {
+      text: normalized,
+      defaultTextHash: textFingerprint(scene?.defaultText || ''),
+      savedAt: new Date().toISOString()
+    };
   }
   fs.mkdirSync(ctx.audioDir, {recursive: true});
-  if (Object.keys(overrides).length === 0) {
+  if (Object.keys(rawOverrides).length === 0) {
     if (fs.existsSync(overridesPath(ctx))) fs.unlinkSync(overridesPath(ctx));
   } else {
-    fs.writeFileSync(overridesPath(ctx), JSON.stringify(overrides, null, 2));
+    fs.writeFileSync(overridesPath(ctx), JSON.stringify({
+      meta: {
+        dateLabel: ctx.date,
+        savedAt: new Date().toISOString(),
+        schema: 'text-overrides/v2'
+      },
+      overrides: rawOverrides
+    }, null, 2));
   }
-  return overrides;
+  return loadTextOverrides(ctx);
 }
 
 // Same scene list and text selection as audio/generate-outlet-audio.mjs
@@ -58,7 +147,7 @@ function narrationScenes(ctx) {
     outletName: scene.outlet?.name || '',
     audioKey: scene.outlet?.key || scene.audioKey || scene.id,
     durationSeconds: scene.durationSeconds ?? null,
-    defaultText: normalize(scene.audioText || scene.body)
+    defaultText: materializeSceneAudioText(scene, scene.audioText || scene.body)
   }));
 }
 
@@ -94,6 +183,7 @@ function buildEntry(ctx, state, overrides, scene, manifestEntry) {
     (scene ? path.posix.join(ctx.folderRel, 'audio', `${sceneId}-${scene.audioKey}.wav`) : null);
   const absPath = audioPathRel ? path.resolve(ctx.repoRoot, audioPathRel) : null;
   const wavExists = absPath ? exists(absPath) : false;
+  const wavMtime = wavExists ? mtimeMs(absPath) : null;
   const manifestText = normalize(manifestEntry?.text);
 
   return {
@@ -111,8 +201,8 @@ function buildEntry(ctx, state, overrides, scene, manifestEntry) {
     textMismatch: wavExists && Boolean(manifestText) && manifestText !== effectiveText,
     wavExists,
     wavDurationSeconds: wavExists ? wavDurationSeconds(absPath) : null,
-    wavMtimeMs: wavExists ? mtimeMs(absPath) : null,
-    url: wavExists && audioPathRel ? `/${audioPathRel.replace(/\\/g, '/')}` : null,
+    wavMtimeMs: wavMtime,
+    url: wavExists && audioPathRel ? `/${audioPathRel.replace(/\\/g, '/')}?v=${Math.round(wavMtime)}` : null,
     fileName: audioPathRel ? path.basename(audioPathRel) : null,
     regen: state.audio?.[sceneId] || null
   };

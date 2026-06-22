@@ -648,6 +648,38 @@ select {
   resize: vertical;
 }
 
+.tts-cue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px;
+  background: #0f141a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.tts-cue-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.tts-cue-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+.btn.cue-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
 .script-editor:focus {
   outline: none;
   border-color: var(--blue);
