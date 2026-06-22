@@ -52,10 +52,12 @@ Other commands:
      The flag goes stale automatically if outputs are rebuilt afterwards.
 4. Server steps (11–14) run rsync/ssh against the render server and stream
    output live. The muted render (step 12) is the long one.
-5. **Step 16 (social captions):** _Generate social captions (Codex)_ writes an
-   editable `output/social-captions.json` (per-clip Instagram captions/hashtags,
-   one YouTube description, one YouTube thumbnail-generation prompt, and one
-   Instagram Reel cover prompt), then extracts the asset prompts to
+5. **Steps 15–16 (split + social captions):** after step 14 downloads at least
+   one final MP4, both actions are available. Step 15 splits whichever final MP4
+   variants you select. Step 16 can run before splitting; _Generate social
+   captions (Codex)_ writes an editable `output/social-captions.json`
+   (per-clip Instagram captions/hashtags, one YouTube description, one YouTube
+   thumbnail-generation prompt, and one Instagram Reel cover prompt), then extracts the asset prompts to
    `output/youtube-thumbnail-prompt.md` and
    `output/instagram-reel-cover-prompt.md`. Save the generated Reel cover image
    as `output/instagram-reel-cover.png`; the phone upload includes it with the
