@@ -1,5 +1,6 @@
 import {Composition} from 'remotion';
 import briefing from './data/briefing.json';
+import duelData from './data/quote-duel.json';
 import {BriefingVideo, calculateDurationInFrames} from './BriefingVideo';
 import {MapFocusVideo} from './MapFocusVideo';
 import {
@@ -8,6 +9,7 @@ import {
   calculateProductionDurationInFrames,
   calculateProductionIntroDurationInFrames
 } from './ProductionBriefingVideo';
+import {QuoteDuelVideo, calculateQuoteDuelDurationInFrames} from './QuoteDuelVideo';
 
 export const Root = () => {
   return (
@@ -49,6 +51,17 @@ export const Root = () => {
         defaultProps={{briefing, assets: {}}}
         calculateMetadata={({props}) => ({
           durationInFrames: calculateProductionIntroDurationInFrames(props.briefing ?? briefing, 30)
+        })}
+      />
+      <Composition
+        id="QuoteDuel"
+        component={QuoteDuelVideo}
+        fps={30}
+        width={720}
+        height={1280}
+        defaultProps={{duel: duelData}}
+        calculateMetadata={({props}) => ({
+          durationInFrames: calculateQuoteDuelDurationInFrames(props.duel ?? duelData, 30)
         })}
       />
     </>
