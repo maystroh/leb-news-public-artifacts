@@ -152,12 +152,22 @@ test('explicit scene.skipped flag is honored', () => {
   assert.equal(t.totalFrames, fpsFromSeconds(9, FPS));
 });
 
-test('audio durationSeconds wins over declared durationSeconds', () => {
+test('declared (buffered) durationSeconds is the clip length; audio is just src/skip signal', () => {
+  // scene.durationSeconds carries audio+buffer after build:folder. Audio's own
+  // durationSeconds (raw) must NOT override it, or the 0.5s buffer is lost.
   const t = computeDuelTimeline(
-    duelDoc([scene('duel-1', 9, {audio: {src: 'a/1.wav', durationSeconds: 11.5}})]),
+    duelDoc([scene('duel-1', 9.5, {audio: {src: 'a/1.wav', durationSeconds: 9.0}})]),
     FPS
   );
-  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(11.5, FPS));
+  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(9.5, FPS));
+});
+
+test('falls back to audio duration when no declared duration yet', () => {
+  const t = computeDuelTimeline(
+    duelDoc([{id: 'duel-1', audio: {src: 'a/1.wav', durationSeconds: 8.2}}]),
+    FPS
+  );
+  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(8.2, FPS));
 });
 
 test('coldOpenSeconds offsets the first clip; defaults to 0', () => {

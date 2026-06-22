@@ -79,7 +79,13 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     const audio = scene?.audio ?? null;
     const audioSeconds = toNumber(audio?.durationSeconds);
     const declaredSeconds = toNumber(scene?.durationSeconds);
-    const durationSeconds = audioSeconds > 0 ? audioSeconds : declaredSeconds;
+    // scene.durationSeconds is the source of truth for clip length — it already
+    // carries the buffered audio duration once build:folder applies
+    // timingConfig.quoteDuel.scenes (audio + 0.5s buffer), exactly like the
+    // briefing. The audio field is only the mux/mount src and the requireAudio
+    // skip signal; using audioSeconds for length would drop the buffer. Fall
+    // back to audioSeconds only when no declared duration exists yet.
+    const durationSeconds = declaredSeconds > 0 ? declaredSeconds : audioSeconds;
 
     let skipped = scene?.skipped === true;
     let skipReason = skipped ? 'flagged' : null;
