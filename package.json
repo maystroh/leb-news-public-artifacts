@@ -25,6 +25,7 @@
     "briefing:duel:render": "node ./scripts/render-quote-duel-video.mjs",
     "briefing:duel:mux:audio": "node ./scripts/mux-quote-duel-audio.mjs",
     "briefing:duel:split": "node ./scripts/split-quote-duel-video.mjs",
+    "briefing:duel:captions": "node ./scripts/build-duel-social-captions-prompt.mjs",
     "briefing:render:mp4": "node ./scripts/render-briefing-video.mjs",
     "briefing:render:intro": "node ./scripts/render-briefing-intro-video.mjs",
     "briefing:mux:audio": "node ./scripts/mux-briefing-audio.mjs",
