@@ -177,6 +177,45 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/package-social-zip.mjs` | standalone legacy utility: zips one video type with full MP4, split clips, captions, and YouTube description |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
+| `scripts/generate-quote-duel-audio.mjs` | per-duel narration TTS → WAVs + manifest + timingConfig.quoteDuel.scenes |
+| `scripts/render-quote-duel-video.mjs` | Remotion QuoteDuel renderer (merges audio manifest + logo/audio srcs) |
+| `scripts/mux-quote-duel-audio.mjs` | muxes per-duel WAVs at frame offsets onto the muted duel MP4 |
+| `scripts/split-quote-duel-video.mjs` | splits into duel-NN.mp4 + re-encoded top-3 quote-duel-full.mp4 |
+| `scripts/build-duel-social-captions-prompt.mjs` | Codex prompt for duelId-keyed Instagram captions + reel description |
+| `scripts/lib/duel-timeline.mjs` | shared frame-quantized duel timeline (comp + mux + split) |
+| `scripts/lib/hamsa-tts.mjs` | shared Hamsa TTS core + voice-fallback runner |
+| `scripts/lib/audio-mux.mjs` | shared ffmpeg adelay→amix filter_complex builder |
+| `scripts/lib/remotion-assets.mjs` | shared copyAsset/getLogoSrc/resolveAudioSrc resolver |
+
+## Quote Duel Video Pipeline
+
+The Quote Duel format has a video path parallel to the briefing (no intro; atomized
+into per-duel shorts). Local pipeline (the server/dashboard parity is in `TODOS.md`):
+
+```powershell
+npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD      # builds output/quote-duel.json
+npm run briefing:duel:audio  -- --folder briefings/YYYY-MM-DD       # narration WAVs (reuse/--force/--existing-only)
+npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted
+npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD    # → radar-beirut-quote-duel-final.mp4
+npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD       # → duel-videos/duel-NN.mp4 + quote-duel-full.mp4
+npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD     # → quote-duel-social-captions-prompt.md
+```
+
+- **Schema** (`briefings/<date>/quote-duel.json`, upstream): each `scenes[]` duel may carry
+  `rank` (1..N; ranks ≤3 are "main" → the full reel), `narration` (spoken line; falls back
+  to `summary`). `rank`/`narration` pass through `build:folder`; audio-driven durations live
+  in `timingConfig.quoteDuel.scenes` (audio + 0.5s) and are re-applied on rebuild — never
+  write them into `output/quote-duel.json` (it is regenerated wholesale).
+- **Timeline**: `scripts/lib/duel-timeline.mjs` is the single frame-quantized source for the
+  comp, the muxer, and the splitter — they agree to the frame. Clip identity is source-ordinal
+  (`duel-01` == `scenes[0]`); a missing-audio duel is skipped without renumbering survivors.
+- **Output names**: `radar-beirut-quote-duel.mp4` (muted master) → `…-final.mp4` (muxed) →
+  `duel-videos/duel-NN.mp4` (atomic) + `duel-videos/quote-duel-full.mp4` (top-3, ≤60s,
+  re-encoded from the master). WAVs live in `briefings/<date>/audio/duel-NN.wav`, NOT `output/audio/`.
+- **Comp** (`src/QuoteDuelVideo.jsx`, registered `QuoteDuel` in `src/Root.jsx`): 720x1280 with a
+  405x720 internal stage scaled via `useVideoConfig` (full-res, matches ProductionBriefing).
+  Per-duel `layout` prop overrides text placement; logo falls back to outlet-name text.
+- `coldOpen` is deferred (timeline `coldOpenSeconds` defaults to 0). See `TODOS.md`.
 
 ## Editing Rules
 
