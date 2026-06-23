@@ -261,6 +261,86 @@ const DuelScene = ({scene, durationInFrames, dateLabel}) => {
   );
 };
 
+// Attention hook prepended to the master start (e.g. "اليوم شو عم بقولوا
+// للبنانية"). Punchy radar-ping visual + big bold text; spoken via <Audio> when
+// a hook WAV was synthesized. The splitter prepends this same range to every
+// output, so every short and the full reel open with it.
+const HookScene = ({hook, durationInFrames}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const t = frame / fps;
+
+  // Text punch-in: scale overshoot + fade over the first ~12 frames.
+  const enter = clamp01(interpolate(frame, [0, 12], [0, 1], {extrapolateRight: 'clamp'}));
+  const scale = interpolate(enter, [0, 0.6, 1], [1.18, 0.99, 1]);
+  const fadeOut = interpolate(frame, [durationInFrames - 6, durationInFrames], [1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp'
+  });
+  // Sweeping scan beam + breathing.
+  const sweep = interpolate(frame % Math.max(1, Math.round(fps * 1.6)), [0, Math.round(fps * 1.6)], [-120, 120]);
+  const breathe = 1 + 0.015 * Math.sin(t * 6);
+
+  // Two radar pulse rings expanding on a loop.
+  const ring = (offset) => {
+    const cyc = (t + offset) % 1.3;
+    return {
+      size: interpolate(cyc, [0, 1.3], [40, 360]),
+      opacity: interpolate(cyc, [0, 0.15, 1.3], [0, 0.5, 0])
+    };
+  };
+  const rings = [ring(0), ring(0.65)];
+
+  return (
+    <AbsoluteFill style={{opacity: fadeOut}}>
+      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
+        {rings.map((r, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              width: r.size,
+              height: r.size,
+              borderRadius: '50%',
+              border: `2px solid ${palette.amber}`,
+              opacity: r.opacity
+            }}
+          />
+        ))}
+        {/* sweeping beam */}
+        <div
+          style={{
+            position: 'absolute',
+            width: 2,
+            height: STAGE_H,
+            left: `calc(50% + ${sweep}px)`,
+            background: `linear-gradient(180deg, transparent, ${palette.amber}55, transparent)`,
+            opacity: 0.5
+          }}
+        />
+      </AbsoluteFill>
+      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', padding: '0 36px'}}>
+        <div
+          style={{
+            direction: 'rtl',
+            textAlign: 'center',
+            fontSize: 40,
+            lineHeight: 1.3,
+            fontWeight: 700,
+            color: palette.ink,
+            textShadow: `0 0 24px ${palette.amber}66`,
+            transform: `scale(${scale * breathe})`,
+            opacity: enter
+          }}
+        >
+          {hook?.text}
+        </div>
+      </AbsoluteFill>
+      {hook?.audioSrc ? <Audio src={resolveSrc(hook.audioSrc)} /> : null}
+    </AbsoluteFill>
+  );
+};
+
 const StageBackground = () => {
   const frame = useCurrentFrame();
   const {durationInFrames} = useVideoConfig();
@@ -299,6 +379,11 @@ export const QuoteDuelVideo = ({duel}) => {
           }}
         >
           <StageBackground />
+          {timeline.coldOpenFrames > 0 && data.hook?.text ? (
+            <Sequence from={0} durationInFrames={timeline.coldOpenFrames} name="hook">
+              <HookScene hook={data.hook} durationInFrames={timeline.coldOpenFrames} />
+            </Sequence>
+          ) : null}
           {(data.scenes ?? []).map((scene, index) => {
             const duelId = scene.id ?? `duel-${index + 1}`;
             const t = byId.get(duelId);

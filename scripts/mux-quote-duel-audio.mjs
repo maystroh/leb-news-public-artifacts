@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 import {buildMuxFilterComplex} from './lib/audio-mux.mjs';
-import {computeDuelTimeline, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
 
 // Attaches per-duel narration WAVs to the muted QuoteDuel render at their
 // frame-accurate cumulative offsets, then muxes onto the video by stream-copy
@@ -59,25 +59,25 @@ if (path.resolve(outputPath) === path.resolve(inputPath)) {
 }
 
 const duel = readJson(quoteDuelPath);
-const audioByDuel = fs.existsSync(audioManifestPath) ? (readJson(audioManifestPath).audioByDuel ?? {}) : {};
-
-// Merge audio durations into the duel so requireAudio skip + the timeline match
-// the render exactly.
-const merged = {
-  ...duel,
-  scenes: (duel.scenes ?? []).map((scene, index) => {
-    const duelId = scene.id ?? `duel-${index + 1}`;
-    const entry = audioByDuel[duelId];
-    return entry && !entry.skipped
-      ? {...scene, audio: {src: entry.src, durationSeconds: entry.durationSeconds}}
-      : scene;
-  })
-};
+const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
+const audioByDuel = manifest?.audioByDuel ?? {};
+const merged = mergeDuelAudioManifest(duel, manifest);
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
 const frameToMs = (frame) => Math.round((frame / FPS) * 1000);
 
 const audioEntries = [];
+
+// Hook (the single shared spoken line) plays at the master start, offset 0.
+if (timeline.coldOpenFrames > 0 && manifest?.hook?.file) {
+  const hookPath = path.join(audioDir, manifest.hook.file);
+  if (fs.existsSync(hookPath)) {
+    audioEntries.push({label: 'hook', filePath: hookPath, delayMs: 0});
+  } else {
+    console.warn(`Warning: missing hook WAV: ${path.relative(cwd, hookPath)}`);
+  }
+}
+
 for (const d of timeline.duels) {
   if (d.skipped) continue;
   const entry = audioByDuel[d.duelId];

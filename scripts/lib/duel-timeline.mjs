@@ -64,10 +64,14 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
   const scenes = Array.isArray(duel?.scenes) ? duel.scenes : [];
   const warnings = [];
 
-  const coldOpenSeconds = toNumber(
-    options.coldOpenSeconds ?? duel?.coldOpen?.durationSeconds,
-    0
-  );
+  // The attention hook (e.g. "اليوم شو عم بقولوا للبنانية") is a coldOpen-style
+  // segment prepended to the master start. Audio-driven when a hook WAV exists
+  // (duration merged into duel.hook.durationSeconds), else falls back to 2.5s
+  // when only hook text is present. `coldOpen` stays as an alias.
+  const hookFromData = duel?.hook?.durationSeconds
+    ?? (duel?.hook?.text ? 2.5 : undefined)
+    ?? duel?.coldOpen?.durationSeconds;
+  const coldOpenSeconds = toNumber(options.coldOpenSeconds ?? hookFromData, 0);
   const coldOpenFrames = coldOpenSeconds > 0 ? fpsFromSeconds(coldOpenSeconds, fps) : 0;
 
   // First pass: resolve identity + skip decision in stable SOURCE order.
@@ -184,6 +188,41 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     droppedFromFull,
     fullSeconds: roundSeconds(sumSeconds(fullPlan)),
     warnings
+  };
+};
+
+/**
+ * Merge the duel audio manifest into the duel document so render/mux/split all
+ * see the same audio srcs + durations + hook. Single shared merge so the three
+ * scripts can't drift. The hook line is one shared WAV (generated once); its
+ * buffered duration drives the coldOpen offset.
+ *
+ * @param {object} duel - parsed output/quote-duel.json
+ * @param {object|null} manifest - parsed audio/quote-duel-manifest.json
+ */
+export const mergeDuelAudioManifest = (duel, manifest) => {
+  const audioByDuel = manifest?.audioByDuel ?? {};
+  const hookEntry = manifest?.hook ?? null;
+  const hookText = duel?.hook?.text ?? hookEntry?.text ?? null;
+  const hook = hookText
+    ? {
+        text: hookText,
+        durationSeconds: hookEntry?.bufferedSeconds ?? hookEntry?.durationSeconds ?? duel?.hook?.durationSeconds,
+        audioSrc: hookEntry?.src ?? null,
+        file: hookEntry?.file ?? null
+      }
+    : duel?.hook ?? undefined;
+
+  return {
+    ...duel,
+    ...(hook ? {hook} : {}),
+    scenes: (duel?.scenes ?? []).map((scene, index) => {
+      const duelId = scene.id ?? `duel-${index + 1}`;
+      const entry = audioByDuel[duelId];
+      return entry && !entry.skipped
+        ? {...scene, audio: {src: entry.src, durationSeconds: entry.durationSeconds, file: entry.file}}
+        : scene;
+    })
   };
 };
 

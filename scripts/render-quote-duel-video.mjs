@@ -4,6 +4,7 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
 import {createAssetResolver} from './lib/remotion-assets.mjs';
+import {mergeDuelAudioManifest} from './lib/duel-timeline.mjs';
 
 // Renders the QuoteDuel Remotion composition for a date folder. Mirrors
 // render-briefing-video.mjs but for duels: merges the per-duel audio manifest
@@ -90,7 +91,8 @@ const {copyAsset, resolveAudioSrc, getLogoSrc} = createAssetResolver({
 });
 
 const duel = readJson(quoteDuelPath);
-const audioByDuel = fs.existsSync(audioManifestPath) ? (readJson(audioManifestPath).audioByDuel ?? {}) : {};
+const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
+const merged = mergeDuelAudioManifest(duel, manifest);
 const warnings = [];
 
 const withLogo = (outletSide, sceneId) => {
@@ -103,15 +105,17 @@ const withLogo = (outletSide, sceneId) => {
 };
 
 const duelForRender = {
-  ...duel,
-  scenes: (duel.scenes ?? []).map((scene, index) => {
+  ...merged,
+  hook: merged.hook
+    ? {...merged.hook, audioSrc: merged.hook.audioSrc ? resolveAudioSrc(merged.hook.audioSrc) : null}
+    : merged.hook,
+  scenes: (merged.scenes ?? []).map((scene, index) => {
     const duelId = scene.id ?? `duel-${index + 1}`;
-    const audioEntry = audioByDuel[duelId];
     let audio = scene.audio ?? null;
-    if (audioEntry && !audioEntry.skipped) {
-      const src = resolveAudioSrc(audioEntry.src);
-      if (!src) warnings.push(`Missing audio for ${duelId}: ${audioEntry.src}`);
-      audio = {src, durationSeconds: audioEntry.durationSeconds};
+    if (audio?.src) {
+      const src = resolveAudioSrc(audio.src);
+      if (!src) warnings.push(`Missing audio for ${duelId}: ${audio.src}`);
+      audio = {...audio, src};
     }
     return {
       ...scene,

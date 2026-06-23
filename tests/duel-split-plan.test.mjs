@@ -10,14 +10,14 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 // Drives the splitter's --dry-run planner (no ffmpeg) to assert the atomic
 // clip plan, the source-ordinal filenames, the top-3 full-reel selection, the
 // 60s cap, and skip handling — all derived from lib/duel-timeline.mjs.
-const makeFolder = (scenes, audioByDuel) => {
+const makeFolder = (scenes, audioByDuel, extra = {}) => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duel-split-'));
   fs.mkdirSync(path.join(folder, 'output'), {recursive: true});
   fs.mkdirSync(path.join(folder, 'audio'), {recursive: true});
-  fs.writeFileSync(path.join(folder, 'output', 'quote-duel.json'), JSON.stringify({meta: {}, scenes}, null, 2));
+  fs.writeFileSync(path.join(folder, 'output', 'quote-duel.json'), JSON.stringify({meta: {}, ...extra.duel, scenes}, null, 2));
   fs.writeFileSync(
     path.join(folder, 'audio', 'quote-duel-manifest.json'),
-    JSON.stringify({audioByDuel}, null, 2)
+    JSON.stringify({audioByDuel, ...(extra.hook ? {hook: extra.hook} : {})}, null, 2)
   );
   return folder;
 };
@@ -75,6 +75,29 @@ test('skipped duel (no audio) excluded but keeps source-ordinal numbering', () =
   assert.deepEqual(plan.skipped.map((s) => s.duelId), ['duel-2']);
   // duel-3 starts right after duel-1 (survivors-only offsets)
   assert.equal(plan.atomic[1].startSeconds, plan.atomic[0].endSeconds);
+});
+
+test('hook prepended to every clip when configured', () => {
+  const folder = makeFolder(
+    [
+      {id: 'duel-1', rank: 1, durationSeconds: 9.5},
+      {id: 'duel-2', rank: 2, durationSeconds: 9.5}
+    ],
+    {
+      'duel-1': wavEntry('duel-01.wav', 9),
+      'duel-2': wavEntry('duel-02.wav', 9)
+    },
+    {
+      duel: {hook: {text: 'اليوم شو عم بقولوا للبنانية'}},
+      hook: {file: 'hook.wav', src: '../audio/hook.wav', durationSeconds: 2.0, bufferedSeconds: 2.5}
+    }
+  );
+  const plan = runPlan(folder);
+  assert.equal(plan.hookSeconds, 2.5);
+  assert.equal(plan.hookPrependedToEachClip, true);
+  // duels still start after the hook in the master timeline
+  assert.equal(plan.atomic[0].startSeconds, 2.5);
+  assert.deepEqual(plan.fullReel.duelIds, ['duel-1', 'duel-2']);
 });
 
 test('60s cap drops lowest-rank main from the full reel', () => {

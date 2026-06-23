@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   computeDuelTimeline,
   calculateQuoteDuelDurationInFrames,
+  mergeDuelAudioManifest,
   fpsFromSeconds
 } from '../scripts/lib/duel-timeline.mjs';
 
@@ -188,6 +189,49 @@ test('coldOpenSeconds offsets the first clip; defaults to 0', () => {
     FPS
   );
   assert.equal(fromDoc.coldOpenFrames, 30);
+});
+
+test('hook: duel.hook.durationSeconds drives the coldOpen offset', () => {
+  const t = computeDuelTimeline(
+    duelDoc([scene('duel-1', 9)], {hook: {text: 'اليوم شو عم بقولوا للبنانية', durationSeconds: 2.3}}),
+    FPS
+  );
+  assert.equal(t.coldOpenFrames, fpsFromSeconds(2.3, FPS));
+  assert.equal(t.duels[0].startFrame, fpsFromSeconds(2.3, FPS));
+});
+
+test('hook: text-only falls back to a 2.5s hook', () => {
+  const t = computeDuelTimeline(duelDoc([scene('duel-1', 9)], {hook: {text: 'لحظة'}}), FPS);
+  assert.equal(t.coldOpenFrames, fpsFromSeconds(2.5, FPS));
+});
+
+test('hook: no hook field → no offset (default)', () => {
+  const t = computeDuelTimeline(duelDoc([scene('duel-1', 9)]), FPS);
+  assert.equal(t.coldOpenFrames, 0);
+  assert.equal(t.duels[0].startFrame, 0);
+});
+
+test('mergeDuelAudioManifest merges duel audio + hook duration/text', () => {
+  const duel = duelDoc(
+    [scene('duel-1', 9), scene('duel-2', 9)],
+    {hook: {text: 'اليوم شو عم بقولوا للبنانية'}}
+  );
+  const manifest = {
+    hook: {file: 'hook.wav', src: '../audio/hook.wav', durationSeconds: 2.0, bufferedSeconds: 2.5},
+    audioByDuel: {
+      'duel-1': {file: 'duel-01.wav', src: '../audio/duel-01.wav', durationSeconds: 8.7, skipped: false},
+      'duel-2': {skipped: true}
+    }
+  };
+  const merged = mergeDuelAudioManifest(duel, manifest);
+  assert.equal(merged.hook.durationSeconds, 2.5); // bufferedSeconds wins
+  assert.equal(merged.hook.text, 'اليوم شو عم بقولوا للبنانية'); // text from duel
+  assert.equal(merged.hook.audioSrc, '../audio/hook.wav');
+  assert.deepEqual(merged.scenes[0].audio, {src: '../audio/duel-01.wav', durationSeconds: 8.7, file: 'duel-01.wav'});
+  assert.equal(merged.scenes[1].audio, undefined); // skipped not merged
+  // and the merged doc drives the timeline hook offset
+  const t = computeDuelTimeline(merged, FPS, {requireAudio: true});
+  assert.equal(t.coldOpenFrames, fpsFromSeconds(2.5, FPS));
 });
 
 test('empty scenes → zero-length timeline, no crash', () => {

@@ -3,7 +3,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
-import {computeDuelTimeline, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
 
 // Splits the final QuoteDuel MP4 into:
 //   - duel-NN.mp4 : each duel standalone (no intro/outro), SOURCE-ordinal so a
@@ -52,17 +52,8 @@ if (!fs.existsSync(quoteDuelPath)) {
 }
 
 const duel = readJson(quoteDuelPath);
-const audioByDuel = fs.existsSync(audioManifestPath) ? (readJson(audioManifestPath).audioByDuel ?? {}) : {};
-const merged = {
-  ...duel,
-  scenes: (duel.scenes ?? []).map((scene, index) => {
-    const duelId = scene.id ?? `duel-${index + 1}`;
-    const entry = audioByDuel[duelId];
-    return entry && !entry.skipped
-      ? {...scene, audio: {src: entry.src, durationSeconds: entry.durationSeconds}}
-      : scene;
-  })
-};
+const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
+const merged = mergeDuelAudioManifest(duel, manifest);
 
 // Require audio only when an audio manifest exists (the real muxed pipeline).
 // A silent placeholder render (no manifest) splits by declared durations so the
@@ -99,6 +90,8 @@ if (args['dry-run']) {
     inputPath: path.relative(cwd, inputPath),
     outputDir: path.relative(cwd, segmentsFolder),
     mode,
+    hookSeconds: timeline.coldOpenSeconds,
+    hookPrependedToEachClip: timeline.coldOpenSeconds > 0,
     totalSeconds: timeline.totalSeconds,
     atomic: segments.map(({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds}) =>
       ({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds})),
@@ -146,52 +139,62 @@ const run = (ffmpegArgs, label) => {
   }
 };
 
-const cutAtomic = (segment) => {
-  const timing = ['-ss', String(segment.startSeconds), '-t', String(segment.durationSeconds)];
-  const out = mode === 'copy'
-    ? ['-c', 'copy', '-movflags', '+faststart']
-    : ['-map', '0:v:0', '-map', '0:a?', '-c:v', 'libx264', '-preset', preset, '-crf', String(crf),
-       '-c:a', 'aac', '-b:a', audioBitrate, '-movflags', '+faststart'];
-  const ffmpegArgs = mode === 'copy'
-    ? ['-y', ...timing, '-i', inputPath, ...out, segment.outputPath]
-    : ['-y', '-i', inputPath, ...timing, ...out, segment.outputPath];
-  run(ffmpegArgs, `Writing ${path.relative(cwd, segment.outputPath)} (${segment.startSeconds}s + ${segment.durationSeconds}s)`);
-};
+// The hook range [0, hookSeconds] is prepended to EVERY output (each short +
+// the full reel) so they all open with the same attention hook (OV/user request).
+const hookRange = timeline.coldOpenSeconds > 0 ? [{start: 0, end: timeline.coldOpenSeconds}] : [];
 
-// Full reel: trim each main range from the master and concat in ONE re-encode
-// pass (OV3 — glitch-free regardless of atomic-clip codec params).
-const buildFullReel = (fullPath, hasAudio) => {
+// Cut + concat the given [start,end] master ranges into one clip, re-encoding
+// (one pass) so joins are glitch-free regardless of source params (OV3). A
+// single range with --mode copy is stream-copied instead (fast/lossless).
+const buildClip = (outputPath, ranges, hasAudio, label) => {
+  if (mode === 'copy' && ranges.length === 1) {
+    const r = ranges[0];
+    run(['-y', '-ss', String(r.start), '-t', (r.end - r.start).toFixed(3), '-i', inputPath,
+      '-c', 'copy', '-movflags', '+faststart', outputPath], label);
+    return;
+  }
   const parts = [];
-  const concatRefs = [];
-  mainPlan.forEach((s, i) => {
-    const end = (s.startSeconds + s.durationSeconds).toFixed(3);
-    parts.push(`[0:v]trim=start=${s.startSeconds}:end=${end},setpts=PTS-STARTPTS[v${i}]`);
+  const refs = [];
+  ranges.forEach((r, i) => {
+    parts.push(`[0:v]trim=start=${r.start}:end=${Number(r.end).toFixed(3)},setpts=PTS-STARTPTS[v${i}]`);
     if (hasAudio) {
-      parts.push(`[0:a]atrim=start=${s.startSeconds}:end=${end},asetpts=PTS-STARTPTS[a${i}]`);
-      concatRefs.push(`[v${i}][a${i}]`);
+      parts.push(`[0:a]atrim=start=${r.start}:end=${Number(r.end).toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`);
+      refs.push(`[v${i}][a${i}]`);
     } else {
-      concatRefs.push(`[v${i}]`);
+      refs.push(`[v${i}]`);
     }
   });
   const filter = hasAudio
-    ? `${parts.join(';')};${concatRefs.join('')}concat=n=${mainPlan.length}:v=1:a=1[v][a]`
-    : `${parts.join(';')};${concatRefs.join('')}concat=n=${mainPlan.length}:v=1:a=0[v]`;
-  const ffmpegArgs = [
+    ? `${parts.join(';')};${refs.join('')}concat=n=${ranges.length}:v=1:a=1[v][a]`
+    : `${parts.join(';')};${refs.join('')}concat=n=${ranges.length}:v=1:a=0[v]`;
+  run([
     '-y', '-i', inputPath,
     '-filter_complex', filter,
     '-map', '[v]',
     ...(hasAudio ? ['-map', '[a]', '-c:a', 'aac', '-b:a', audioBitrate] : []),
     '-c:v', 'libx264', '-preset', preset, '-crf', String(crf),
     '-movflags', '+faststart',
-    fullPath
-  ];
-  run(ffmpegArgs, `Writing ${path.relative(cwd, fullPath)} (full reel: ${mainPlan.map((s) => s.duelId).join(', ')}, ${timeline.fullSeconds}s${hasAudio ? '' : ', silent'})`);
+    outputPath
+  ], label);
 };
 
+if (mode === 'copy' && hookRange.length) {
+  console.warn('Warning: --mode copy ignored for hook-prefixed clips (concat needs re-encode).');
+}
+
 try {
-  for (const segment of segments) cutAtomic(segment);
+  const hasAudio = probeHasAudio(inputPath);
+  for (const segment of segments) {
+    const ranges = [...hookRange, {start: segment.startSeconds, end: segment.startSeconds + segment.durationSeconds}];
+    buildClip(segment.outputPath, ranges, hasAudio,
+      `Writing ${path.relative(cwd, segment.outputPath)} (${hookRange.length ? 'hook + ' : ''}${segment.duelId} ${segment.durationSeconds}s)`);
+  }
   const fullPath = path.join(segmentsFolder, 'quote-duel-full.mp4');
-  if (mainPlan.length) buildFullReel(fullPath, probeHasAudio(inputPath));
+  if (mainPlan.length) {
+    const mainRanges = mainPlan.map((s) => ({start: s.startSeconds, end: s.startSeconds + s.durationSeconds}));
+    buildClip(fullPath, [...hookRange, ...mainRanges], hasAudio,
+      `Writing ${path.relative(cwd, fullPath)} (full reel: ${hookRange.length ? 'hook + ' : ''}${mainPlan.map((s) => s.duelId).join(', ')}, ${timeline.fullSeconds}s${hasAudio ? '' : ', silent'})`);
+  }
 } catch (error) {
   console.error(error.message);
   process.exit(1);
