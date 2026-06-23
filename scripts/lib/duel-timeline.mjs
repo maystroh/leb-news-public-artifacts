@@ -192,30 +192,18 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
 };
 
 /**
- * Merge the duel audio manifest into the duel document so render/mux/split all
- * see the same audio srcs + durations + hook. Single shared merge so the three
- * scripts can't drift. The hook line is one shared WAV (generated once); its
- * buffered duration drives the coldOpen offset.
+ * Merge the duel audio manifest's per-duel WAV srcs/durations into the duel
+ * document so render/mux/split all see the same audio. Single shared merge so
+ * the three scripts can't drift. (Hook selection is separate — see
+ * listDuelHooks / resolveDuelHook.)
  *
  * @param {object} duel - parsed output/quote-duel.json
  * @param {object|null} manifest - parsed audio/quote-duel-manifest.json
  */
 export const mergeDuelAudioManifest = (duel, manifest) => {
   const audioByDuel = manifest?.audioByDuel ?? {};
-  const hookEntry = manifest?.hook ?? null;
-  const hookText = duel?.hook?.text ?? hookEntry?.text ?? null;
-  const hook = hookText
-    ? {
-        text: hookText,
-        durationSeconds: hookEntry?.bufferedSeconds ?? hookEntry?.durationSeconds ?? duel?.hook?.durationSeconds,
-        audioSrc: hookEntry?.src ?? null,
-        file: hookEntry?.file ?? null
-      }
-    : duel?.hook ?? undefined;
-
   return {
     ...duel,
-    ...(hook ? {hook} : {}),
     scenes: (duel?.scenes ?? []).map((scene, index) => {
       const duelId = scene.id ?? `duel-${index + 1}`;
       const entry = audioByDuel[duelId];
@@ -224,6 +212,50 @@ export const mergeDuelAudioManifest = (duel, manifest) => {
         : scene;
     })
   };
+};
+
+// --hook <id> normalizer shared by render/mux/split: a bare number N → hook-N;
+// anything else used as-is; falsy/true → null (no hook).
+export const normalizeHookId = (value) => {
+  if (!value || value === true) return null;
+  const s = String(value).trim();
+  return /^\d+$/.test(s) ? `hook-${s}` : s;
+};
+
+const normalizeHookList = (duel) => {
+  if (Array.isArray(duel?.hooks)) {
+    return duel.hooks.filter((h) => h?.text).map((h, i) => ({id: h.id ?? `hook-${i + 1}`, text: h.text}));
+  }
+  if (duel?.hook?.text) return [{id: 'hook-1', text: duel.hook.text}];
+  return [];
+};
+
+/**
+ * All hook variants for a duel doc, merged with their audio (one shared WAV per
+ * variant, generated once). Each: {id, text, durationSeconds (buffered), audioSrc, file}.
+ * Falls back to a 2.5s visual-only hook when a variant has text but no WAV yet.
+ */
+export const listDuelHooks = (duel, manifest) => {
+  const manifestHooks = manifest?.hooks ?? (manifest?.hook ? {'hook-1': manifest.hook} : {});
+  return normalizeHookList(duel).map((h) => {
+    const entry = manifestHooks[h.id];
+    return {
+      id: h.id,
+      text: h.text,
+      durationSeconds: entry?.bufferedSeconds ?? entry?.durationSeconds ?? 2.5,
+      audioSrc: entry?.src ?? null,
+      file: entry?.file ?? null
+    };
+  });
+};
+
+/**
+ * The active hook variant selected at render time (by id), or null for no hook.
+ * Set the result as duel.hook so the timeline/comp pick it up unchanged.
+ */
+export const resolveDuelHook = (duel, manifest, hookId) => {
+  if (!hookId) return null;
+  return listDuelHooks(duel, manifest).find((h) => h.id === hookId) ?? null;
 };
 
 /**

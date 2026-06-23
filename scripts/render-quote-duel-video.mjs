@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
 import {createAssetResolver} from './lib/remotion-assets.mjs';
-import {mergeDuelAudioManifest} from './lib/duel-timeline.mjs';
+import {mergeDuelAudioManifest, resolveDuelHook, normalizeHookId} from './lib/duel-timeline.mjs';
 
 // Renders the QuoteDuel Remotion composition for a date folder. Mirrors
 // render-briefing-video.mjs but for duels: merges the per-duel audio manifest
@@ -72,12 +72,15 @@ if (!fs.existsSync(quoteDuelPath)) {
   process.exit(1);
 }
 
+const hookId = normalizeHookId(args.hook);
+const hookSuffix = hookId ? `-${hookId}` : '';
+
 const getOutputPath = (resolution) => {
   if (args.output) return path.resolve(cwd, args.output);
   if (resolution.width && resolution.height && !resolution.isDefault) {
-    return path.join(outputFolder, `radar-beirut-quote-duel-${resolution.width}x${resolution.height}.mp4`);
+    return path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}-${resolution.width}x${resolution.height}.mp4`);
   }
-  return path.join(outputFolder, 'radar-beirut-quote-duel.mp4');
+  return path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}.mp4`);
 };
 
 fs.mkdirSync(outputFolder, {recursive: true});
@@ -93,7 +96,11 @@ const {copyAsset, resolveAudioSrc, getLogoSrc} = createAssetResolver({
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const merged = mergeDuelAudioManifest(duel, manifest);
+const activeHook = resolveDuelHook(duel, manifest, hookId);
 const warnings = [];
+if (hookId && !activeHook) {
+  warnings.push(`--hook ${hookId} not found in quote-duel.json hooks; rendering without a hook.`);
+}
 
 const withLogo = (outletSide, sceneId) => {
   if (!outletSide) return outletSide;
@@ -106,9 +113,10 @@ const withLogo = (outletSide, sceneId) => {
 
 const duelForRender = {
   ...merged,
-  hook: merged.hook
-    ? {...merged.hook, audioSrc: merged.hook.audioSrc ? resolveAudioSrc(merged.hook.audioSrc) : null}
-    : merged.hook,
+  hooks: undefined,
+  hook: activeHook
+    ? {...activeHook, audioSrc: activeHook.audioSrc ? resolveAudioSrc(activeHook.audioSrc) : null}
+    : undefined,
   scenes: (merged.scenes ?? []).map((scene, index) => {
     const duelId = scene.id ?? `duel-${index + 1}`;
     let audio = scene.audio ?? null;

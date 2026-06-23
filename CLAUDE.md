@@ -195,11 +195,14 @@ into per-duel shorts). Local pipeline (the server/dashboard parity is in `TODOS.
 ```powershell
 npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD      # builds output/quote-duel.json
 npm run briefing:duel:audio  -- --folder briefings/YYYY-MM-DD       # narration WAVs (reuse/--force/--existing-only)
-npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted
-npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD    # → radar-beirut-quote-duel-final.mp4
-npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD       # → duel-videos/duel-NN.mp4 + quote-duel-full.mp4
+npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted [--hook hook-1]
+npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD [--hook hook-1]
+npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD [--hook hook-1]
 npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD     # → quote-duel-social-captions-prompt.md
 ```
+
+To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get a
+`-<id>` suffix; pass the SAME `--hook` to all three so they line up).
 
 - **Schema** (`briefings/<date>/quote-duel.json`, upstream): each `scenes[]` duel may carry
   `rank` (1..N; ranks ≤3 are "main" → the full reel), `narration` (spoken line; falls back
@@ -215,7 +218,12 @@ npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD     # → quote-
 - **Comp** (`src/QuoteDuelVideo.jsx`, registered `QuoteDuel` in `src/Root.jsx`): 720x1280 with a
   405x720 internal stage scaled via `useVideoConfig` (full-res, matches ProductionBriefing).
   Per-duel `layout` prop overrides text placement; logo falls back to outlet-name text.
-- `coldOpen` is deferred (timeline `coldOpenSeconds` defaults to 0). See `TODOS.md`.
+- **Attention hooks** (TikTok-style opener): top-level `hooks: [{id, text}]` in `quote-duel.json`
+  (or legacy `hook: {text}`). `briefing:duel:audio` synthesizes ONE shared WAV per variant
+  (`<id>.wav`, reused by default) → `manifest.hooks`. `--hook <id>` (bare number → `hook-N`) at
+  render/mux/split selects which variant opens the video; it becomes the timeline's
+  `coldOpenSeconds` offset and the splitter prepends that same range to every short AND once to
+  the full reel. No `--hook` → no hook. The hook visual is `HookScene` in `QuoteDuelVideo.jsx`.
 
 ## Editing Rules
 

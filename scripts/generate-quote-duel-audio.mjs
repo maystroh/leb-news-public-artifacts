@@ -124,13 +124,18 @@ const plan = scenes.map((scene, index) => {
   return {ordinal, duelId, fileName, outputPath, src: `../audio/${fileName}`, text, textSource, action, skipReason};
 });
 
-// The attention hook line is synthesized ONCE into a single shared hook.wav
-// (reused by default; --force to regenerate). The same WAV is prepended to the
+// Each hook variant is synthesized ONCE into its own shared WAV (hook-<id>.wav,
+// reused by default; --force to regenerate) so all three can be rendered as
+// alternatives and selected at render time. The chosen WAV is prepended to the
 // full reel and every short — never re-synthesized per clip.
-const hookText = normalizeSpacing(quoteDuel.hook?.text);
-const hookPlan = (() => {
-  if (!hookText) return null;
-  const fileName = 'hook.wav';
+const hookVariants = Array.isArray(quoteDuel.hooks)
+  ? quoteDuel.hooks.map((h, i) => ({id: h.id ?? `hook-${i + 1}`, text: normalizeSpacing(h.text)})).filter((h) => h.text)
+  : quoteDuel.hook?.text
+    ? [{id: 'hook-1', text: normalizeSpacing(quoteDuel.hook.text)}]
+    : [];
+
+const hookPlans = hookVariants.map((h) => {
+  const fileName = `${h.id}.wav`;
   const outputPath = path.join(audioDir, fileName);
   const exists = fs.existsSync(outputPath);
   let action;
@@ -143,8 +148,8 @@ const hookPlan = (() => {
   } else {
     action = 'generate';
   }
-  return {duelId: 'hook', fileName, outputPath, src: `../audio/${fileName}`, text: hookText, action, skipReason};
-})();
+  return {id: h.id, fileName, outputPath, src: `../audio/${fileName}`, text: h.text, action, skipReason};
+});
 
 if (dryRun) {
   console.log(JSON.stringify({
@@ -152,7 +157,7 @@ if (dryRun) {
     mode: existingOnly ? 'existing-only' : force ? 'force' : 'reuse',
     speakerCandidates,
     dialect,
-    hook: hookPlan ? {fileName: hookPlan.fileName, action: hookPlan.action, skipReason: hookPlan.skipReason} : null,
+    hooks: hookPlans.map(({id, fileName, action, skipReason}) => ({id, fileName, action, skipReason})),
     duels: plan.map(({ordinal, duelId, fileName, textSource, action, skipReason}) =>
       ({ordinal, duelId, fileName, textSource, action, skipReason}))
   }, null, 2));
@@ -161,7 +166,7 @@ if (dryRun) {
 
 fs.mkdirSync(audioDir, {recursive: true});
 
-const needsGeneration = plan.some((p) => p.action === 'generate') || hookPlan?.action === 'generate';
+const needsGeneration = plan.some((p) => p.action === 'generate') || hookPlans.some((h) => h.action === 'generate');
 let runner = null;
 if (needsGeneration) {
   if (!process.env.HAMSA_API_KEY) {
@@ -228,40 +233,39 @@ for (const item of plan) {
   };
 }
 
-// Hook: generate/reuse the single shared WAV.
-let hook = null;
-if (hookPlan) {
-  if (hookPlan.action === 'skip') {
-    warnings.push(`Skipping hook: ${hookPlan.skipReason}.`);
-  } else {
-    let durationSeconds = null;
-    let source = 'ai';
-    if (hookPlan.action === 'reuse') {
-      durationSeconds = measure(hookPlan.outputPath);
-      console.log(`Reusing hook.wav (${durationSeconds ?? '?'}s)`);
-    } else {
-      const result = await runner.generate(hookPlan.text);
-      patchWavHeaderSizes(result.audio);
-      fs.writeFileSync(hookPlan.outputPath, result.audio);
-      durationSeconds = getWavDurationSeconds(result.audio);
-      console.log(`Generated hook.wav via ${result.ttsSpeaker} (${durationSeconds ?? '?'}s)`);
-    }
-    hook = {
-      file: hookPlan.fileName,
-      src: hookPlan.src,
-      text: hookPlan.text,
-      durationSeconds,
-      bufferedSeconds: durationSeconds != null ? Number((durationSeconds + BUFFER_SECONDS).toFixed(3)) : null,
-      source
-    };
+// Hooks: generate/reuse one shared WAV per variant.
+const hooks = {};
+for (const hp of hookPlans) {
+  if (hp.action === 'skip') {
+    warnings.push(`Skipping hook ${hp.id}: ${hp.skipReason}.`);
+    continue;
   }
+  let durationSeconds = null;
+  if (hp.action === 'reuse') {
+    durationSeconds = measure(hp.outputPath);
+    console.log(`Reusing ${hp.fileName} (${durationSeconds ?? '?'}s)`);
+  } else {
+    const result = await runner.generate(hp.text);
+    patchWavHeaderSizes(result.audio);
+    fs.writeFileSync(hp.outputPath, result.audio);
+    durationSeconds = getWavDurationSeconds(result.audio);
+    console.log(`Generated ${hp.fileName} via ${result.ttsSpeaker} (${durationSeconds ?? '?'}s)`);
+  }
+  hooks[hp.id] = {
+    file: hp.fileName,
+    src: hp.src,
+    text: hp.text,
+    durationSeconds,
+    bufferedSeconds: durationSeconds != null ? Number((durationSeconds + BUFFER_SECONDS).toFixed(3)) : null,
+    source: 'ai'
+  };
 }
 
 writeJson(manifestPath, {
   generatedAt: new Date().toISOString(),
   sourceDataPath: path.relative(cwd, quoteDuelPath).replace(/\\/g, '/'),
   bufferSeconds: BUFFER_SECONDS,
-  hook,
+  hooks,
   audioByDuel
 });
 

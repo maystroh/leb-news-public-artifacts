@@ -27,11 +27,9 @@ Deferred work captured during reviews. Each item has enough context to pick up c
 - **Why deferred (C1):** Touching the daily-driver briefing scripts beyond the pure extraction
   is its own regression-test pass; keep PR-1 scoped.
 
-### 3. coldOpen hook for the full Reel
-- **What:** Add `coldOpen{text, durationSeconds<=1.5}` to `quote-duel.json`; render it as a
-  silent prepended `<Sequence>` on the full timeline only (never atomic clips); set the
-  timeline's `coldOpenSeconds` from it.
-- **Why:** Gives the full Reel's first frame a verbal punch; unproven hook worth A/B testing.
-- **Depends on:** `lib/duel-timeline.mjs` already threads `coldOpenSeconds` (PR-1 builds it
-  defaulting to 0), so this is a small, low-risk follow-up.
-- **Why deferred (A3):** Avoid render + offset-coupling test surface for an unproven hook now.
+### 3. coldOpen hook for the full Reel — DONE (superseded by the hook system)
+- Implemented as the multi-variant attention hook: `hooks: [{id, text}]` in `quote-duel.json`,
+  spoken via `briefing:duel:audio` (one shared WAV per variant), selected with `--hook <id>` at
+  render/mux/split. Unlike the original A3 scope (full-reel only), the hook is prepended to EVERY
+  output (full reel + each short) per product decision, and is A/B-testable across variants.
+  See the "Quote Duel Video Pipeline" section in CLAUDE.md.

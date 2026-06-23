@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 import {buildMuxFilterComplex} from './lib/audio-mux.mjs';
-import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, resolveDuelHook, normalizeHookId, DEFAULT_FPS} from './lib/duel-timeline.mjs';
 
 // Attaches per-duel narration WAVs to the muted QuoteDuel render at their
 // frame-accurate cumulative offsets, then muxes onto the video by stream-copy
@@ -39,9 +39,11 @@ if (!fs.existsSync(quoteDuelPath)) {
   process.exit(1);
 }
 
+const hookId = normalizeHookId(args.hook);
+const hookSuffix = hookId ? `-${hookId}` : '';
 const inputPath = args.input
   ? path.resolve(cwd, args.input)
-  : path.join(outputFolder, 'radar-beirut-quote-duel.mp4');
+  : path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}.mp4`);
 
 if (!fs.existsSync(inputPath)) {
   console.error(`Missing input video: ${path.relative(cwd, inputPath)}`);
@@ -61,18 +63,19 @@ if (path.resolve(outputPath) === path.resolve(inputPath)) {
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const audioByDuel = manifest?.audioByDuel ?? {};
-const merged = mergeDuelAudioManifest(duel, manifest);
+const activeHook = resolveDuelHook(duel, manifest, hookId);
+const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
 const frameToMs = (frame) => Math.round((frame / FPS) * 1000);
 
 const audioEntries = [];
 
-// Hook (the single shared spoken line) plays at the master start, offset 0.
-if (timeline.coldOpenFrames > 0 && manifest?.hook?.file) {
-  const hookPath = path.join(audioDir, manifest.hook.file);
+// Selected hook (the single shared spoken line) plays at the master start, offset 0.
+if (timeline.coldOpenFrames > 0 && activeHook?.file) {
+  const hookPath = path.join(audioDir, activeHook.file);
   if (fs.existsSync(hookPath)) {
-    audioEntries.push({label: 'hook', filePath: hookPath, delayMs: 0});
+    audioEntries.push({label: `hook(${activeHook.id})`, filePath: hookPath, delayMs: 0});
   } else {
     console.warn(`Warning: missing hook WAV: ${path.relative(cwd, hookPath)}`);
   }

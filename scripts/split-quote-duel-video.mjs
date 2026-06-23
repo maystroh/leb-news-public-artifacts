@@ -3,7 +3,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
-import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, resolveDuelHook, normalizeHookId, DEFAULT_FPS} from './lib/duel-timeline.mjs';
 
 // Splits the final QuoteDuel MP4 into:
 //   - duel-NN.mp4 : each duel standalone (no intro/outro), SOURCE-ordinal so a
@@ -33,12 +33,14 @@ try {
 const outputFolder = path.join(briefingFolder, 'output');
 const quoteDuelPath = path.join(outputFolder, 'quote-duel.json');
 const audioManifestPath = path.join(briefingFolder, 'audio', 'quote-duel-manifest.json');
+const hookId = normalizeHookId(args.hook);
+const hookSuffix = hookId ? `-${hookId}` : '';
 const inputPath = args.input
   ? path.resolve(cwd, args.input)
-  : path.join(outputFolder, 'radar-beirut-quote-duel-final.mp4');
+  : path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}-final.mp4`);
 const segmentsFolder = args['output-dir']
   ? path.resolve(cwd, args['output-dir'])
-  : path.join(outputFolder, 'duel-videos');
+  : path.join(outputFolder, `duel-videos${hookSuffix}`);
 const manifestPath = path.join(segmentsFolder, 'manifest.json');
 const mode = args.mode === 'copy' ? 'copy' : 'reencode';
 const preset = args.preset || 'veryfast';
@@ -53,7 +55,8 @@ if (!fs.existsSync(quoteDuelPath)) {
 
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
-const merged = mergeDuelAudioManifest(duel, manifest);
+const activeHook = resolveDuelHook(duel, manifest, hookId);
+const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
 
 // Require audio only when an audio manifest exists (the real muxed pipeline).
 // A silent placeholder render (no manifest) splits by declared durations so the
