@@ -965,59 +965,56 @@ export function getSteps(ctx, state = null) {
     },
 
     {
-      id: 'duel-audio-sync',
-      title: '19. Quote Duel: generate narration + sync',
+      id: 'duel-narration',
+      title: '19. Quote Duel: generate narration',
       description:
-        `Builds output/quote-duel.json (injects the default hook texts for the HTML review), synthesizes per-duel narration locally via Hamsa (reused after the first run), re-applies the audio-driven durations, then rsyncs the folder to ${SSH_HOST}. Hooks come from step 17 (shared).`,
+        `Local only — no server contact. Builds output/quote-duel.json (injects the default hook texts), synthesizes per-duel narration via Hamsa (reused after the first run), and re-applies the audio-driven durations. Open the duel HTML below to verify the duels + hooks before rendering. Hooks come from step 17 (shared). The folder is synced to the server in step 20.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Generate duel narration + sync',
+          label: 'Generate duel narration (local)',
           commands: () => [
             npmRun('briefing:build:folder', '--folder', folder),
             npmRun('briefing:duel:audio', '--folder', folder),
-            npmRun('briefing:build:folder', '--folder', folder),
-            {
-              cmd: 'rsync',
-              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
-            }
+            npmRun('briefing:build:folder', '--folder', folder)
           ]
         },
         {
           id: 'existing-only',
-          label: 'Refresh durations from existing WAVs (no Hamsa) + sync',
+          label: 'Refresh durations from existing WAVs (no Hamsa)',
           commands: () => [
             npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'),
-            npmRun('briefing:build:folder', '--folder', folder),
-            {
-              cmd: 'rsync',
-              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
-            }
+            npmRun('briefing:build:folder', '--folder', folder)
           ]
         }
       ],
       artifacts: () => [
-        {label: 'audio/quote-duel-manifest.json', file: duelManifest},
-        {label: 'radar-beirut-quote-duel.html (hooks review)', file: path.join(ctx.output, 'radar-beirut-quote-duel.html'), open: true}
+        {label: 'radar-beirut-quote-duel.html (review duels + hooks)', file: path.join(ctx.output, 'radar-beirut-quote-duel.html'), open: true},
+        {label: 'audio/quote-duel-manifest.json', file: duelManifest}
       ],
       status: (stepState) => {
-        if (!exists(duelManifest)) return {status: 'pending', detail: 'Duel audio not generated yet.'};
-        return fromLastRun(stepState, 'Duel manifest exists; run to (re)sync.');
+        if (!exists(duelManifest)) return {status: 'pending', detail: 'Duel narration not generated yet.'};
+        return fromLastRun(stepState, 'Duel narration ready — verify the HTML, then render (step 20).');
       }
     },
 
     {
       id: 'duel-server-render',
-      title: '20. Quote Duel: render on server (muted)',
+      title: '20. Quote Duel: sync + render on server (muted)',
       description:
-        `Pulls the repo on ${SSH_HOST}, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Run step 17 first so the duel audio is on the server.`,
+        `Re-syncs briefings/${ctx.date}/ (the narration + JSON from step 19) to ${SSH_HOST}, pulls the repo there, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Hooks must be synced once via step 18.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Render duel on server (muted)',
+          label: 'Sync folder + render duel on server (muted)',
           commands: () => [
+            {cmd: 'ssh', args: sshArgs(`mkdir -p ${REMOTE_ROOT}/briefings/${ctx.date}`)},
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
+            },
             {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin`)},
             {
               cmd: 'ssh',

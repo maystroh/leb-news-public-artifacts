@@ -234,8 +234,9 @@ To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get 
   rerun `briefing:duel:hooks`.
 - **Dashboard**: step 17 generates the shared hooks locally (all dates) + plays each one; step 18
   syncs audio/hooks/ to the render server once (idempotent; shows "done" until a hook changes);
-  steps 19–23 are the per-date duel flow (narration+sync → server render → server mux → download
-  → local split), fixed to `hook-2`.
+  steps 19–23 are the per-date duel flow: 19 generates narration locally (no server contact; opens
+  the duel HTML for manual review), 20 re-syncs the folder + renders on the server, then mux →
+  download → local split. Fixed to `hook-2`.
 
 ## Editing Rules
 
