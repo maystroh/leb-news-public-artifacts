@@ -4,7 +4,8 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
 import {createAssetResolver} from './lib/remotion-assets.mjs';
-import {mergeDuelAudioManifest, resolveDuelHook, normalizeHookId} from './lib/duel-timeline.mjs';
+import {mergeDuelAudioManifest} from './lib/duel-timeline.mjs';
+import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
 
 // Renders the QuoteDuel Remotion composition for a date folder. Mirrors
 // render-briefing-video.mjs but for duels: merges the per-duel audio manifest
@@ -96,10 +97,10 @@ const {copyAsset, resolveAudioSrc, getLogoSrc} = createAssetResolver({
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const merged = mergeDuelAudioManifest(duel, manifest);
-const activeHook = resolveDuelHook(duel, manifest, hookId);
+const activeHook = resolveSharedHook(cwd, hookId);
 const warnings = [];
 if (hookId && !activeHook) {
-  warnings.push(`--hook ${hookId} not found in quote-duel.json hooks; rendering without a hook.`);
+  warnings.push(`--hook ${hookId} has no WAV in audio/hooks/ — run \`npm run briefing:duel:hooks\` first. Rendering without a hook.`);
 }
 
 const withLogo = (outletSide, sceneId) => {
@@ -114,8 +115,15 @@ const withLogo = (outletSide, sceneId) => {
 const duelForRender = {
   ...merged,
   hooks: undefined,
+  // The hook WAV is a shared asset under audio/hooks/ — copy it into the render
+  // staging dir from its absolute path (not output-relative).
   hook: activeHook
-    ? {...activeHook, audioSrc: activeHook.audioSrc ? resolveAudioSrc(activeHook.audioSrc) : null}
+    ? {
+        id: activeHook.id,
+        text: activeHook.text,
+        durationSeconds: activeHook.durationSeconds,
+        audioSrc: copyAsset(activeHook.wavPath, `audio/${activeHook.file}`)
+      }
     : undefined,
   scenes: (merged.scenes ?? []).map((scene, index) => {
     const duelId = scene.id ?? `duel-${index + 1}`;

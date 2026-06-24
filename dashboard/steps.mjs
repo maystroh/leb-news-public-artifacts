@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   ANALYSIS_FILES,
+  REPO_ROOT,
   SSH_HOST,
   SSH_PORT,
   REMOTE_ROOT,
@@ -896,15 +897,55 @@ export function getSteps(ctx, state = null) {
     },
 
     {
-      id: 'duel-audio-sync',
-      title: '17. Quote Duel: generate audio + sync',
+      id: 'duel-hooks',
+      title: '17. Quote Duel: generate hooks (shared — all dates)',
       description:
-        `Builds output/quote-duel.json (injects the default hooks), synthesizes per-duel narration + the hook WAVs locally via Hamsa (reused after the first run), re-applies the audio-driven durations, then rsyncs the folder to ${SSH_HOST} so the server can render. Hook in use: ${DUEL_HOOK}.`,
+        `Static, all-dates step (run once, or when a hook is added/changed): synthesizes the shared attention-hook WAVs into audio/hooks/ via Hamsa (reused after the first run) and rsyncs them to ${SSH_HOST}. The hooks are the same across every date and duel; edit DEFAULT_DUEL_HOOKS in scripts/lib/duel-hooks.mjs to add one. In use for render: ${DUEL_HOOK}.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Generate duel audio + sync',
+          label: 'Generate hooks + sync to server',
+          commands: () => [
+            npmRun('briefing:duel:hooks'),
+            {cmd: 'ssh', args: sshArgs(`mkdir -p ${REMOTE_ROOT}/audio/hooks`)},
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, 'audio/hooks/', `${SSH_HOST}:${REMOTE_ROOT}/audio/hooks/`]
+            }
+          ]
+        },
+        {
+          id: 'force',
+          label: 'Regenerate all hooks (--force) + sync',
+          commands: () => [
+            npmRun('briefing:duel:hooks', '--force'),
+            {cmd: 'ssh', args: sshArgs(`mkdir -p ${REMOTE_ROOT}/audio/hooks`)},
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, 'audio/hooks/', `${SSH_HOST}:${REMOTE_ROOT}/audio/hooks/`]
+            }
+          ]
+        }
+      ],
+      artifacts: () => [{label: 'audio/hooks/manifest.json', file: path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json'), optional: true}],
+      status: (stepState) => {
+        const sharedManifest = path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json');
+        if (!exists(sharedManifest)) return {status: 'pending', detail: 'Shared hooks not generated yet.'};
+        return fromLastRun(stepState, 'Shared hooks exist; run to refresh/sync.');
+      }
+    },
+
+    {
+      id: 'duel-audio-sync',
+      title: '18. Quote Duel: generate narration + sync',
+      description:
+        `Builds output/quote-duel.json (injects the default hook texts for the HTML review), synthesizes per-duel narration locally via Hamsa (reused after the first run), re-applies the audio-driven durations, then rsyncs the folder to ${SSH_HOST}. Hooks come from step 17 (shared).`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Generate duel narration + sync',
           commands: () => [
             npmRun('briefing:build:folder', '--folder', folder),
             npmRun('briefing:duel:audio', '--folder', folder),
@@ -940,7 +981,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-server-render',
-      title: '18. Quote Duel: render on server (muted)',
+      title: '19. Quote Duel: render on server (muted)',
       description:
         `Pulls the repo on ${SSH_HOST}, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Run step 17 first so the duel audio is on the server.`,
       kind: 'run',
@@ -970,7 +1011,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-server-mux',
-      title: '19. Quote Duel: mux audio on server',
+      title: '20. Quote Duel: mux audio on server',
       description:
         `Attaches the duel narration + the ${DUEL_HOOK} hook WAV to the muted duel render on the server (video stream-copied, finishes in seconds) → radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4.`,
       kind: 'run',
@@ -1000,7 +1041,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-download',
-      title: '20. Quote Duel: download videos from server',
+      title: '21. Quote Duel: download videos from server',
       description: `rsync of the muxed radar-beirut-quote-duel*-final.mp4 from ${SSH_HOST} back into the local output folder.`,
       kind: 'run',
       actions: [
@@ -1030,7 +1071,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-split',
-      title: '21. Quote Duel: split into shorts',
+      title: '22. Quote Duel: split into shorts',
       description:
         `Cuts the downloaded final into per-duel shorts + the top-3 full reel (each opens with the ${DUEL_HOOK} hook) → duel-videos-${DUEL_HOOK}/.`,
       kind: 'run',

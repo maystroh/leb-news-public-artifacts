@@ -12,6 +12,8 @@ node_modules/
 
 # Generated audio
 *.wav
+# Shared (static, all-dates) Quote Duel hook assets — generated once
+audio/hooks/
 
 # Daily briefing data — local-only, never committed
 # Create briefings/YYYY-MM-DD/ manually and populate per the workflow in CLAUDE.md

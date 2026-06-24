@@ -5,9 +5,6 @@ import {
   computeDuelTimeline,
   calculateQuoteDuelDurationInFrames,
   mergeDuelAudioManifest,
-  listDuelHooks,
-  resolveDuelHook,
-  normalizeHookId,
   fpsFromSeconds
 } from '../scripts/lib/duel-timeline.mjs';
 
@@ -225,59 +222,6 @@ test('mergeDuelAudioManifest merges per-duel audio (skipped not merged)', () => 
   const merged = mergeDuelAudioManifest(duel, manifest);
   assert.deepEqual(merged.scenes[0].audio, {src: '../audio/duel-01.wav', durationSeconds: 8.7, file: 'duel-01.wav'});
   assert.equal(merged.scenes[1].audio, undefined);
-});
-
-test('listDuelHooks merges all variants with their WAV durations', () => {
-  const duel = duelDoc([scene('duel-1', 9)], {
-    hooks: [
-      {id: 'hook-1', text: 'اليوم شو عم بقولوا للبنانية'},
-      {id: 'hook-2', text: 'بتعرف شو عم بقولو للشعب اللبناني اليوم'},
-      {id: 'hook-3', text: 'اسمع اسمع'}
-    ]
-  });
-  const manifest = {
-    hooks: {
-      'hook-1': {file: 'hook-1.wav', src: '../audio/hook-1.wav', durationSeconds: 1.5, bufferedSeconds: 2.0},
-      'hook-2': {file: 'hook-2.wav', src: '../audio/hook-2.wav', durationSeconds: 3.1, bufferedSeconds: 3.6}
-      // hook-3 not yet generated → falls back to 2.5
-    }
-  };
-  const hooks = listDuelHooks(duel, manifest);
-  assert.equal(hooks.length, 3);
-  assert.deepEqual(hooks.map((h) => h.id), ['hook-1', 'hook-2', 'hook-3']);
-  assert.equal(hooks[0].durationSeconds, 2.0);
-  assert.equal(hooks[1].durationSeconds, 3.6);
-  assert.equal(hooks[2].durationSeconds, 2.5); // visual-only fallback
-});
-
-test('resolveDuelHook selects by id; null when unset or not found', () => {
-  const duel = duelDoc([scene('duel-1', 9)], {
-    hooks: [{id: 'hook-1', text: 'a'}, {id: 'hook-2', text: 'b'}]
-  });
-  const manifest = {hooks: {'hook-2': {file: 'hook-2.wav', src: '../audio/hook-2.wav', bufferedSeconds: 2.4}}};
-  const active = resolveDuelHook(duel, manifest, 'hook-2');
-  assert.equal(active.text, 'b');
-  assert.equal(active.durationSeconds, 2.4);
-  assert.equal(resolveDuelHook(duel, manifest, null), null);
-  assert.equal(resolveDuelHook(duel, manifest, 'hook-9'), null);
-  // selecting drives the timeline offset when set as duel.hook
-  const t = computeDuelTimeline({...duel, hook: active}, FPS, {requireAudio: false});
-  assert.equal(t.coldOpenFrames, fpsFromSeconds(2.4, FPS));
-});
-
-test('normalizeHookId: bare number → hook-N; passthrough; falsy → null', () => {
-  assert.equal(normalizeHookId('2'), 'hook-2');
-  assert.equal(normalizeHookId('hook-3'), 'hook-3');
-  assert.equal(normalizeHookId(undefined), null);
-  assert.equal(normalizeHookId(true), null);
-});
-
-test('legacy single hook + manifest.hook still resolves as hook-1', () => {
-  const duel = duelDoc([scene('duel-1', 9)], {hook: {text: 'legacy'}});
-  const manifest = {hook: {file: 'hook.wav', src: '../audio/hook.wav', bufferedSeconds: 2.2}};
-  const active = resolveDuelHook(duel, manifest, 'hook-1');
-  assert.equal(active.text, 'legacy');
-  assert.equal(active.durationSeconds, 2.2);
 });
 
 test('empty scenes → zero-length timeline, no crash', () => {

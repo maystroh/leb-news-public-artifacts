@@ -4,7 +4,8 @@ import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 import {buildMuxFilterComplex} from './lib/audio-mux.mjs';
-import {computeDuelTimeline, mergeDuelAudioManifest, resolveDuelHook, normalizeHookId, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
 
 // Attaches per-duel narration WAVs to the muted QuoteDuel render at their
 // frame-accurate cumulative offsets, then muxes onto the video by stream-copy
@@ -63,7 +64,7 @@ if (path.resolve(outputPath) === path.resolve(inputPath)) {
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const audioByDuel = manifest?.audioByDuel ?? {};
-const activeHook = resolveDuelHook(duel, manifest, hookId);
+const activeHook = resolveSharedHook(cwd, hookId);
 const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
@@ -71,13 +72,13 @@ const frameToMs = (frame) => Math.round((frame / FPS) * 1000);
 
 const audioEntries = [];
 
-// Selected hook (the single shared spoken line) plays at the master start, offset 0.
-if (timeline.coldOpenFrames > 0 && activeHook?.file) {
-  const hookPath = path.join(audioDir, activeHook.file);
-  if (fs.existsSync(hookPath)) {
-    audioEntries.push({label: `hook(${activeHook.id})`, filePath: hookPath, delayMs: 0});
+// Selected hook (the shared, static spoken line from audio/hooks/) plays at the
+// master start, offset 0.
+if (timeline.coldOpenFrames > 0 && activeHook?.wavPath) {
+  if (fs.existsSync(activeHook.wavPath)) {
+    audioEntries.push({label: `hook(${activeHook.id})`, filePath: activeHook.wavPath, delayMs: 0});
   } else {
-    console.warn(`Warning: missing hook WAV: ${path.relative(cwd, hookPath)}`);
+    console.warn(`Warning: missing shared hook WAV: ${path.relative(cwd, activeHook.wavPath)} — run npm run briefing:duel:hooks.`);
   }
 }
 

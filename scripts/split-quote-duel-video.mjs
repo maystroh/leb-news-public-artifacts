@@ -3,7 +3,8 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
-import {computeDuelTimeline, mergeDuelAudioManifest, resolveDuelHook, normalizeHookId, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
+import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
 
 // Splits the final QuoteDuel MP4 into:
 //   - duel-NN.mp4 : each duel standalone (no intro/outro), SOURCE-ordinal so a
@@ -55,7 +56,7 @@ if (!fs.existsSync(quoteDuelPath)) {
 
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
-const activeHook = resolveDuelHook(duel, manifest, hookId);
+const activeHook = resolveSharedHook(cwd, hookId);
 const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
 
 // Require audio only when an audio manifest exists (the real muxed pipeline).

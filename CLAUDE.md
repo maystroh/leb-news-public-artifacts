@@ -177,6 +177,8 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/package-social-zip.mjs` | standalone legacy utility: zips one video type with full MP4, split clips, captions, and YouTube description |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
+| `scripts/generate-duel-hooks.mjs` | ONCE/all-dates: shared hook WAVs → audio/hooks/<id>.wav + manifest |
+| `scripts/lib/duel-hooks.mjs` | DEFAULT_DUEL_HOOKS, ensureDuelHooks (inject), normalizeHookId, resolveSharedHook |
 | `scripts/generate-quote-duel-audio.mjs` | per-duel narration TTS → WAVs + manifest + timingConfig.quoteDuel.scenes |
 | `scripts/render-quote-duel-video.mjs` | Remotion QuoteDuel renderer (merges audio manifest + logo/audio srcs) |
 | `scripts/mux-quote-duel-audio.mjs` | muxes per-duel WAVs at frame offsets onto the muted duel MP4 |
@@ -193,11 +195,12 @@ The Quote Duel format has a video path parallel to the briefing (no intro; atomi
 into per-duel shorts). Local pipeline (the server/dashboard parity is in `TODOS.md`):
 
 ```powershell
-npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD      # builds output/quote-duel.json
-npm run briefing:duel:audio  -- --folder briefings/YYYY-MM-DD       # narration WAVs (reuse/--force/--existing-only)
-npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted [--hook hook-1]
-npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD [--hook hook-1]
-npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD [--hook hook-1]
+npm run briefing:duel:hooks                                        # ONCE (all dates): shared hook WAVs → audio/hooks/
+npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD      # builds output/quote-duel.json (+ injects hook texts)
+npm run briefing:duel:audio  -- --folder briefings/YYYY-MM-DD       # per-duel narration WAVs (reuse/--force/--existing-only)
+npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted [--hook hook-2]
+npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD [--hook hook-2]
+npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD [--hook hook-2]
 npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD     # → quote-duel-social-captions-prompt.md
 ```
 
@@ -218,12 +221,19 @@ To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get 
 - **Comp** (`src/QuoteDuelVideo.jsx`, registered `QuoteDuel` in `src/Root.jsx`): 720x1280 with a
   405x720 internal stage scaled via `useVideoConfig` (full-res, matches ProductionBriefing).
   Per-duel `layout` prop overrides text placement; logo falls back to outlet-name text.
-- **Attention hooks** (TikTok-style opener): top-level `hooks: [{id, text}]` in `quote-duel.json`
-  (or legacy `hook: {text}`). `briefing:duel:audio` synthesizes ONE shared WAV per variant
-  (`<id>.wav`, reused by default) → `manifest.hooks`. `--hook <id>` (bare number → `hook-N`) at
-  render/mux/split selects which variant opens the video; it becomes the timeline's
-  `coldOpenSeconds` offset and the splitter prepends that same range to every short AND once to
-  the full reel. No `--hook` → no hook. The hook visual is `HookScene` in `QuoteDuelVideo.jsx`.
+- **Attention hooks** (TikTok-style opener) are STATIC across all dates/duels. The texts live in
+  `DEFAULT_DUEL_HOOKS` (`scripts/lib/duel-hooks.mjs`); `build:folder` injects them into each
+  `quote-duel.json` as `hooks: [{id, text}]` for the HTML review. The WAVs are generated ONCE
+  by `briefing:duel:hooks` into the shared `audio/hooks/<id>.wav` (+ `manifest.json`), NOT per
+  date (`audio/hooks/` is gitignored; the dashboard rsyncs it to the render server). `--hook <id>`
+  (bare number → `hook-N`) at render/mux/split selects which variant opens the video via
+  `resolveSharedHook`; it becomes the timeline's `coldOpenSeconds` offset and the splitter
+  prepends that same range to every short AND once to the full reel. No `--hook` → no hook.
+  Default in the dashboard is `hook-2`. The hook visual is `HookScene` in `QuoteDuelVideo.jsx`;
+  the duel HTML shows a read-only hooks-review panel. Add a hook: edit `DEFAULT_DUEL_HOOKS` then
+  rerun `briefing:duel:hooks`.
+- **Dashboard**: step 17 generates the shared hooks (all dates); steps 18–22 are the per-date duel
+  flow (narration+sync → server render → server mux → download → local split), fixed to `hook-2`.
 
 ## Editing Rules
 

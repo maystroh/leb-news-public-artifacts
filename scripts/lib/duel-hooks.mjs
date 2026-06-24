@@ -25,3 +25,52 @@ export const ensureDuelHooks = (quoteDuel) => {
   if (quoteDuel?.hook?.text) return [{id: 'hook-1', text: quoteDuel.hook.text}];
   return DEFAULT_DUEL_HOOKS.map((h) => ({...h}));
 };
+
+// --- Shared (static, all-dates) hook audio --------------------------------
+// Hook WAVs live ONCE under <repo>/audio/hooks/ (not per date) since the hooks
+// are static across every date and duel. generate-duel-hooks.mjs synthesizes
+// them; the per-date render/mux/split read them from here.
+
+import fs from 'node:fs';
+import path from 'node:path';
+
+// <repo>/audio/hooks/ by default; DUEL_HOOKS_DIR overrides it (tests / custom setups).
+export const sharedHooksDir = (cwd) =>
+  process.env.DUEL_HOOKS_DIR ? path.resolve(process.env.DUEL_HOOKS_DIR) : path.join(cwd, 'audio', 'hooks');
+export const sharedHooksManifestPath = (cwd) => path.join(sharedHooksDir(cwd), 'manifest.json');
+
+export const loadSharedHooksManifest = (cwd) => {
+  const p = sharedHooksManifestPath(cwd);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
+// --hook <id> normalizer: a bare number N → hook-N; falsy/true → null.
+export const normalizeHookId = (value) => {
+  if (!value || value === true) return null;
+  const s = String(value).trim();
+  return /^\d+$/.test(s) ? `hook-${s}` : s;
+};
+
+/**
+ * Resolve the active hook for render/mux/split from the SHARED hooks manifest.
+ * @returns {null | {id, text, durationSeconds (buffered), rawSeconds, file, wavPath (absolute)}}
+ */
+export const resolveSharedHook = (cwd, hookId) => {
+  if (!hookId) return null;
+  const manifest = loadSharedHooksManifest(cwd);
+  const entry = manifest?.hooks?.[hookId];
+  if (!entry) return null;
+  return {
+    id: hookId,
+    text: entry.text ?? '',
+    durationSeconds: entry.bufferedSeconds ?? entry.durationSeconds ?? 2.5,
+    rawSeconds: entry.durationSeconds ?? null,
+    file: entry.file ?? `${hookId}.wav`,
+    wavPath: path.join(sharedHooksDir(cwd), entry.file ?? `${hookId}.wav`)
+  };
+};

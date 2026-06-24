@@ -21,6 +21,7 @@
     "briefing:image:wire": "node ./scripts/wire-summary-image.mjs",
     "briefing:formats": "node ./scripts/launch-briefing-format.mjs --list",
     "briefing:launch": "node ./scripts/launch-briefing-format.mjs",
+    "briefing:duel:hooks": "node ./scripts/generate-duel-hooks.mjs",
     "briefing:duel:audio": "node ./scripts/generate-quote-duel-audio.mjs",
     "briefing:duel:render": "node ./scripts/render-quote-duel-video.mjs",
     "briefing:duel:mux:audio": "node ./scripts/mux-quote-duel-audio.mjs",

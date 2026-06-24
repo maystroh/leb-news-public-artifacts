@@ -22,14 +22,22 @@ const makeFolder = (scenes, audioByDuel, extra = {}) => {
   return folder;
 };
 
-const runPlan = (folder, extra = []) => {
+const runPlan = (folder, extra = [], env = {}) => {
   const result = spawnSync(
     process.execPath,
     ['./scripts/split-quote-duel-video.mjs', '--folder', folder, '--dry-run', ...extra],
-    {cwd: repoRoot, encoding: 'utf8'}
+    {cwd: repoRoot, encoding: 'utf8', env: {...process.env, ...env}}
   );
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
+};
+
+// A temp shared-hooks dir (audio/hooks/manifest.json) the splitter reads via
+// DUEL_HOOKS_DIR — hooks are global, not per-date.
+const makeSharedHooks = (entries) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duel-hooks-'));
+  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({hooks: entries}));
+  return dir;
 };
 
 const wavEntry = (file, durationSeconds) => ({file, src: `../audio/${file}`, durationSeconds, skipped: false});
@@ -77,7 +85,7 @@ test('skipped duel (no audio) excluded but keeps source-ordinal numbering', () =
   assert.equal(plan.atomic[1].startSeconds, plan.atomic[0].endSeconds);
 });
 
-test('selected hook prepended to every clip; no --hook → no hook', () => {
+test('selected (shared) hook prepended to every clip; no --hook → no hook', () => {
   const folder = makeFolder(
     [
       {id: 'duel-1', rank: 1, durationSeconds: 9.5},
@@ -86,28 +94,23 @@ test('selected hook prepended to every clip; no --hook → no hook', () => {
     {
       'duel-1': wavEntry('duel-01.wav', 9),
       'duel-2': wavEntry('duel-02.wav', 9)
-    },
-    {
-      duel: {hooks: [
-        {id: 'hook-1', text: 'اليوم شو عم بقولوا للبنانية'},
-        {id: 'hook-2', text: 'اسمع اسمع'}
-      ]},
-      hooks: {
-        'hook-1': {file: 'hook-1.wav', src: '../audio/hook-1.wav', durationSeconds: 1.5, bufferedSeconds: 2.0},
-        'hook-2': {file: 'hook-2.wav', src: '../audio/hook-2.wav', durationSeconds: 3.0, bufferedSeconds: 3.5}
-      }
     }
   );
-  // --hook hook-2 selected
-  const plan2 = runPlan(folder, ['--hook', 'hook-2']);
+  const hooksDir = makeSharedHooks({
+    'hook-1': {file: 'hook-1.wav', durationSeconds: 1.5, bufferedSeconds: 2.0},
+    'hook-2': {file: 'hook-2.wav', durationSeconds: 3.0, bufferedSeconds: 3.5}
+  });
+  const env = {DUEL_HOOKS_DIR: hooksDir};
+  // --hook hook-2 selected (from the shared hooks manifest)
+  const plan2 = runPlan(folder, ['--hook', 'hook-2'], env);
   assert.equal(plan2.hookSeconds, 3.5);
   assert.equal(plan2.hookPrependedToEachClip, true);
   assert.equal(plan2.atomic[0].startSeconds, 3.5); // duels start after the hook
   // bare-number form
-  const plan1 = runPlan(folder, ['--hook', '1']);
+  const plan1 = runPlan(folder, ['--hook', '1'], env);
   assert.equal(plan1.hookSeconds, 2.0);
   // no --hook → no hook
-  const planNone = runPlan(folder);
+  const planNone = runPlan(folder, [], env);
   assert.equal(planNone.hookSeconds, 0);
   assert.equal(planNone.hookPrependedToEachClip, false);
   assert.equal(planNone.atomic[0].startSeconds, 0);

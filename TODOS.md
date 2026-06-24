@@ -4,18 +4,14 @@ Deferred work captured during reviews. Each item has enough context to pick up c
 
 ## Quote Duel video pipeline — follow-ups
 
-### 1. Dashboard + server-render parity for the duel (spec steps 6-7)
-- **What:** Add duel render-muted / mux / download / split steps to the dashboard; make the
-  status model, Post Now panel, phone upload, and stale checks understand a SECOND video
-  product; generalize `package-social-zip.mjs` for `duelId`-keyed captions.
-- **Why:** Industrializes the duel onto the same automated batch path the briefing uses.
-- **Current state:** Local pipeline (`briefing:duel:audio|render|mux|split` + captions) ships
-  in the first PR. Dashboard steps 12-16 are hardcoded around `radar-beirut-briefing*`,
-  `briefing:render:mp4`, `briefing:mux:audio`, `scene-videos`; `package-social-zip.mjs:46`
-  assumes `social-captions.json.clips[].sceneId` + briefing split manifests.
-- **Depends on:** PR-1 local pipeline + the duelId-keyed captions JSON landing first.
-- **Why deferred:** The spec claimed this was "free"; the outside-voice review showed it's a
-  real multi-product dashboard refactor that should be done deliberately, not bolted on.
+### 1. Dashboard + server-render parity for the duel — DONE (core)
+- Dashboard steps 17–22 added: 17 generates the shared hooks (all dates) + syncs them to the
+  render server; 18–22 are the per-date duel flow (narration+sync → server render muted →
+  server mux → download → local split), fixed to `hook-2`.
+- **Still open (follow-up):** fold duel clips into the Post Now panel / phone upload, a duel
+  captions dashboard step, and generalizing `package-social-zip.mjs` for `duelId`-keyed captions.
+  A `--hook` selector in the UI (currently fixed to hook-2 in steps.mjs) once the hook strategy
+  is decided.
 
 ### 2. Backfill briefing scripts onto the new shared libs
 - **What:** Migrate `split-briefing-video.mjs:69` and `build-social-captions-prompt.mjs:55`

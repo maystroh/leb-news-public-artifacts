@@ -124,32 +124,9 @@ const plan = scenes.map((scene, index) => {
   return {ordinal, duelId, fileName, outputPath, src: `../audio/${fileName}`, text, textSource, action, skipReason};
 });
 
-// Each hook variant is synthesized ONCE into its own shared WAV (hook-<id>.wav,
-// reused by default; --force to regenerate) so all three can be rendered as
-// alternatives and selected at render time. The chosen WAV is prepended to the
-// full reel and every short — never re-synthesized per clip.
-const hookVariants = Array.isArray(quoteDuel.hooks)
-  ? quoteDuel.hooks.map((h, i) => ({id: h.id ?? `hook-${i + 1}`, text: normalizeSpacing(h.text)})).filter((h) => h.text)
-  : quoteDuel.hook?.text
-    ? [{id: 'hook-1', text: normalizeSpacing(quoteDuel.hook.text)}]
-    : [];
-
-const hookPlans = hookVariants.map((h) => {
-  const fileName = `${h.id}.wav`;
-  const outputPath = path.join(audioDir, fileName);
-  const exists = fs.existsSync(outputPath);
-  let action;
-  let skipReason = null;
-  if (existingOnly) {
-    action = exists ? 'reuse' : 'skip';
-    if (!exists) skipReason = 'no-wav-existing-only';
-  } else if (exists && !force) {
-    action = 'reuse';
-  } else {
-    action = 'generate';
-  }
-  return {id: h.id, fileName, outputPath, src: `../audio/${fileName}`, text: h.text, action, skipReason};
-});
+// Hooks are STATIC and shared across all dates — generated once by
+// scripts/generate-duel-hooks.mjs into <repo>/audio/hooks/, NOT here. This
+// script only synthesizes the per-duel narration.
 
 if (dryRun) {
   console.log(JSON.stringify({
@@ -157,7 +134,6 @@ if (dryRun) {
     mode: existingOnly ? 'existing-only' : force ? 'force' : 'reuse',
     speakerCandidates,
     dialect,
-    hooks: hookPlans.map(({id, fileName, action, skipReason}) => ({id, fileName, action, skipReason})),
     duels: plan.map(({ordinal, duelId, fileName, textSource, action, skipReason}) =>
       ({ordinal, duelId, fileName, textSource, action, skipReason}))
   }, null, 2));
@@ -166,7 +142,7 @@ if (dryRun) {
 
 fs.mkdirSync(audioDir, {recursive: true});
 
-const needsGeneration = plan.some((p) => p.action === 'generate') || hookPlans.some((h) => h.action === 'generate');
+const needsGeneration = plan.some((p) => p.action === 'generate');
 let runner = null;
 if (needsGeneration) {
   if (!process.env.HAMSA_API_KEY) {
@@ -233,39 +209,10 @@ for (const item of plan) {
   };
 }
 
-// Hooks: generate/reuse one shared WAV per variant.
-const hooks = {};
-for (const hp of hookPlans) {
-  if (hp.action === 'skip') {
-    warnings.push(`Skipping hook ${hp.id}: ${hp.skipReason}.`);
-    continue;
-  }
-  let durationSeconds = null;
-  if (hp.action === 'reuse') {
-    durationSeconds = measure(hp.outputPath);
-    console.log(`Reusing ${hp.fileName} (${durationSeconds ?? '?'}s)`);
-  } else {
-    const result = await runner.generate(hp.text);
-    patchWavHeaderSizes(result.audio);
-    fs.writeFileSync(hp.outputPath, result.audio);
-    durationSeconds = getWavDurationSeconds(result.audio);
-    console.log(`Generated ${hp.fileName} via ${result.ttsSpeaker} (${durationSeconds ?? '?'}s)`);
-  }
-  hooks[hp.id] = {
-    file: hp.fileName,
-    src: hp.src,
-    text: hp.text,
-    durationSeconds,
-    bufferedSeconds: durationSeconds != null ? Number((durationSeconds + BUFFER_SECONDS).toFixed(3)) : null,
-    source: 'ai'
-  };
-}
-
 writeJson(manifestPath, {
   generatedAt: new Date().toISOString(),
   sourceDataPath: path.relative(cwd, quoteDuelPath).replace(/\\/g, '/'),
   bufferSeconds: BUFFER_SECONDS,
-  hooks,
   audioByDuel
 });
 
