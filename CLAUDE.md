@@ -232,8 +232,10 @@ To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get 
   Default in the dashboard is `hook-2`. The hook visual is `HookScene` in `QuoteDuelVideo.jsx`;
   the duel HTML shows a read-only hooks-review panel. Add a hook: edit `DEFAULT_DUEL_HOOKS` then
   rerun `briefing:duel:hooks`.
-- **Dashboard**: step 17 generates the shared hooks (all dates); steps 18–22 are the per-date duel
-  flow (narration+sync → server render → server mux → download → local split), fixed to `hook-2`.
+- **Dashboard**: step 17 generates the shared hooks locally (all dates) + plays each one; step 18
+  syncs audio/hooks/ to the render server once (idempotent; shows "done" until a hook changes);
+  steps 19–23 are the per-date duel flow (narration+sync → server render → server mux → download
+  → local split), fixed to `hook-2`.
 
 ## Editing Rules
 
