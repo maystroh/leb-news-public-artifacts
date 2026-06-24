@@ -99,6 +99,9 @@ export default function StepCard({step, social, log, busy, running, onRun, onRev
                 <span>{artifact.label}</span>
               )}
               {artifact.exists && <span className="mtime">{formatMtime(artifact.mtimeMs)}</span>}
+              {artifact.audio && artifact.url && (
+                <audio className="artifact-audio" controls preload="none" src={artifact.url} />
+              )}
             </li>
           ))}
         </ul>

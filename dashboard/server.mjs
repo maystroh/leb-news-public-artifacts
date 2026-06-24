@@ -374,6 +374,7 @@ function computeState(date) {
         mtimeMs: info.mtimeMs ?? null,
         size: info.size ?? null,
         optional: artifact.optional || false,
+        audio: artifact.audio || false,
         url: info.exists && !info.isDirectory ? relUrl(artifact.file) : null
       };
     });

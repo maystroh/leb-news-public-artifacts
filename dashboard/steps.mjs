@@ -26,6 +26,7 @@ import {
 } from './lib/checks.mjs';
 import {loadState, saveState} from './lib/state.mjs';
 import {audioEntries, loadAudioSource} from './audio.mjs';
+import {DEFAULT_DUEL_HOOKS, DEFAULT_HOOK_ID} from '../scripts/lib/duel-hooks.mjs';
 
 const npmRun = (script, ...extra) => ({cmd: 'npm', args: ['run', script, '--', ...extra]});
 const sshArgs = (remoteCommand) => ['-p', SSH_PORT, '-o', 'ConnectTimeout=8', SSH_HOST, remoteCommand];
@@ -928,7 +929,16 @@ export function getSteps(ctx, state = null) {
           ]
         }
       ],
-      artifacts: () => [{label: 'audio/hooks/manifest.json', file: path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json'), optional: true}],
+      artifacts: () => [
+        // One playable artifact per hook so you can listen to all existing hooks here.
+        ...DEFAULT_DUEL_HOOKS.map((h) => ({
+          label: `${h.id}${h.id === DEFAULT_HOOK_ID ? ' • selected' : ''} — ${h.text}`,
+          file: path.join(REPO_ROOT, 'audio', 'hooks', `${h.id}.wav`),
+          audio: true,
+          optional: true
+        })),
+        {label: 'audio/hooks/manifest.json', file: path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json'), optional: true}
+      ],
       status: (stepState) => {
         const sharedManifest = path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json');
         if (!exists(sharedManifest)) return {status: 'pending', detail: 'Shared hooks not generated yet.'};
