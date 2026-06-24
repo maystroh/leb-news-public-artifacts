@@ -177,6 +177,7 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/package-social-zip.mjs` | standalone legacy utility: zips one video type with full MP4, split clips, captions, and YouTube description |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
+| `scripts/build-quote-duel-folder.mjs` | duel-only rebuild (output/quote-duel.json + HTML); skips the other 3 formats |
 | `scripts/generate-duel-hooks.mjs` | ONCE/all-dates: shared hook WAVs → audio/hooks/<id>.wav + manifest |
 | `scripts/lib/duel-hooks.mjs` | DEFAULT_DUEL_HOOKS, ensureDuelHooks (inject), normalizeHookId, resolveSharedHook |
 | `scripts/generate-quote-duel-audio.mjs` | per-duel narration TTS → WAVs + manifest + timingConfig.quoteDuel.scenes |

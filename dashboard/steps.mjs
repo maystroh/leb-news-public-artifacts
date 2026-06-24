@@ -975,9 +975,9 @@ export function getSteps(ctx, state = null) {
           id: 'run',
           label: 'Generate duel narration (local)',
           commands: () => [
-            npmRun('briefing:build:folder', '--folder', folder),
+            npmRun('briefing:duel:build', '--folder', folder),
             npmRun('briefing:duel:audio', '--folder', folder),
-            npmRun('briefing:build:folder', '--folder', folder)
+            npmRun('briefing:duel:build', '--folder', folder)
           ]
         },
         {
@@ -985,7 +985,7 @@ export function getSteps(ctx, state = null) {
           label: 'Refresh durations from existing WAVs (no Hamsa)',
           commands: () => [
             npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'),
-            npmRun('briefing:build:folder', '--folder', folder)
+            npmRun('briefing:duel:build', '--folder', folder)
           ]
         }
       ],
