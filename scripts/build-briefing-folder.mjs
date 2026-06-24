@@ -5,6 +5,7 @@ import {promisify} from 'node:util';
 import mp3DurationCb from 'mp3-duration';
 
 import {buildPreparedBriefingData} from './lib/prepare-briefing-data.mjs';
+import {ensureDuelHooks} from './lib/duel-hooks.mjs';
 import {
   findBriefingTextFile,
   parseCliArgs,
@@ -56,6 +57,13 @@ const getIntroTextRevealSeconds = (intro, durationOverride = null) => {
   return getNumericDuration(intro?.textRevealSeconds, Math.max(0, durationSeconds - introTextRevealLeadSeconds));
 };
 const quoteDuelData = fs.existsSync(quoteDuelPath) ? readJson(quoteDuelPath) : null;
+// Ensure every day has a stable, selectable hook set (TikTok-style openers).
+// The upstream quote-duel.json may carry its own `hooks`; otherwise inject the
+// committed defaults so the duel video path always has hooks to choose from.
+if (quoteDuelData) {
+  quoteDuelData.hooks = ensureDuelHooks(quoteDuelData);
+  delete quoteDuelData.hook; // normalize legacy single-hook to the hooks[] form
+}
 const getIntroAudioDurationSeconds = async () => {
   if (!fs.existsSync(introAudioPath)) {
     return null;

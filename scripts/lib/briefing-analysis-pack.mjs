@@ -1,3 +1,5 @@
+import {DEFAULT_DUEL_HOOKS} from './duel-hooks.mjs';
+
 const AR = {
   aawsat: '\u0627\u0644\u0634\u0631\u0642 \u0627\u0644\u0623\u0648\u0633\u0637',
   nidaa: '\u0646\u062f\u0627\u0621 \u0627\u0644\u0648\u0637\u0646',
@@ -172,6 +174,7 @@ export const createEmptyAnalysisFiles = ({dateLabel}) => ({
       subtitle: '',
       durationSeconds: 8
     },
+    hooks: DEFAULT_DUEL_HOOKS.map((h) => ({...h})),
     scenes: [
       {
         id: 'duel-1',

@@ -232,6 +232,14 @@ export function getSteps(ctx, state = null) {
     'radar-beirut-fault-line-map.html',
     'radar-beirut-keyword-radar.html'
   ];
+  // Quote Duel video path (steps 17–21). Using hook-2 only for now; the hook
+  // strategy is still open, so the variant is fixed here rather than exposed.
+  const DUEL_HOOK = 'hook-2';
+  const duelManifest = path.join(ctx.folder, 'audio', 'quote-duel-manifest.json');
+  const duelMaster = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}.mp4`);
+  const duelFinal = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
+  const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
+  const duelFullReel = path.join(duelVideosDir, 'quote-duel-full.mp4');
 
   const baseSteps = [
     {
@@ -884,6 +892,165 @@ export function getSteps(ctx, state = null) {
           return {status: 'stale', detail: 'social-captions.json changed after the social asset prompts — validate to refresh them.'};
         }
         return staleIfBriefingNewer(ctx, {status: 'done', detail: 'Social captions, YouTube description, and social asset prompts are ready.'}, mtimeMs(socialCaptions));
+      }
+    },
+
+    {
+      id: 'duel-audio-sync',
+      title: '17. Quote Duel: generate audio + sync',
+      description:
+        `Builds output/quote-duel.json (injects the default hooks), synthesizes per-duel narration + the hook WAVs locally via Hamsa (reused after the first run), re-applies the audio-driven durations, then rsyncs the folder to ${SSH_HOST} so the server can render. Hook in use: ${DUEL_HOOK}.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Generate duel audio + sync',
+          commands: () => [
+            npmRun('briefing:build:folder', '--folder', folder),
+            npmRun('briefing:duel:audio', '--folder', folder),
+            npmRun('briefing:build:folder', '--folder', folder),
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
+            }
+          ]
+        },
+        {
+          id: 'existing-only',
+          label: 'Refresh durations from existing WAVs (no Hamsa) + sync',
+          commands: () => [
+            npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'),
+            npmRun('briefing:build:folder', '--folder', folder),
+            {
+              cmd: 'rsync',
+              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
+            }
+          ]
+        }
+      ],
+      artifacts: () => [
+        {label: 'audio/quote-duel-manifest.json', file: duelManifest},
+        {label: 'radar-beirut-quote-duel.html (hooks review)', file: path.join(ctx.output, 'radar-beirut-quote-duel.html'), open: true}
+      ],
+      status: (stepState) => {
+        if (!exists(duelManifest)) return {status: 'pending', detail: 'Duel audio not generated yet.'};
+        return fromLastRun(stepState, 'Duel manifest exists; run to (re)sync.');
+      }
+    },
+
+    {
+      id: 'duel-server-render',
+      title: '18. Quote Duel: render on server (muted)',
+      description:
+        `Pulls the repo on ${SSH_HOST}, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Run step 17 first so the duel audio is on the server.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Render duel on server (muted)',
+          commands: () => [
+            {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin`)},
+            {
+              cmd: 'ssh',
+              args: sshArgs(
+                `cd ${REMOTE_ROOT} && npm run briefing:duel:render -- --folder briefings/${ctx.date} --muted --hook ${DUEL_HOOK} --log warn`
+              )
+            }
+          ]
+        }
+      ],
+      artifacts: () => [],
+      status: (stepState) => {
+        if (!stepState) return {status: 'pending', detail: 'Not rendered yet (or rendered outside the dashboard).'};
+        const base = fromLastRun(stepState);
+        if (base.status !== 'done') return base;
+        return staleIfBriefingNewer(ctx, base, finishedAtMsOf(stepState));
+      }
+    },
+
+    {
+      id: 'duel-server-mux',
+      title: '19. Quote Duel: mux audio on server',
+      description:
+        `Attaches the duel narration + the ${DUEL_HOOK} hook WAV to the muted duel render on the server (video stream-copied, finishes in seconds) → radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Mux duel audio on server',
+          commands: () => [
+            {
+              cmd: 'ssh',
+              args: sshArgs(`cd ${REMOTE_ROOT} && npm run briefing:duel:mux:audio -- --folder briefings/${ctx.date} --hook ${DUEL_HOOK}`)
+            }
+          ]
+        },
+        {
+          id: 'local',
+          label: 'Mux locally (needs local muted duel MP4)',
+          commands: () => [npmRun('briefing:duel:mux:audio', '--folder', folder, '--hook', DUEL_HOOK)]
+        }
+      ],
+      artifacts: () => [{label: 'Local muted duel MP4 (only for local mux)', file: duelMaster, optional: true}],
+      status: (stepState) => {
+        if (exists(duelFinal)) return {status: 'done', detail: 'Final duel MP4 with audio exists locally.'};
+        return fromLastRun(stepState, 'Not muxed yet.');
+      }
+    },
+
+    {
+      id: 'duel-download',
+      title: '20. Quote Duel: download videos from server',
+      description: `rsync of the muxed radar-beirut-quote-duel*-final.mp4 from ${SSH_HOST} back into the local output folder.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Download duel finals',
+          commands: () => [
+            {
+              cmd: 'rsync',
+              args: [
+                '-av',
+                '-e',
+                `ssh -p ${SSH_PORT}`,
+                `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/output/radar-beirut-quote-duel*-final.mp4`,
+                `${out}/`
+              ]
+            }
+          ]
+        }
+      ],
+      artifacts: () => [{label: `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`, file: duelFinal, open: true}],
+      status: () => {
+        if (!exists(duelFinal)) return {status: 'pending', detail: 'Duel final MP4 not downloaded yet.'};
+        return {status: 'done', detail: 'Final duel MP4 with the hook + narration is here.'};
+      }
+    },
+
+    {
+      id: 'duel-split',
+      title: '21. Quote Duel: split into shorts',
+      description:
+        `Cuts the downloaded final into per-duel shorts + the top-3 full reel (each opens with the ${DUEL_HOOK} hook) → duel-videos-${DUEL_HOOK}/.`,
+      kind: 'run',
+      actions: [
+        {
+          id: 'run',
+          label: 'Split duel shorts',
+          commands: () => [npmRun('briefing:duel:split', '--folder', folder, '--hook', DUEL_HOOK)]
+        }
+      ],
+      artifacts: () => [
+        {label: 'quote-duel-full.mp4', file: duelFullReel, open: true, optional: true},
+        {label: `duel-videos-${DUEL_HOOK}/manifest.json`, file: path.join(duelVideosDir, 'manifest.json'), optional: true}
+      ],
+      status: () => {
+        if (!exists(duelFullReel)) return {status: 'pending', detail: 'Duel shorts not split yet.'};
+        if (exists(duelFinal) && mtimeMs(duelFinal) > mtimeMs(duelFullReel)) {
+          return {status: 'stale', detail: 'Duel final is newer than the shorts — re-split.'};
+        }
+        return {status: 'done', detail: 'Duel shorts + full reel are here.'};
       }
     }
   ];

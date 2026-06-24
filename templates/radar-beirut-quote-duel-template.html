@@ -635,6 +635,15 @@
   </section>
 </div>
 
+<!-- Read-only review of the attention-hook variants (not part of the video; the
+     video is rendered by the QuoteDuel Remotion comp). Lets you double-check the
+     hook texts during the step-9 HTML review before rendering. -->
+<section id="hooks-review" style="max-width:420px;margin:18px auto 32px;padding:16px 18px;border:1px solid rgba(205,127,50,0.28);border-radius:16px;background:rgba(8,23,35,0.9);color:#eaf2f8;font-family:'Dubai','Noto Naskh Arabic',Tahoma,sans-serif;direction:rtl;">
+  <div style="font-size:14px;font-weight:700;color:#ffdcb2;margin-bottom:10px;">افتتاحيات الفيديو (Hook variants — review only)</div>
+  <ol id="hooks-list" style="margin:0;padding-inline-start:20px;display:grid;gap:8px;font-size:15px;line-height:1.6;"></ol>
+  <div id="hooks-empty" style="display:none;color:#9ab2c5;font-size:13px;">لا توجد افتتاحيات في هذا الملف.</div>
+</section>
+
 <script id="quote-duel-data" type="text/plain">
 eyJtZXRhIjp7InRpdGxlIjoiVGhlIFF1b3RlIER1ZWwiLCJkYXRlTGFiZWwiOiIyMDI2LTA2LTAxIiwidG90YWxTY2VuZXMiOjN9LCJpbnRybyI6eyJleWVicm93Ijoi2KfZhNi12K3Yp9mB2Kkg2KfZhNmK2YjZhSIsInRpdGxlIjoi2KvZhtin2KbZitipINin2YTYp9mC2KrYqNin2LPYp9iqIiwic3VidGl0bGUiOiIiLCJkdXJhdGlvblNlY29uZHMiOjh9LCJzY2VuZXMiOlt7ImlkIjoiZHVlbC0xIiwiZXZlbnRMYWJlbCI6ItmC2YTYudipINin2YTYtNmC2YrZgSDYs9mC2LfYqiIsImNvbnRyYXN0TGFiZWwiOiLYp9mE2KrYrdix2YrYsSDYo9mFINin2YTYs9mC2YjYtyDYp9mE2KPYrtmE2KfZgtmK2J8iLCJzdW1tYXJ5Ijoi2YfZhtinINmE2Kcg2YbYrdiq2KfYrCDYsdin2YjZitinOiDYp9mE2LXYr9in2YUg2YXZiNis2YjYryDYr9in2K7ZhCDYp9mE2YPZhNmF2KfYqiDZhtmB2LPZh9inLiIsImR1cmF0aW9uU2Vjb25kcyI6OCwibGVmdCI6eyJvdXRsZXQiOiLYp9mE2KjZhtin2KEiLCJsb2dvRmlsZSI6ImFsYmluYTItbG9nby5wbmciLCJzdGFuY2UiOiLYqti12LnZitivINiq2LnYqNmI2YoiLCJxdW90ZSI6Itiq2K3YsdmK2LEg2KvYp9mE2Ksg2KLYqtmNIn0sInJpZ2h0Ijp7Im91dGxldCI6ItmG2K/Yp9ihINin2YTZiNi32YYiLCJsb2dvRmlsZSI6Im5pZGFhbHdhdGFuLWxvZ28ucG5nIiwic3RhbmNlIjoi2KXYr9in2YbYqSDYs9mK2KfYs9mK2KkiLCJxdW90ZSI6Itiz2YLZiNi3INij2K7ZhNin2YLZiiJ9fSx7ImlkIjoiZHVlbC0yIiwiZXZlbnRMYWJlbCI6ItmF2YYg2YrZhdmE2YMg2YLYsdin2LEg2KfZhNit2LHYqNifIiwiY29udHJhc3RMYWJlbCI6Itin2YTYr9mI2YTYqSDYo9mFINin2YTZhdit2YjYsdifIiwic3VtbWFyeSI6Itin2YTZhdmI2KfYrNmH2Kkg2YfZhtinINio2YrZhiDZhdmG2LfZgiDYp9mE2LPZitin2K/YqSDZiNmF2YbYt9mCINin2YTYrNio2YfYqSDYp9mE2YXZgdiq2YjYrdipLiIsImR1cmF0aW9uU2Vjb25kcyI6OCwibGVmdCI6eyJvdXRsZXQiOiLYp9mE2YTZiNin2KEiLCJsb2dvRmlsZSI6ImFsaXdhMi1sb2dvLnBuZyIsInN0YW5jZSI6Itiv2YHYp9i5INi52YYg2KfZhNiv2YjZhNipIiwicXVvdGUiOiLZh9mEINmK2K3ZgiDZhNil2YrYsdin2YYg2YXYpyDZhNinINmK2K3ZgiDZhNmE2K/ZiNmE2Kkg2KfZhNmE2KjZhtin2YbZitip2J8ifSwicmlnaHQiOnsib3V0bGV0Ijoi2KfZhNij2K7YqNin2LEiLCJsb2dvRmlsZSI6ImFsYWtoYmFyLWxvZ28ucG5nIiwic3RhbmNlIjoi2LHYqNi3INin2YTYrdmEINio2LfZh9ix2KfZhiIsInF1b3RlIjoi2YjZgtmBINin2YTYrdix2Kgg2YHZiiDZhNio2YbYp9mGINi02LHYtyDZhNin2LLZhSDZhNmE2KfYqtmB2KfZgiJ9fSx7ImlkIjoiZHVlbC0zIiwiZXZlbnRMYWJlbCI6ItmF2KfYsNinINmK2LnZhtmKINin2YTZhdi02YfYryDYqNi52K8g2KfZhNi02YLZitmB2J8iLCJjb250cmFzdExhYmVsIjoi2KfZhNix2YPYp9mFINij2YUg2KfZhNiq2LnYqNim2KnYnyIsInN1bW1hcnkiOiLYp9mE2K3Yr9irINmG2YHYs9mHINmK2KrYrdmI2YQg2KXZhNmJINmF2LPYqtmC2KjZhNmK2YYg2LPZitin2LPZitmK2YYg2YXYqtmG2KfZgti22YrZhi4iLCJkdXJhdGlvblNlY29uZHMiOjgsImxlZnQiOnsib3V0bGV0Ijoi2KfZhNmF2K/ZhiIsImxvZ29GaWxlIjoiYWxtb2Rvbi1sb2dvLnBuZyIsInN0YW5jZSI6ItmG2YLYryDYpdmG2LPYp9mG2Yog2YjYs9mK2KfYs9mKIiwicXVvdGUiOiLYpdmF2KfYsdipINin2YTYsdmD2KfZhSJ9LCJyaWdodCI6eyJvdXRsZXQiOiLYp9mE2KjZhtin2KEiLCJsb2dvRmlsZSI6ImFsYmluYTItbG9nby5wbmciLCJzdGFuY2UiOiLYp9iz2KrZhdix2KfYsSDYp9mE2KrYudio2KbYqSIsInF1b3RlIjoi2KfZhNiq2K3YsdmK2LEg2KfZhNir2KfZhNirIn19XSwib3V0cm8iOnsidGl0bGUiOiLYrtmE2KfYtdipINin2YTYtdiv2KfZhSIsImJvZHkiOiLYrdmK2YYg2KrYqtmI2KfYrNmHINin2YTYp9mC2KrYqNin2LPYp9iqINmI2K3Yr9mH2KfYjCDZiti12KjYrSDYp9mE2KfZhtmC2LPYp9mFINmH2Ygg2KfZhNmC2LXYqS4iLCJkdXJhdGlvblNlY29uZHMiOjV9fQ==
 </script>
@@ -647,6 +656,34 @@ eyJtZXRhIjp7InRpdGxlIjoiVGhlIFF1b3RlIER1ZWwiLCJkYXRlTGFiZWwiOiIyMDI2LTA2LTAxIiwi
       )
     )
   );
+
+  // Populate the read-only hooks review panel (the default selected for render is hook-2).
+  (function renderHooksReview() {
+    const list = document.getElementById('hooks-list');
+    const empty = document.getElementById('hooks-empty');
+    if (!list) return;
+    const hooks = Array.isArray(BRIEFING.hooks) ? BRIEFING.hooks : [];
+    const DEFAULT_HOOK_ID = 'hook-2';
+    if (!hooks.length) {
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    list.innerHTML = '';
+    for (const hook of hooks) {
+      const li = document.createElement('li');
+      const selected = hook.id === DEFAULT_HOOK_ID;
+      li.style.color = selected ? '#ffd39f' : '#eaf2f8';
+      li.style.fontWeight = selected ? '700' : '400';
+      const tag = document.createElement('span');
+      tag.textContent = hook.id + (selected ? ' • مُختارة للعرض' : '');
+      tag.style.cssText = 'display:block;font-size:11px;color:#9ab2c5;font-weight:500;';
+      const text = document.createElement('span');
+      text.textContent = hook.text || '';
+      li.appendChild(tag);
+      li.appendChild(text);
+      list.appendChild(li);
+    }
+  })();
   const PLAYBACK_CONFIG = {
     introMs: (BRIEFING.intro?.durationSeconds || 8) * 1000,
     introTextRevealMs: (
