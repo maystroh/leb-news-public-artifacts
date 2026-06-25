@@ -6,6 +6,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
+const emptyHooksDir = fs.mkdtempSync(path.join(os.tmpdir(), 'duel-hooks-empty-'));
 
 // Drives the splitter's --dry-run planner (no ffmpeg) to assert the atomic
 // clip plan, the source-ordinal filenames, the top-3 full-reel selection, the
@@ -26,7 +27,7 @@ const runPlan = (folder, extra = [], env = {}) => {
   const result = spawnSync(
     process.execPath,
     ['./scripts/split-quote-duel-video.mjs', '--folder', folder, '--dry-run', ...extra],
-    {cwd: repoRoot, encoding: 'utf8', env: {...process.env, ...env}}
+    {cwd: repoRoot, encoding: 'utf8', env: {...process.env, DUEL_HOOKS_DIR: emptyHooksDir, ...env}}
   );
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
@@ -58,12 +59,16 @@ test('4 duels: source-ordinal clips + top-3 full reel', () => {
     }
   );
   const plan = runPlan(folder);
+  assert.equal(plan.outroSeconds, 3);
+  assert.equal(plan.outroAppendedToEachClip, true);
+  assert.equal(plan.endingAudioGapAfterDuelSeconds, 0.5);
   assert.deepEqual(plan.atomic.map((c) => c.fileName), ['duel-01.mp4', 'duel-02.mp4', 'duel-03.mp4', 'duel-04.mp4']);
   // contiguous offsets
   assert.equal(plan.atomic[0].startSeconds, 0);
   assert.equal(plan.atomic[1].startSeconds, plan.atomic[0].endSeconds);
   // top-3 in full reel, duel-4 excluded
   assert.deepEqual(plan.fullReel.duelIds, ['duel-1', 'duel-2', 'duel-3']);
+  assert.equal(plan.fullReel.seconds, 31.5);
 });
 
 test('skipped duel (no audio) excluded but keeps source-ordinal numbering', () => {

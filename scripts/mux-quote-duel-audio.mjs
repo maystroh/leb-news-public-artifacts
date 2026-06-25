@@ -5,12 +5,14 @@ import {spawnSync} from 'node:child_process';
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 import {buildMuxFilterComplex} from './lib/audio-mux.mjs';
 import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
-import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
+import {normalizeHookId, resolveSharedHook, resolveSharedOutro} from './lib/duel-hooks.mjs';
 
-// Attaches per-duel narration WAVs to the muted QuoteDuel render at their
-// frame-accurate cumulative offsets, then muxes onto the video by stream-copy
-// (finishes in seconds). Offsets come from lib/duel-timeline.mjs — the SAME
-// source the comp uses — so audio lands exactly where each duel starts.
+// Attaches per-duel narration WAVs and the shared ending audio tail to the muted
+// QuoteDuel render at their frame-accurate cumulative offsets, then muxes onto
+// the video by stream-copy (finishes in seconds). Offsets come from
+// lib/duel-timeline.mjs — the SAME source the comp uses — so audio lands exactly
+// where each duel starts and the ending audio follows the enforced post-duel
+// hold.
 
 const FPS = DEFAULT_FPS;
 const cwd = process.cwd();
@@ -65,7 +67,17 @@ const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const audioByDuel = manifest?.audioByDuel ?? {};
 const activeHook = resolveSharedHook(cwd, hookId);
-const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
+const activeOutro = resolveSharedOutro(cwd);
+const baseMerged = mergeDuelAudioManifest(duel, manifest);
+const merged = {
+  ...baseMerged,
+  hook: activeHook ?? undefined,
+  outro: {
+    ...(baseMerged.outro ?? {}),
+    text: activeOutro?.text ?? baseMerged.outro?.text,
+    durationSeconds: activeOutro?.durationSeconds ?? baseMerged.outro?.durationSeconds
+  }
+};
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
 const frameToMs = (frame) => Math.round((frame / FPS) * 1000);
@@ -95,6 +107,16 @@ for (const d of timeline.duels) {
     continue;
   }
   audioEntries.push({label: d.duelId, filePath, delayMs: frameToMs(d.startFrame)});
+}
+
+if (timeline.outroFrames > 0 && activeOutro?.wavPath) {
+  if (fs.existsSync(activeOutro.wavPath)) {
+    audioEntries.push({label: 'outro', filePath: activeOutro.wavPath, delayMs: frameToMs(timeline.outroStartFrame)});
+  } else {
+    console.warn(`Warning: missing shared outro WAV: ${path.relative(cwd, activeOutro.wavPath)} — run npm run briefing:duel:hooks.`);
+  }
+} else if (timeline.outroFrames > 0) {
+  console.warn('Warning: no shared outro audio found; run npm run briefing:duel:hooks.');
 }
 
 if (!audioEntries.length) {

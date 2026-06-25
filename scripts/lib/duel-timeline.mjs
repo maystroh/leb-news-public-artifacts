@@ -21,6 +21,9 @@
 export const DEFAULT_FPS = 30;
 export const DEFAULT_MAIN_RANK = 3; // ranks 1..3 are "main" → quote-duel-full.mp4
 export const FULL_REEL_MAX_SECONDS = 60;
+export const DEFAULT_DUEL_OUTRO_SECONDS = 3;
+export const DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS = 0.5;
+export const DEFAULT_DUEL_OUTRO_TEXT = 'للمزيد من التفاصيل، شاهدوا صفحتنا على يوتيوب. الرابط في الوصف.';
 
 export const fpsFromSeconds = (seconds, fps = DEFAULT_FPS) =>
   Math.max(1, Math.round((seconds || 0) * fps));
@@ -45,6 +48,8 @@ const roundSeconds = (value) => Number(value.toFixed(3));
  * @param {number} [options.maxFullSeconds=60]
  * @returns {{
  *   fps:number, coldOpenSeconds:number, coldOpenFrames:number,
+ *   outroSeconds:number, outroFrames:number, outroStartFrame:number,
+ *   outroStartSeconds:number,
  *   duels: Array<{duelId:string,index:number,rank:number,main:boolean,skipped:boolean,
  *                 narration:(string|null),durationSeconds:number,durationFrames:number,
  *                 startSeconds:number,startFrame:number,endSeconds:number,endFrame:number,
@@ -73,6 +78,11 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     ?? duel?.coldOpen?.durationSeconds;
   const coldOpenSeconds = toNumber(options.coldOpenSeconds ?? hookFromData, 0);
   const coldOpenFrames = coldOpenSeconds > 0 ? fpsFromSeconds(coldOpenSeconds, fps) : 0;
+  const outroSeconds = toNumber(
+    options.outroSeconds ?? duel?.outro?.durationSeconds ?? DEFAULT_DUEL_OUTRO_SECONDS,
+    DEFAULT_DUEL_OUTRO_SECONDS
+  );
+  const outroFrames = outroSeconds > 0 ? fpsFromSeconds(outroSeconds, fps) : 0;
 
   // First pass: resolve identity + skip decision in stable SOURCE order.
   // Filenames/ranks/captions key off `index` (1-based source ordinal) and
@@ -83,13 +93,14 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     const audio = scene?.audio ?? null;
     const audioSeconds = toNumber(audio?.durationSeconds);
     const declaredSeconds = toNumber(scene?.durationSeconds);
-    // scene.durationSeconds is the source of truth for clip length — it already
-    // carries the buffered audio duration once build:folder applies
-    // timingConfig.quoteDuel.scenes (audio + 0.5s buffer), exactly like the
-    // briefing. The audio field is only the mux/mount src and the requireAudio
-    // skip signal; using audioSeconds for length would drop the buffer. Fall
-    // back to audioSeconds only when no declared duration exists yet.
-    const durationSeconds = declaredSeconds > 0 ? declaredSeconds : audioSeconds;
+    // scene.durationSeconds is the source of truth for clip length once
+    // build:folder applies timingConfig.quoteDuel.scenes. Enforce at least a
+    // 0.5s hold after the duel narration so the shared ending audio never starts
+    // immediately on the last spoken word, even if source data is unbuffered.
+    const bufferedAudioSeconds = audioSeconds > 0
+      ? audioSeconds + DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS
+      : 0;
+    const durationSeconds = Math.max(declaredSeconds, bufferedAudioSeconds);
 
     let skipped = scene?.skipped === true;
     let skipReason = skipped ? 'flagged' : null;
@@ -146,7 +157,8 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     };
   });
 
-  const totalFrames = cursorFrame;
+  const outroStartFrame = cursorFrame;
+  const totalFrames = cursorFrame + outroFrames;
 
   // Ranking → main plan. Ranks 1..mainRank are "main"; if no duel qualifies
   // (all ranks > mainRank) fall back to the top-N by rank. With N<=mainRank
@@ -168,7 +180,8 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
   let fullPlan = [...mainCandidates].sort((a, b) => a.rank - b.rank);
   const droppedFromFull = [];
   const sumSeconds = (plan) => plan.reduce((s, d) => s + d.durationSeconds, 0);
-  while (fullPlan.length > 1 && sumSeconds(fullPlan) > maxFullSeconds) {
+  const fullPlanSeconds = (plan) => sumSeconds(plan) + (plan.length ? roundSeconds(outroFrames / fps) : 0);
+  while (fullPlan.length > 1 && fullPlanSeconds(fullPlan) > maxFullSeconds) {
     const worst = fullPlan.reduce((a, b) => (b.rank > a.rank ? b : a), fullPlan[0]);
     droppedFromFull.push(worst.duelId);
     warnings.push(
@@ -181,12 +194,16 @@ export const computeDuelTimeline = (duel, fps = DEFAULT_FPS, options = {}) => {
     fps,
     coldOpenSeconds,
     coldOpenFrames,
+    outroSeconds: roundSeconds(outroFrames / fps),
+    outroFrames,
+    outroStartFrame,
+    outroStartSeconds: roundSeconds(outroStartFrame / fps),
     duels,
     totalFrames,
     totalSeconds: roundSeconds(totalFrames / fps),
     mainPlan: fullPlan.map((d) => d.duelId),
     droppedFromFull,
-    fullSeconds: roundSeconds(sumSeconds(fullPlan)),
+    fullSeconds: roundSeconds(fullPlanSeconds(fullPlan)),
     warnings
   };
 };

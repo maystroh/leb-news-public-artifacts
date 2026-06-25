@@ -10,7 +10,7 @@ import {
 
 const FPS = 30;
 
-const duelDoc = (scenes, extra = {}) => ({scenes, ...extra});
+const duelDoc = (scenes, extra = {}) => ({scenes, outro: {durationSeconds: 0}, ...extra});
 const scene = (id, durationSeconds, extra = {}) => ({id, durationSeconds, ...extra});
 
 test('frame-quantized offsets accumulate in frames (no second-precision drift)', () => {
@@ -44,6 +44,15 @@ test('calculateQuoteDuelDurationInFrames == timeline total', () => {
     calculateQuoteDuelDurationInFrames(doc, FPS),
     computeDuelTimeline(doc, FPS).totalFrames
   );
+});
+
+test('default outro extends the master timeline without moving duel starts', () => {
+  const t = computeDuelTimeline({scenes: [scene('duel-1', 9)]}, FPS);
+  assert.equal(t.outroSeconds, 3);
+  assert.equal(t.duels[0].startFrame, 0);
+  assert.equal(t.outroStartFrame, fpsFromSeconds(9, FPS));
+  assert.equal(t.totalFrames, fpsFromSeconds(12, FPS));
+  assert.equal(t.fullSeconds, 12);
 });
 
 test('rank defaults to source order; main = rank<=3', () => {
@@ -168,7 +177,15 @@ test('falls back to audio duration when no declared duration yet', () => {
     duelDoc([{id: 'duel-1', audio: {src: 'a/1.wav', durationSeconds: 8.2}}]),
     FPS
   );
-  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(8.2, FPS));
+  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(8.7, FPS));
+});
+
+test('enforces a 0.5s hold after duel audio before the ending audio tail', () => {
+  const t = computeDuelTimeline(
+    duelDoc([scene('duel-1', 8.3, {audio: {src: 'a/1.wav', durationSeconds: 8.2}})]),
+    FPS
+  );
+  assert.equal(t.duels[0].durationFrames, fpsFromSeconds(8.7, FPS));
 });
 
 test('coldOpenSeconds offsets the first clip; defaults to 0', () => {

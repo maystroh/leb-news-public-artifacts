@@ -126,6 +126,9 @@ export default function DuelApp() {
     : [];
   const doneCount = duelSteps.filter((step) => step.status === 'done').length;
   const busy = Boolean(data?.activeRun);
+  const duelTextStep = duelSteps.find((step) => step.id === 'duel-text');
+  const canReviewDuelNarration =
+    duelTextStep?.lastRun?.status === 'success' && Array.isArray(data?.duel?.narration) && data.duel.narration.length > 0;
 
   return (
     <div className="app">
@@ -177,18 +180,20 @@ export default function DuelApp() {
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
                 onRun={(actionId, options) => runStep(step.id, actionId, options)}
+                duelNarration={
+                  step.id === 'duel-audio' && canReviewDuelNarration ? (
+                    <DuelNarrationPanel
+                      entries={data.duel.narration}
+                      confirmedAt={data.duel.narrationConfirmedAt}
+                      busy={busy}
+                      onSaveText={saveDuelText}
+                      onConfirm={confirmDuelText}
+                    />
+                  ) : null
+                }
               />
             ))}
           </section>
-          {data?.duel && (
-            <DuelNarrationPanel
-              entries={data.duel.narration}
-              confirmedAt={data.duel.narrationConfirmedAt}
-              busy={busy}
-              onSaveText={saveDuelText}
-              onConfirm={confirmDuelText}
-            />
-          )}
           <DuelPostingPanel
             social={data.duel?.social}
             onUploadPhoneScenes={uploadPhoneScenes}

@@ -10,12 +10,16 @@ import {
   useVideoConfig
 } from 'remotion';
 
-import {computeDuelTimeline, calculateQuoteDuelDurationInFrames, DEFAULT_FPS} from '../scripts/lib/duel-timeline.mjs';
+import {
+  computeDuelTimeline,
+  calculateQuoteDuelDurationInFrames,
+  DEFAULT_FPS
+} from '../scripts/lib/duel-timeline.mjs';
 
 // Quote Duel video composition. Faithful port of the duel layout from
 // templates/radar-beirut-quote-duel-template.html (left amber card vs right cyan
 // card, logo + stance + quote, event pill on top, contrast as the "vs" question,
-// bottom summary). No intro, no outro — the video drops straight into the clash.
+// bottom summary, plus an ambient audio tail used by split clips.
 //
 // Stage coordinate system: 405x720 (matches ProductionBriefingVideo) scaled into
 // the render resolution via useVideoConfig, so --resolution 1080x1920 stays crisp.
@@ -341,6 +345,75 @@ const HookScene = ({hook, durationInFrames}) => {
   );
 };
 
+const OutroScene = ({outro, durationInFrames}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const t = frame / fps;
+  const copyProgress = clamp01(interpolate(frame, [0, 24], [0, 1], {extrapolateRight: 'clamp'}));
+  const fadeOut = interpolate(frame, [durationInFrames - 8, durationInFrames], [1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp'
+  });
+  const sweep = interpolate(frame % Math.max(1, Math.round(fps * 1.8)), [0, Math.round(fps * 1.8)], [-150, 150]);
+  const pulse = 1 + 0.025 * Math.sin(t * 5);
+  const audioSrc = resolveSrc(outro?.audioSrc);
+
+  return (
+    <AbsoluteFill style={{opacity: fadeOut}}>
+      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
+        <div
+          style={{
+            position: 'absolute',
+            width: 330,
+            height: 330,
+            borderRadius: '50%',
+            border: `1px solid ${palette.amber}44`,
+            boxShadow: `0 0 48px ${palette.amber}18`,
+            transform: `scale(${pulse})`,
+            opacity: 0.9
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            width: 2,
+            height: STAGE_H,
+            left: `calc(50% + ${sweep}px)`,
+            background: `linear-gradient(180deg, transparent, ${palette.cyan}44, transparent)`,
+            opacity: 0.55
+          }}
+        />
+      </AbsoluteFill>
+      <AbsoluteFill style={{justifyContent: 'flex-end', alignItems: 'center'}}>
+        <div
+          style={{
+            width: '100%',
+            padding: '20px 22px 70px',
+            background: 'linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%)',
+            textAlign: 'center',
+            opacity: copyProgress,
+            transform: `translateY(${32 * (1 - copyProgress)}px)`,
+            direction: 'rtl'
+          }}
+        >
+          <div
+            style={{
+              color: '#ffd39f',
+              fontSize: 50,
+              lineHeight: 1.24,
+              fontWeight: 700,
+              textShadow: '0 6px 22px rgba(0, 0, 0, 0.88)'
+            }}
+          >
+            الصحافة اليوم
+          </div>
+        </div>
+      </AbsoluteFill>
+      {audioSrc ? <Audio src={audioSrc} /> : null}
+    </AbsoluteFill>
+  );
+};
+
 const StageBackground = () => {
   const frame = useCurrentFrame();
   const {durationInFrames} = useVideoConfig();
@@ -396,6 +469,11 @@ export const QuoteDuelVideo = ({duel}) => {
               </Sequence>
             );
           })}
+          {timeline.outroFrames > 0 ? (
+            <Sequence from={timeline.outroStartFrame} durationInFrames={timeline.outroFrames} name="outro">
+              <OutroScene outro={data.outro} durationInFrames={timeline.outroFrames} />
+            </Sequence>
+          ) : null}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

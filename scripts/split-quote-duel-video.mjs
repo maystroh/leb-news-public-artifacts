@@ -3,14 +3,20 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
-import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
-import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
+import {
+  computeDuelTimeline,
+  mergeDuelAudioManifest,
+  DEFAULT_FPS,
+  DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS
+} from './lib/duel-timeline.mjs';
+import {normalizeHookId, resolveSharedHook, resolveSharedOutro} from './lib/duel-hooks.mjs';
 
 // Splits the final QuoteDuel MP4 into per-clash duel-NN.mp4 files. The legacy
 // top-3 quote-duel-full.mp4 reel is still available unless --per-clash-only is
 // passed.
-//   - duel-NN.mp4 : each duel standalone (no intro/outro), SOURCE-ordinal so a
-//     skipped duel never renumbers the survivors.
+//   - duel-NN.mp4 : each duel standalone with the selected hook and shared
+//     ending audio tail appended, SOURCE-ordinal so a skipped duel never
+//     renumbers survivors.
 //   - quote-duel-full.mp4 : optional top-3 ranked "main" duels (<=60s), built by
 //     RE-ENCODING the selected ranges from the master in one ffmpeg pass
 //     (trim+concat) so joins are always glitch-free regardless of clip params.
@@ -60,7 +66,17 @@ if (!fs.existsSync(quoteDuelPath)) {
 const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const activeHook = resolveSharedHook(cwd, hookId);
-const merged = {...mergeDuelAudioManifest(duel, manifest), hook: activeHook ?? undefined};
+const activeOutro = resolveSharedOutro(cwd);
+const baseMerged = mergeDuelAudioManifest(duel, manifest);
+const merged = {
+  ...baseMerged,
+  hook: activeHook ?? undefined,
+  outro: {
+    ...(baseMerged.outro ?? {}),
+    text: activeOutro?.text ?? baseMerged.outro?.text,
+    durationSeconds: activeOutro?.durationSeconds ?? baseMerged.outro?.durationSeconds
+  }
+};
 
 // Require audio only when an audio manifest exists (the real muxed pipeline).
 // A silent placeholder render (no manifest) splits by declared durations so the
@@ -93,12 +109,15 @@ const mainPlan = timeline.mainPlan
 const skipped = timeline.duels.filter((d) => d.skipped).map((d) => ({duelId: d.duelId, index: d.index, skipReason: d.skipReason}));
 
 if (args['dry-run']) {
-  const payload = `${JSON.stringify({
+  console.log(JSON.stringify({
     inputPath: path.relative(cwd, inputPath),
     outputDir: path.relative(cwd, segmentsFolder),
     mode,
     hookSeconds: timeline.coldOpenSeconds,
     hookPrependedToEachClip: timeline.coldOpenSeconds > 0,
+    outroSeconds: timeline.outroSeconds,
+    outroAppendedToEachClip: timeline.outroSeconds > 0,
+    endingAudioGapAfterDuelSeconds: DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS,
     totalSeconds: timeline.totalSeconds,
     atomic: segments.map(({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds}) =>
       ({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds})),
@@ -106,8 +125,7 @@ if (args['dry-run']) {
     droppedFromFull: timeline.droppedFromFull,
     skipped,
     warnings: timeline.warnings
-  }, null, 2)}\n`;
-  await new Promise((resolve) => process.stdout.write(payload, resolve));
+  }, null, 2));
   process.exit(0);
 }
 
@@ -150,6 +168,9 @@ const run = (ffmpegArgs, label) => {
 // The hook range [0, hookSeconds] is prepended to EVERY output (each short +
 // the full reel) so they all open with the same attention hook (OV/user request).
 const hookRange = timeline.coldOpenSeconds > 0 ? [{start: 0, end: timeline.coldOpenSeconds}] : [];
+// The shared ending audio tail lives once at the end of the master render.
+// Append that same ambient/audio range to every standalone duel and the full reel.
+const outroRange = timeline.outroFrames > 0 ? [{start: timeline.outroStartSeconds, end: timeline.totalSeconds}] : [];
 
 // Cut + concat the given [start,end] master ranges into one clip, re-encoding
 // (one pass) so joins are glitch-free regardless of source params (OV3). A
@@ -193,15 +214,15 @@ if (mode === 'copy' && hookRange.length) {
 try {
   const hasAudio = probeHasAudio(inputPath);
   for (const segment of segments) {
-    const ranges = [...hookRange, {start: segment.startSeconds, end: segment.startSeconds + segment.durationSeconds}];
+    const ranges = [...hookRange, {start: segment.startSeconds, end: segment.startSeconds + segment.durationSeconds}, ...outroRange];
     buildClip(segment.outputPath, ranges, hasAudio,
-      `Writing ${path.relative(cwd, segment.outputPath)} (${hookRange.length ? 'hook + ' : ''}${segment.duelId} ${segment.durationSeconds}s)`);
+      `Writing ${path.relative(cwd, segment.outputPath)} (${hookRange.length ? 'hook + ' : ''}${segment.duelId}${outroRange.length ? ' + outro' : ''} ${segment.durationSeconds}s)`);
   }
   const fullPath = path.join(segmentsFolder, 'quote-duel-full.mp4');
   if (!perClashOnly && mainPlan.length) {
     const mainRanges = mainPlan.map((s) => ({start: s.startSeconds, end: s.startSeconds + s.durationSeconds}));
-    buildClip(fullPath, [...hookRange, ...mainRanges], hasAudio,
-      `Writing ${path.relative(cwd, fullPath)} (full reel: ${hookRange.length ? 'hook + ' : ''}${mainPlan.map((s) => s.duelId).join(', ')}, ${timeline.fullSeconds}s${hasAudio ? '' : ', silent'})`);
+    buildClip(fullPath, [...hookRange, ...mainRanges, ...outroRange], hasAudio,
+      `Writing ${path.relative(cwd, fullPath)} (full reel: ${hookRange.length ? 'hook + ' : ''}${mainPlan.map((s) => s.duelId).join(', ')}${outroRange.length ? ' + outro' : ''}, ${timeline.fullSeconds}s${hasAudio ? '' : ', silent'})`);
   }
 } catch (error) {
   console.error(error.message);
@@ -216,6 +237,12 @@ writeJson(manifestPath, {
   outputDir: path.relative(cwd, segmentsFolder).replace(/\\/g, '/'),
   mode,
   totalSeconds: timeline.totalSeconds,
+  outro: {
+    seconds: timeline.outroSeconds,
+    startSeconds: timeline.outroStartSeconds,
+    appendedToEachClip: timeline.outroSeconds > 0,
+    endingAudioGapAfterDuelSeconds: DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS
+  },
   fullReel: perClashOnly
     ? null
     : {

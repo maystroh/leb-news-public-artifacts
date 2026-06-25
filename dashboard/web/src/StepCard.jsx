@@ -78,7 +78,19 @@ function BriefingEditor({briefing, busy, onSave}) {
   );
 }
 
-export default function StepCard({step, social, log, busy, running, onRun, onReview, onOpenDuel, briefing, onSaveBriefing}) {
+export default function StepCard({
+  step,
+  social,
+  log,
+  busy,
+  running,
+  onRun,
+  onReview,
+  onOpenDuel,
+  briefing,
+  onSaveBriefing,
+  duelNarration
+}) {
   const [showLog, setShowLog] = useState(false);
   const [optionSelections, setOptionSelections] = useState({});
   const [copied, setCopied] = useState(null);
@@ -123,6 +135,7 @@ export default function StepCard({step, social, log, busy, running, onRun, onRev
       {locked && step.lockReason && <p className="lock-note">{step.lockReason}</p>}
 
       {briefing && <BriefingEditor briefing={briefing} busy={busy} onSave={onSaveBriefing} />}
+      {duelNarration || null}
 
       {thumbnailPrompt && (
         <div className="step-output">

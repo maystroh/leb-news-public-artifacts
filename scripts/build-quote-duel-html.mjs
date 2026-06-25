@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {parseCliArgs, readJson, writeJson} from './lib/briefing-helpers.mjs';
-import {DEFAULT_HOOK_ID, normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
+import {DEFAULT_HOOK_ID, normalizeHookId, resolveSharedHook, resolveSharedOutro} from './lib/duel-hooks.mjs';
+import {DEFAULT_DUEL_OUTRO_TEXT} from './lib/duel-timeline.mjs';
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -21,6 +22,7 @@ const scenes = Array.isArray(quoteDuelData.scenes) ? quoteDuelData.scenes : [];
 const reviewScenes = scenes.map((scene, index) => ({scene, index}));
 const hookFromData = (Array.isArray(quoteDuelData.hooks) ? quoteDuelData.hooks : []).find((hook) => hook.id === selectedHookId);
 const sharedHook = resolveSharedHook(cwd, selectedHookId);
+const sharedOutro = resolveSharedOutro(cwd);
 const hookAudioSeconds = sharedHook?.rawSeconds ?? Math.max(0, (sharedHook?.durationSeconds ?? 2.5) - 0.5);
 const selectedHook = {
   id: selectedHookId,
@@ -28,6 +30,14 @@ const selectedHook = {
   audioSeconds: hookAudioSeconds,
   durationSeconds: hookAudioSeconds + 0.5,
   audioPath: sharedHook?.wavPath ?? path.join(cwd, 'audio', 'hooks', `${selectedHookId}.wav`)
+};
+const outroAudioSeconds = sharedOutro?.rawSeconds ?? Math.max(0, (sharedOutro?.durationSeconds ?? 3) - 0.5);
+const selectedOutro = {
+  text: DEFAULT_DUEL_OUTRO_TEXT,
+  audioText: sharedOutro?.text ?? '',
+  audioSeconds: outroAudioSeconds,
+  durationSeconds: sharedOutro?.durationSeconds ?? (outroAudioSeconds + 0.5),
+  audioPath: sharedOutro?.wavPath ?? path.join(cwd, 'audio', 'hooks', 'outro.wav')
 };
 
 fs.mkdirSync(outputDir, {recursive: true});
@@ -260,6 +270,31 @@ const css = `
     transform: translateY(20px);
     animation: introCopyIn 0.8s ease var(--intro-title-delay, 440ms) forwards;
   }
+  .outro-copy {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20px 22px 70px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    z-index: 6;
+    direction: rtl;
+  }
+  .outro-screen.is-active .outro-copy {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .outro-title {
+    color: #ffd39f;
+    font-size: 50px;
+    line-height: 1.24;
+    font-weight: 700;
+    text-shadow: 0 6px 22px rgba(0, 0, 0, 0.88);
+  }
   .intro-screen,
   .scene-screen {
     position: absolute;
@@ -294,6 +329,9 @@ const css = `
     height: 32px;
     direction: ltr;
     opacity: 0.92;
+  }
+  .outro-audio {
+    display: none;
   }
   .play-gate {
     position: absolute;
@@ -479,21 +517,43 @@ const introScreen = () => `
 const hookAudioElement = () =>
   `<audio class="hook-audio" preload="auto" src="${escapeHtml(toHtmlRelativePath(selectedHook.audioPath))}"></audio>`;
 
-const playbackScript = ({sceneDurations}) => `
+const outroAudioElement = () =>
+  `<audio class="outro-audio" preload="auto" src="${escapeHtml(toHtmlRelativePath(selectedOutro.audioPath))}"></audio>`;
+
+const playbackScript = ({sceneDurations, outroDuration}) => `
 <script>
   const stage = document.querySelector('.stage');
   const gate = document.querySelector('.play-gate');
   const button = gate?.querySelector('button');
   const hookAudio = document.querySelector('.hook-audio');
-  const scenes = Array.from(document.querySelectorAll('.scene-screen'));
+  const outroAudio = document.querySelector('.outro-audio');
+  const scenes = Array.from(document.querySelectorAll('.scene-screen:not(.outro-screen)'));
+  const outroScreen = document.querySelector('.outro-screen');
   const sceneAudios = scenes.map((scene) => scene.querySelector('.duel-audio'));
   const introMs = Number(stage?.dataset.introMs || 0);
   const sceneDurations = ${JSON.stringify(sceneDurations ?? [])};
+  const outroDuration = ${JSON.stringify(Math.round((outroDuration ?? selectedOutro.durationSeconds) * 1000))};
   let started = false;
   let activeScene = -1;
 
+  function showOutro() {
+    scenes.forEach((scene) => scene.classList.remove('is-active'));
+    sceneAudios.forEach((audio) => {
+      if (!audio) return;
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    stage?.classList.add('is-scene');
+    outroScreen?.classList.add('is-active');
+    if (outroAudio) {
+      outroAudio.currentTime = 0;
+      outroAudio.play().catch(() => {});
+    }
+  }
+
   function showScene(index) {
     if (!scenes.length) return;
+    outroScreen?.classList.remove('is-active');
     scenes.forEach((scene, sceneIndex) => scene.classList.toggle('is-active', sceneIndex === index));
     sceneAudios.forEach((audio, audioIndex) => {
       if (!audio) return;
@@ -512,6 +572,8 @@ const playbackScript = ({sceneDurations}) => `
     const nextDelay = sceneDurations[index] || 0;
     if (index + 1 < scenes.length && nextDelay > 0) {
       setTimeout(() => showScene(index + 1), nextDelay);
+    } else if (outroScreen && nextDelay > 0) {
+      setTimeout(showOutro, nextDelay);
     }
   }
 
@@ -561,6 +623,15 @@ const sceneScreen = (scene, index, durationSeconds) => `
   </section>
   <audio class="duel-audio" controls preload="metadata" src="${escapeHtml(duelAudioSrc(index))}"></audio>`;
 
+const outroScreen = () => `
+  <section class="content">
+    <div class="outro-copy">
+      <div class="outro-title">الصحافة اليوم</div>
+    </div>
+    <div class="meta"></div>
+  </section>
+  ${outroAudioElement()}`;
+
 const logoSrc = (logoFile) => toHtmlRelativePath(path.join(cwd, 'public', 'outlet-logos', logoFile ?? ''));
 
 const renderSide = (side, className) => `
@@ -580,15 +651,18 @@ const duelOutputs = reviewScenes.map(({scene, index}, outputIndex) => {
   const html = pageShell({
     title: `Radar Beirut Quote Duel ${padTwo(outputIndex + 1)}`,
     body: `
-<main class="stage" data-duration-seconds="${escapeHtml(durationSeconds)}" ${introStageAttrs} data-duel-id="${escapeHtml(scene.id ?? `duel-${index + 1}`)}">
+<main class="stage" data-duration-seconds="${escapeHtml(selectedHook.durationSeconds + durationSeconds + selectedOutro.durationSeconds)}" ${introStageAttrs} data-duel-id="${escapeHtml(scene.id ?? `duel-${index + 1}`)}">
   ${introScreen()}
   <section class="scene-screen">
     ${sceneScreen(scene, index, durationSeconds)}
   </section>
+  <section class="scene-screen outro-screen">
+    ${outroScreen()}
+  </section>
   ${hookAudioElement()}
   <div class="play-gate"><button type="button">تشغيل</button></div>
 </main>
-${playbackScript({sceneDurations: [Math.round(durationSeconds * 1000)]})}`
+${playbackScript({sceneDurations: [Math.round(durationSeconds * 1000)], outroDuration: selectedOutro.durationSeconds})}`
   });
   fs.writeFileSync(filePath, html);
   return {label: fileName, fileName, path: filePath, duelId: scene.id ?? `duel-${index + 1}`, sourceIndex: index + 1};
@@ -598,16 +672,19 @@ const combinedSceneDurations = reviewScenes.map(({scene}) => Math.round((typeof 
 const combinedHtml = pageShell({
   title: `Radar Beirut Quote Duel - ${selectedHook.id}`,
   body: `
-<main class="stage" data-duration-seconds="${escapeHtml(selectedHook.durationSeconds + combinedSceneDurations.reduce((sum, durationMs) => sum + durationMs, 0) / 1000)}" ${introStageAttrs} data-hook-id="${escapeHtml(selectedHook.id)}">
+<main class="stage" data-duration-seconds="${escapeHtml(selectedHook.durationSeconds + combinedSceneDurations.reduce((sum, durationMs) => sum + durationMs, 0) / 1000 + selectedOutro.durationSeconds)}" ${introStageAttrs} data-hook-id="${escapeHtml(selectedHook.id)}">
   ${introScreen()}
   ${reviewScenes.map(({scene, index}) => {
     const durationSeconds = typeof scene.durationSeconds === 'number' ? scene.durationSeconds : 5;
     return `<section class="scene-screen">${sceneScreen(scene, index, durationSeconds)}</section>`;
   }).join('\n')}
+  <section class="scene-screen outro-screen">
+    ${outroScreen()}
+  </section>
   ${hookAudioElement()}
   <div class="play-gate"><button type="button">تشغيل</button></div>
 </main>
-${playbackScript({sceneDurations: combinedSceneDurations})}`
+${playbackScript({sceneDurations: combinedSceneDurations, outroDuration: selectedOutro.durationSeconds})}`
 });
 
 fs.writeFileSync(htmlPath, combinedHtml);
@@ -620,6 +697,12 @@ writeJson(manifestPath, {
     text: selectedHook.text,
     durationSeconds: selectedHook.durationSeconds,
     fileName: path.basename(htmlPath)
+  },
+  outro: {
+    text: selectedOutro.text,
+    audioText: selectedOutro.audioText,
+    durationSeconds: selectedOutro.durationSeconds,
+    audioPath: path.relative(cwd, selectedOutro.audioPath).replace(/\\/g, '/')
   },
   duels: duelOutputs.map(({fileName, duelId, sourceIndex}) => ({fileName, duelId, sourceIndex}))
 });

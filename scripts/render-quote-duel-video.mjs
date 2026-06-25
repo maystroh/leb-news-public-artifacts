@@ -5,7 +5,7 @@ import {spawnSync} from 'node:child_process';
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
 import {createAssetResolver} from './lib/remotion-assets.mjs';
 import {mergeDuelAudioManifest} from './lib/duel-timeline.mjs';
-import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
+import {normalizeHookId, resolveSharedHook, resolveSharedOutro} from './lib/duel-hooks.mjs';
 
 // Renders the QuoteDuel Remotion composition for a date folder. Mirrors
 // render-briefing-video.mjs but for duels: merges the per-duel audio manifest
@@ -98,9 +98,13 @@ const duel = readJson(quoteDuelPath);
 const manifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
 const merged = mergeDuelAudioManifest(duel, manifest);
 const activeHook = resolveSharedHook(cwd, hookId);
+const activeOutro = resolveSharedOutro(cwd);
 const warnings = [];
 if (hookId && !activeHook) {
   warnings.push(`--hook ${hookId} has no WAV in audio/hooks/ — run \`npm run briefing:duel:hooks\` first. Rendering without a hook.`);
+}
+if (!activeOutro) {
+  warnings.push('Missing shared Quote Duel outro WAV in audio/hooks/manifest.json — run `npm run briefing:duel:hooks`.');
 }
 
 const withLogo = (outletSide, sceneId) => {
@@ -125,6 +129,12 @@ const duelForRender = {
         audioSrc: copyAsset(activeHook.wavPath, `audio/${activeHook.file}`)
       }
     : undefined,
+  outro: {
+    ...(merged.outro ?? {}),
+    text: activeOutro?.text ?? merged.outro?.text,
+    durationSeconds: activeOutro?.durationSeconds ?? merged.outro?.durationSeconds,
+    audioSrc: activeOutro ? copyAsset(activeOutro.wavPath, `audio/${activeOutro.file}`) : undefined
+  },
   scenes: (merged.scenes ?? []).map((scene, index) => {
     const duelId = scene.id ?? `duel-${index + 1}`;
     let audio = scene.audio ?? null;
