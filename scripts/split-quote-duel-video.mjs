@@ -6,10 +6,12 @@ import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/br
 import {computeDuelTimeline, mergeDuelAudioManifest, DEFAULT_FPS} from './lib/duel-timeline.mjs';
 import {normalizeHookId, resolveSharedHook} from './lib/duel-hooks.mjs';
 
-// Splits the final QuoteDuel MP4 into:
+// Splits the final QuoteDuel MP4 into per-clash duel-NN.mp4 files. The legacy
+// top-3 quote-duel-full.mp4 reel is still available unless --per-clash-only is
+// passed.
 //   - duel-NN.mp4 : each duel standalone (no intro/outro), SOURCE-ordinal so a
 //     skipped duel never renumbers the survivors.
-//   - quote-duel-full.mp4 : the top-3 ranked "main" duels (<=60s), built by
+//   - quote-duel-full.mp4 : optional top-3 ranked "main" duels (<=60s), built by
 //     RE-ENCODING the selected ranges from the master in one ffmpeg pass
 //     (trim+concat) so joins are always glitch-free regardless of clip params.
 // Plan (offsets, ranking, 60s cap, skip) all come from lib/duel-timeline.mjs.
@@ -48,6 +50,7 @@ const preset = args.preset || 'veryfast';
 const crf = args.crf || '18';
 const audioBitrate = args['audio-bitrate'] || '192k';
 const ffmpegBin = args.ffmpeg || 'ffmpeg';
+const perClashOnly = Boolean(args['per-clash-only'] || args['no-full-reel']);
 
 if (!fs.existsSync(quoteDuelPath)) {
   console.error(`Missing built quote-duel data: ${path.relative(cwd, quoteDuelPath)}`);
@@ -90,7 +93,7 @@ const mainPlan = timeline.mainPlan
 const skipped = timeline.duels.filter((d) => d.skipped).map((d) => ({duelId: d.duelId, index: d.index, skipReason: d.skipReason}));
 
 if (args['dry-run']) {
-  console.log(JSON.stringify({
+  const payload = `${JSON.stringify({
     inputPath: path.relative(cwd, inputPath),
     outputDir: path.relative(cwd, segmentsFolder),
     mode,
@@ -99,11 +102,12 @@ if (args['dry-run']) {
     totalSeconds: timeline.totalSeconds,
     atomic: segments.map(({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds}) =>
       ({fileName, duelId, rank, main, startSeconds, durationSeconds, endSeconds})),
-    fullReel: {fileName: 'quote-duel-full.mp4', duelIds: mainPlan.map((s) => s.duelId), seconds: timeline.fullSeconds},
+    fullReel: perClashOnly ? null : {fileName: 'quote-duel-full.mp4', duelIds: mainPlan.map((s) => s.duelId), seconds: timeline.fullSeconds},
     droppedFromFull: timeline.droppedFromFull,
     skipped,
     warnings: timeline.warnings
-  }, null, 2));
+  }, null, 2)}\n`;
+  await new Promise((resolve) => process.stdout.write(payload, resolve));
   process.exit(0);
 }
 
@@ -194,7 +198,7 @@ try {
       `Writing ${path.relative(cwd, segment.outputPath)} (${hookRange.length ? 'hook + ' : ''}${segment.duelId} ${segment.durationSeconds}s)`);
   }
   const fullPath = path.join(segmentsFolder, 'quote-duel-full.mp4');
-  if (mainPlan.length) {
+  if (!perClashOnly && mainPlan.length) {
     const mainRanges = mainPlan.map((s) => ({start: s.startSeconds, end: s.startSeconds + s.durationSeconds}));
     buildClip(fullPath, [...hookRange, ...mainRanges], hasAudio,
       `Writing ${path.relative(cwd, fullPath)} (full reel: ${hookRange.length ? 'hook + ' : ''}${mainPlan.map((s) => s.duelId).join(', ')}, ${timeline.fullSeconds}s${hasAudio ? '' : ', silent'})`);
@@ -212,12 +216,14 @@ writeJson(manifestPath, {
   outputDir: path.relative(cwd, segmentsFolder).replace(/\\/g, '/'),
   mode,
   totalSeconds: timeline.totalSeconds,
-  fullReel: {
-    fileName: 'quote-duel-full.mp4',
-    duelIds: mainPlan.map((s) => s.duelId),
-    seconds: timeline.fullSeconds,
-    droppedFromFull: timeline.droppedFromFull
-  },
+  fullReel: perClashOnly
+    ? null
+    : {
+        fileName: 'quote-duel-full.mp4',
+        duelIds: mainPlan.map((s) => s.duelId),
+        seconds: timeline.fullSeconds,
+        droppedFromFull: timeline.droppedFromFull
+      },
   skipped,
   duels: segments.map((s) => ({
     duelId: s.duelId,
@@ -232,5 +238,5 @@ writeJson(manifestPath, {
   }))
 });
 
-console.log(`Wrote ${segments.length} duel clip(s) + full reel to ${segmentsFolder}`);
+console.log(`Wrote ${segments.length} duel clip(s)${perClashOnly ? '' : ' + full reel'} to ${segmentsFolder}`);
 console.log(`Manifest: ${manifestPath}`);

@@ -4,6 +4,7 @@ import path from 'node:path';
 const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 const isFilledString = (value) => typeof value === 'string' && value.trim() !== '';
 const isNumberInRange = (value, min, max) => typeof value === 'number' && value >= min && value <= max;
+export const MAX_DUEL_AUDIO_WORDS = 65;
 
 const readJsonFile = (filePath, errors) => {
   if (!fs.existsSync(filePath)) {
@@ -33,6 +34,8 @@ const requireArray = (errors, source, value, fieldPath) => {
 
   return value;
 };
+
+const wordCount = (value) => String(value ?? '').trim().split(/\s+/).filter(Boolean).length;
 
 export const validateBriefingAnalysisFolder = (briefingFolder) => {
   const errors = [];
@@ -76,6 +79,9 @@ export const validateBriefingAnalysisFolder = (briefingFolder) => {
       requireFilled(errors, prefix, scene?.contrastLabel, 'contrastLabel');
       requireFilled(errors, prefix, scene?.summary, 'summary');
       requireFilled(errors, prefix, scene?.audioText, 'audioText');
+      if (isFilledString(scene?.audioText) && wordCount(scene.audioText) > MAX_DUEL_AUDIO_WORDS) {
+        errors.push(`${prefix}.audioText should be ${MAX_DUEL_AUDIO_WORDS} words or fewer for a <=25s duel narration`);
+      }
       requireFilled(errors, prefix, scene?.left?.outlet, 'left.outlet');
       requireFilled(errors, prefix, scene?.left?.quote, 'left.quote');
       requireFilled(errors, prefix, scene?.right?.outlet, 'right.outlet');

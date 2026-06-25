@@ -19,8 +19,7 @@ test('passes when every manifest duelId has a caption', () => {
   const folder = make();
   fs.writeFileSync(path.join(folder, 'audio', 'quote-duel-manifest.json'), JSON.stringify({audioByDuel: {'duel-1': {}, 'duel-2': {}}}));
   fs.writeFileSync(path.join(folder, 'output', 'quote-duel-social-captions.json'), JSON.stringify({
-    clips: [{duelId: 'duel-1', caption: 'a'}, {duelId: 'duel-2', caption: 'b'}],
-    reel: {caption: 'r'}
+    clips: [{duelId: 'duel-1', caption: 'a'}, {duelId: 'duel-2', caption: 'b'}]
   }));
   const r = run(folder);
   assert.equal(r.status, 0, r.stderr);
@@ -29,7 +28,7 @@ test('passes when every manifest duelId has a caption', () => {
 test('fails when a manifest duelId is missing a caption', () => {
   const folder = make();
   fs.writeFileSync(path.join(folder, 'audio', 'quote-duel-manifest.json'), JSON.stringify({audioByDuel: {'duel-1': {}, 'duel-2': {}}}));
-  fs.writeFileSync(path.join(folder, 'output', 'quote-duel-social-captions.json'), JSON.stringify({clips: [{duelId: 'duel-1', caption: 'a'}], reel: {caption: 'r'}}));
+  fs.writeFileSync(path.join(folder, 'output', 'quote-duel-social-captions.json'), JSON.stringify({clips: [{duelId: 'duel-1', caption: 'a'}]}));
   const r = run(folder);
   assert.notEqual(r.status, 0);
 });

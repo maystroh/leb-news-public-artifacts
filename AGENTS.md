@@ -300,6 +300,11 @@ If revisiting any of those, confirm with the user first.
   - branch `feat/quote-duel-video-pipeline` added the Quote Duel short-video pipeline with shared static attention-hook WAVs generated once into `audio/hooks/`
   - Quote Duel hook selection uses `--hook <id>` where a bare number normalizes to `hook-N`; render, mux, and split must receive the same hook id
   - the dashboard default Quote Duel hook is `hook-2`
+  - the Quote Duel dashboard now has its own narration editor using `audio/quote-duel-text-overrides.json`; audio generation is gated by an explicit narration confirmation, and later edits re-gate it
+  - dashboard step 16 is the shared social captions step for both main briefing and Quote Duel; it also generates and validates `output/quote-duel-social-captions.json`
+  - Quote Duel social captions are validated by `npm run briefing:duel:social:validate -- --folder briefings/YYYY-MM-DD` against `audio/quote-duel-manifest.json`
+  - Quote Duel distribution in `view=duel` should expose only the all-duels muxed master plus one video for each clash; no separate top-3 reel or extra shorts tier is needed
+  - the main dashboard Post now panel should keep only the main YouTube full-video card, not the Quote Duel shorts distribution UI
   - pause notation for AI audio such as `...`, `....`, spaced dot runs like `. . .`, or the ellipsis glyph `…` may remain in narration/audio text to shape speech, but captions should strip runs of three or more dots in both the HTML captions hook and Remotion `--variant captions`
   - when committing/pushing, do not create branches or push feature branches without asking first; if the user asks to push and does not specify a branch, confirm or use `main` according to the user's latest instruction
 
@@ -469,6 +474,7 @@ Full editorial content rule of thumb:
   - `npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD --hook hook-2`
   - `npm run briefing:duel:split -- --folder briefings/YYYY-MM-DD --hook hook-2`
   - `npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD`
+  - `npm run briefing:duel:social:validate -- --folder briefings/YYYY-MM-DD`
 - Use the same `--hook <id>` for render, mux, and split so the cold-open offset, mux timing, and split ranges line up.
 - A bare hook number normalizes to `hook-N`.
 - No `--hook` means no attention hook / no cold open.
@@ -491,30 +497,45 @@ Full editorial content rule of thumb:
   - `briefings/YYYY-MM-DD/audio/duel-NN.wav`
 - Per-duel narration manifest lives in:
   - `briefings/YYYY-MM-DD/audio/quote-duel-manifest.json`
+- Dashboard narration text overrides live in:
+  - `briefings/YYYY-MM-DD/audio/quote-duel-text-overrides.json`
+- The Quote Duel dashboard narration editor must use the same `scene-row`, RTL `script-editor`, and `script-editor-actions` styling pattern as the main dashboard scene narration editor.
+- The Quote Duel narration editor has per-duel dirty state with Save, Discard, and Reset-to-default controls.
+- Confirming Quote Duel narration is required before audio generation; editing narration after confirmation should re-gate the audio step.
 - The muted Quote Duel master output is:
   - `briefings/YYYY-MM-DD/output/radar-beirut-quote-duel[-hook-N].mp4`
 - The muxed final output is:
   - `briefings/YYYY-MM-DD/output/radar-beirut-quote-duel[-hook-N]-final.mp4`
-- Split outputs live in:
+- Per-clash split outputs live in:
   - `briefings/YYYY-MM-DD/output/duel-videos/duel-NN.mp4`
-  - `briefings/YYYY-MM-DD/output/duel-videos/quote-duel-full.mp4`
-- The splitter prepends the selected hook range to every atomic short and once to the top-3 full reel.
+- The muxed final `radar-beirut-quote-duel[-hook-N]-final.mp4` is the all-duels full video.
+- The `view=duel` dashboard should call the splitter with `--per-clash-only`; do not create or surface a separate top-3 `quote-duel-full.mp4` reel there.
+- The splitter prepends the selected hook range to every per-clash video.
 - Clip identity is source ordinal: `duel-01` means `scenes[0]`; missing-audio duels are skipped without renumbering survivors.
 - `scripts/lib/duel-timeline.mjs` is the single frame-quantized source of truth for Quote Duel composition duration, mux offsets, and split ranges.
 - `src/QuoteDuelVideo.jsx` registers the `QuoteDuel` Remotion composition through `src/Root.jsx`.
 - `QuoteDuel` uses a `405x720` internal stage scaled to the render resolution, matching the production briefing stage approach.
 - `HookScene` in `src/QuoteDuelVideo.jsx` renders the visual cold open for selected hooks.
 - Dashboard Quote Duel steps:
-  - step 17 generates shared hook WAVs locally and lets the user play them
-  - step 18 syncs `audio/hooks/` to the render server
-  - step 19 builds Quote Duel data, generates per-duel narration locally, reapplies durations, and opens the HTML review
-  - step 20 syncs the date folder and renders the muted `QuoteDuel` MP4 on the server with the selected hook
-  - step 21 muxes duel narration plus the selected hook WAV on the server
-  - step 22 downloads final Quote Duel MP4s
-  - step 23 splits into atomic duel shorts and the top-3 full reel
+  - step 17 generates shared hook WAVs locally and lets the user play each one
+  - step 18 reviews and edits per-duel narration locally, with a Confirm gate before audio generation
+  - step 19 generates per-duel narration audio locally via Hamsa TTS, then rebuilds to apply audio-driven durations
+  - step 20 builds and checks the Quote Duel HTML locally before any server contact
+  - step 21 syncs shared `audio/hooks/` to the render server once, idempotently
+  - step 22 syncs the date folder and renders the muted `QuoteDuel` MP4 on the server with the selected hook
+  - step 23 muxes duel narration plus the selected hook WAV on the server
+  - step 24 downloads final Quote Duel MP4s
+  - step 25 creates one per-clash video for each duel; the muxed final remains the all-duels video
 - Quote Duel social caption prompt output is:
   - `briefings/YYYY-MM-DD/output/quote-duel-social-captions-prompt.md`
   - expected filled result: `briefings/YYYY-MM-DD/output/quote-duel-social-captions.json`
+- `briefing:duel:social:validate` validates `output/quote-duel-social-captions.json` against `audio/quote-duel-manifest.json`; captions are duel-id keyed and must cover the manifest duels.
+- The shared dashboard `social-package` step generates both full-editorial social captions and Quote Duel social captions when the duel data is present.
+- Quote Duel distribution belongs in `dashboard/web/src/DuelPostingPanel.jsx`, not the main dashboard posting panel.
+- The Duel posting panel should expose two tiers:
+  - all-duels master
+  - per-clash videos
+- Duel phone transfer uses a duel-scoped dashboard state key and remote folder, separate from the main briefing phone transfer state.
 
 ### Quote Duel ASCII Diagram
 ```text

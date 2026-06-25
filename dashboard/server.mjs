@@ -265,7 +265,7 @@ function duelPostingState(ctx, state = {}) {
     url: fs.existsSync(fullMasterFile) ? relUrl(fullMasterFile) : null
   };
 
-  // Duel videos directory (shorts + full reel)
+  // Duel videos directory (one per-clash clip; the muxed master is the full video)
   const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
   const duelManifestPath = path.join(duelVideosDir, 'manifest.json');
   const duelManifest = readJsonSafe(duelManifestPath);
@@ -278,24 +278,8 @@ function duelPostingState(ctx, state = {}) {
     }
   }
 
-  // Full reel
-  const reelFile = path.join(duelVideosDir, 'quote-duel-full.mp4');
-  const reelExists = fs.existsSync(reelFile);
-  const reelCaptions = captions?.reel || null;
-  const reel = reelExists || reelCaptions
-    ? {
-        fileName: 'quote-duel-full.mp4',
-        path: path.relative(REPO_ROOT, reelFile).split(path.sep).join('/'),
-        copyPath: pcPath(reelFile),
-        url: reelExists ? relUrl(reelFile) : null,
-        caption: reelCaptions?.caption || '',
-        hashtags: Array.isArray(reelCaptions?.hashtags) ? reelCaptions.hashtags : [],
-        copyText: clipCopy(reelCaptions)
-      }
-    : null;
-
-  // Per-duel shorts: duel-NN.mp4 files, sorted by filename
-  const shortFileNames = fs.existsSync(duelVideosDir)
+  // Per-clash videos: duel-NN.mp4 files, sorted by filename.
+  const clashFileNames = fs.existsSync(duelVideosDir)
     ? fs
         .readdirSync(duelVideosDir, {withFileTypes: true})
         .filter((entry) => entry.isFile() && /^duel-\d+\.mp4$/.test(entry.name))
@@ -303,7 +287,7 @@ function duelPostingState(ctx, state = {}) {
         .sort()
     : [];
 
-  const shorts = shortFileNames.map((fileName) => {
+  const clashes = clashFileNames.map((fileName) => {
     // Prefer manifest lookup; fall back to filename-ordinal (duel-05.mp4 → duel-5)
     let duelId = duelIdByFileName.get(fileName);
     if (!duelId) {
@@ -328,8 +312,7 @@ function duelPostingState(ctx, state = {}) {
   return {
     ready: Boolean(captions),
     full,
-    reel,
-    shorts,
+    clashes,
     phone: phoneTransferState(ctx, state, 'duel')
   };
 }
@@ -755,12 +738,11 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
   if (kind === 'duel') {
     const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
     const duelFinalFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
-    // sceneMp4Files returns all .mp4s in the dir (duel-NN.mp4 + quote-duel-full.mp4)
-    const duelDirFiles = sceneMp4Files(duelVideosDir);
+    const duelDirFiles = sceneMp4Files(duelVideosDir).filter((file) => /^duel-\d+\.mp4$/.test(path.basename(file)));
     const gathered = [...duelDirFiles];
     if (fs.existsSync(duelFinalFile)) gathered.push(duelFinalFile);
     if (!gathered.length) {
-      return res.status(400).json({error: `No duel MP4s found in ${path.relative(REPO_ROOT, duelVideosDir)} or as the muxed master. Run duel split first.`});
+      return res.status(400).json({error: `No duel MP4s found in ${path.relative(REPO_ROOT, duelVideosDir)} or as the muxed master. Create per-clash videos first.`});
     }
     files = gathered;
     clipCount = duelDirFiles.filter((f) => /duel-\d+\.mp4$/.test(path.basename(f))).length;

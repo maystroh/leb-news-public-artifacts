@@ -305,7 +305,7 @@ export function getSteps(ctx, state = null) {
   const duelMaster = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}.mp4`);
   const duelFinal = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
   const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
-  const duelFullReel = path.join(duelVideosDir, 'quote-duel-full.mp4');
+  const duelClipManifest = path.join(duelVideosDir, 'manifest.json');
 
   const baseSteps = [
     {
@@ -985,7 +985,7 @@ export function getSteps(ctx, state = null) {
       id: 'duel-hooks',
       title: '17. Quote Duel: generate hooks (shared — all dates)',
       description:
-        `Static, all-dates step (run once, or when a hook is added/changed): synthesizes the shared attention-hook WAVs into audio/hooks/ via Hamsa (reused after the first run). Listen to each below. The hooks are the same across every date and duel; edit DEFAULT_DUEL_HOOKS in scripts/lib/duel-hooks.mjs to add one. Pushing them to the server is the separate step 18. In use for render: ${DUEL_HOOK}.`,
+        `Static, all-dates step (run once, or when a hook is added/changed): synthesizes the shared attention-hook WAVs into audio/hooks/ via Hamsa (reused after the first run) and records the hook speaker in audio/hooks/manifest.json. Step 19 uses that same speaker for every duel narration. Listen to each below. The hooks are the same across every date and duel; edit DEFAULT_DUEL_HOOKS in scripts/lib/duel-hooks.mjs to add one. Pushing them to the server is the separate step 18. In use for render: ${DUEL_HOOK}.`,
       kind: 'run',
       actions: [
         {
@@ -1042,11 +1042,12 @@ export function getSteps(ctx, state = null) {
       id: 'duel-audio',
       title: '19. Quote Duel: generate narration audio',
       description:
-        'Local only. Synthesizes per-duel narration via Hamsa from the confirmed text, then rebuilds quote-duel.json to re-apply audio-driven durations.',
+        'Local only. Synthesizes per-duel narration WAVs via Hamsa from the confirmed text, using the same speaker recorded by Step 17 in audio/hooks/manifest.json for every duel. If the hook manifest has no speaker metadata, regenerate Step 17 with --force before running this step. Rebuild/check the HTML separately in step 20.',
       kind: 'run',
       actions: [
-        {id: 'run', label: 'Generate duel narration (local)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder), npmRun('briefing:duel:build', '--folder', folder)]},
-        {id: 'existing-only', label: 'Refresh durations from existing WAVs (no Hamsa)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'), npmRun('briefing:duel:build', '--folder', folder)]}
+        {id: 'run', label: 'Generate missing/stale duel narration (local)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder)]},
+        {id: 'force', label: 'Regenerate all duel narration (--force)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder, '--force')]},
+        {id: 'existing-only', label: 'Refresh durations from existing WAVs (no Hamsa)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder, '--existing-only')]}
       ],
       artifacts: () => [
         {label: 'audio/quote-duel-manifest.json', file: duelManifest},
@@ -1208,27 +1209,26 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-split',
-      title: '25. Quote Duel: split into shorts',
+      title: '25. Quote Duel: create per-clash videos',
       description:
-        `Cuts the downloaded final into per-duel shorts + the top-3 full reel (each opens with the ${DUEL_HOOK} hook) → duel-videos-${DUEL_HOOK}/.`,
+        `Cuts the downloaded final into one MP4 for each clash (each opens with the ${DUEL_HOOK} hook) → duel-videos-${DUEL_HOOK}/. The full muxed master remains the all-duels video.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Split duel shorts',
-          commands: () => [npmRun('briefing:duel:split', '--folder', folder, '--hook', DUEL_HOOK)]
+          label: 'Create per-clash videos',
+          commands: () => [npmRun('briefing:duel:split', '--folder', folder, '--hook', DUEL_HOOK, '--per-clash-only')]
         }
       ],
       artifacts: () => [
-        {label: 'quote-duel-full.mp4', file: duelFullReel, open: true, optional: true},
-        {label: `duel-videos-${DUEL_HOOK}/manifest.json`, file: path.join(duelVideosDir, 'manifest.json'), optional: true}
+        {label: `duel-videos-${DUEL_HOOK}/manifest.json`, file: duelClipManifest, optional: true}
       ],
       status: () => {
-        if (!exists(duelFullReel)) return {status: 'pending', detail: 'Duel shorts not split yet.'};
-        if (exists(duelFinal) && mtimeMs(duelFinal) > mtimeMs(duelFullReel)) {
-          return {status: 'stale', detail: 'Duel final is newer than the shorts — re-split.'};
+        if (!exists(duelClipManifest)) return {status: 'pending', detail: 'Per-clash videos not created yet.'};
+        if (exists(duelFinal) && mtimeMs(duelFinal) > mtimeMs(duelClipManifest)) {
+          return {status: 'stale', detail: 'Duel final is newer than the per-clash videos — recreate them.'};
         }
-        return {status: 'done', detail: 'Duel shorts + full reel are here.'};
+        return {status: 'done', detail: 'Full video + per-clash videos are here.'};
       }
     }
   ];

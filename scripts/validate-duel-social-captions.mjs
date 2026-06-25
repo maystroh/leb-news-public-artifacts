@@ -4,8 +4,8 @@ import path from 'node:path';
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 
 // Validates output/quote-duel-social-captions.json against audio/quote-duel-manifest.json:
-// every duel id in audioByDuel must have a clip entry with a non-empty caption, and
-// reel.caption must be a non-empty string. Non-zero exit on problems. Step for duel social flow.
+// every duel id in audioByDuel must have a clip entry with a non-empty caption.
+// Non-zero exit on problems. Step for duel social flow.
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -67,12 +67,6 @@ const errors = [];
 const missingIds = manifestDuelIds.filter((id) => !captionedDuelIds.has(id));
 if (missingIds.length > 0) {
   errors.push(`Missing captions for duel id(s): ${missingIds.join(', ')}.`);
-}
-
-// reel.caption must be a non-empty string.
-const reel = captions.reel ?? {};
-if (!isNonEmpty(reel.caption)) {
-  errors.push('reel.caption is empty.');
 }
 
 if (errors.length > 0) {

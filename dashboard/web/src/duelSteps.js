@@ -1,4 +1,4 @@
-// Steps 17–23 (the Quote Duel flow) live on their own page so duel work can be
+// The Quote Duel flow lives on its own page so duel work can be
 // iterated without touching the main briefing dashboard. This is the single list
 // the main page filters out and the duel page filters in — keep it in sync with
 // the duel step ids in dashboard/steps.mjs.

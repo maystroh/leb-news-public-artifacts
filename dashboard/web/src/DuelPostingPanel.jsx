@@ -16,6 +16,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
   const phone = social?.phone || {};
   const phoneCopied = phone.status === 'copied';
   const copiedTime = phone.copiedAt ? new Date(phone.copiedAt).toLocaleString() : null;
+  const clashes = social?.clashes || social?.shorts || [];
 
   const uploadToPhone = async () => {
     setPhoneBusy('upload');
@@ -48,8 +49,8 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
     <section className="social-panel">
       <div className="social-panel-head">
         <div>
-          <h2>Post duel shorts</h2>
-          <p className="description">Manual upload shortcuts: open the platform, paste the file path, copy the exact text.</p>
+          <h2>Post Quote Duel</h2>
+          <p className="description">Use the full muxed video, or publish one clash at a time with the matching caption.</p>
         </div>
         <div className="platform-links">
           <a className="btn" href="https://www.instagram.com" target="_blank" rel="noreferrer">
@@ -91,37 +92,12 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
           </div>
         )}
 
-        {social?.reel && (
-          <div className="publish-card">
-            <div className="publish-card-head">
-              <h3>Top-3 reel</h3>
-              <div className="story-actions">
-                {social.reel.url && (
-                  <a className="btn" href={social.reel.url} target="_blank" rel="noreferrer">
-                    Open
-                  </a>
-                )}
-                {social.reel.copyPath && (
-                  <button className="btn" onClick={() => copyText(social.reel.copyPath, setCopied, 'reel-path')}>
-                    {copied === 'reel-path' ? 'Copied' : 'Copy path'}
-                  </button>
-                )}
-                {social.reel.copyText && (
-                  <button className="btn primary" onClick={() => copyText(social.reel.copyText, setCopied, 'reel-caption')}>
-                    {copied === 'reel-caption' ? 'Copied' : 'Copy caption'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="publish-card">
           <div className="publish-card-head">
-            <h3>Per-duel shorts</h3>
+            <h3>Per-clash videos</h3>
           </div>
           <div className="story-list">
-            {(social?.shorts || []).map((short, index) => (
+            {clashes.map((short, index) => (
               <div className="story-row" key={`${short.duelId}-${short.fileName}`}>
                 <div className="story-meta">
                   <strong>{String(index + 1).padStart(2, '0')}. {short.outlet || short.duelId}</strong>
@@ -146,8 +122,8 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
                 </div>
               </div>
             ))}
-            {!social?.shorts?.length && (
-              <p className="hint">No duel shorts yet — run the split step.</p>
+            {!clashes.length && (
+              <p className="hint">No per-clash videos yet — run the per-clash video step.</p>
             )}
           </div>
           <div className="phone-transfer">
@@ -170,7 +146,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
                 placeholder="Phone password"
                 autoComplete="current-password"
               />
-              <button className="btn primary" disabled={phoneBusy || phoneCopied || !social?.shorts?.length} onClick={uploadToPhone}>
+              <button className="btn primary" disabled={phoneBusy || phoneCopied || !clashes.length} onClick={uploadToPhone}>
                 {phoneBusy === 'upload' ? 'Uploading…' : 'Upload folder'}
               </button>
               <button className="btn ghost danger" disabled={phoneBusy || !phoneCopied} onClick={deleteFromPhone}>

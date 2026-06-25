@@ -116,6 +116,22 @@ test('selected (shared) hook prepended to every clip; no --hook → no hook', ()
   assert.equal(planNone.atomic[0].startSeconds, 0);
 });
 
+test('--per-clash-only omits the extra full reel plan', () => {
+  const folder = makeFolder(
+    [
+      {id: 'duel-1', rank: 1, durationSeconds: 9.5},
+      {id: 'duel-2', rank: 2, durationSeconds: 9.5}
+    ],
+    {
+      'duel-1': wavEntry('duel-01.wav', 9),
+      'duel-2': wavEntry('duel-02.wav', 9)
+    }
+  );
+  const plan = runPlan(folder, ['--per-clash-only']);
+  assert.deepEqual(plan.atomic.map((c) => c.fileName), ['duel-01.mp4', 'duel-02.mp4']);
+  assert.equal(plan.fullReel, null);
+});
+
 test('60s cap drops lowest-rank main from the full reel', () => {
   const folder = makeFolder(
     [

@@ -5,8 +5,8 @@ import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-help
 
 // Writes output/quote-duel-social-captions-prompt.md: a Codex prompt that turns
 // the day's duels into output/quote-duel-social-captions.json with one Instagram
-// caption block PER DUEL CLIP (keyed by duelId — each atomic short is posted
-// independently) plus a YouTube description + cover prompts for the full reel.
+// caption block PER CLASH VIDEO (keyed by duelId) plus a YouTube description +
+// cover prompts for the full Quote Duel video.
 //
 // Kept separate from the sceneId-keyed briefing captions (build-social-captions-
 // prompt.mjs) so the two video products never collide on schema (Codex#4). The
@@ -69,8 +69,8 @@ const coverPath = path.join(outputFolder, 'quote-duel-reel-cover.png');
 const prompt = [
   `# Quote Duel social captions — Radar Beirut — ${date}`,
   '',
-  'You are writing social-media copy for a series of short Arabic "quote duel" videos.',
-  'Each duel is one standalone vertical short: two Lebanese outlets clashing on the same event.',
+  'You are writing social-media copy for Arabic "quote duel" videos.',
+  'The full video contains all clashes, and each duel is also one standalone per-clash vertical video.',
   `Write the file \`${path.relative(cwd, captionsPath).replace(/\\/g, '/')}\` as JSON with exactly this shape:`,
   '',
   '```json',
@@ -78,7 +78,7 @@ const prompt = [
   `  "date": "${date}",`,
   '  "generatedAt": "<current ISO timestamp>",',
   '  "youtube": {',
-  '    "title": "string — punchy Arabic title for the full quote-duel reel",',
+  '    "title": "string — punchy Arabic title for the full quote-duel video",',
   '    "description": "string — 2–3 short paragraphs framing the day as a series of clashes",',
   '    "thumbnailPrompt": "string — prompt for a 16:9 YouTube thumbnail of the duel theme",',
   '    "hashtags": ["#لبنان", "#Lebanon", "..."]',
@@ -99,10 +99,10 @@ const prompt = [
   '## Rules',
   '- Output ONE clips entry per duelId listed below, keyed by duelId. Do not invent or skip duelIds.',
   '- `caption`: Arabic. LEAD WITH THE CLASH — "صحيفة X قالت كذا، والأخبار قالت العكس" energy. One hook line, then',
-  '  one line of context. Tight enough to read in the first 2 seconds of a Reel.',
+  '  one line of context. Tight enough to read in the first 2 seconds of a vertical post.',
   '- `hashtags`: 8–15, MIX Arabic + English/transliterated. Include both outlets + the topic + a few high-reach tags',
   '  (#لبنان #Lebanon #Beirut #بيروت). Every tag starts with `#`, no spaces.',
-  '- `youtube.description`: frame the full reel as the day’s sharpest clashes; one line per duel.',
+  '- `youtube.description`: frame the full video as the day’s sharpest clashes; one line per duel.',
   '- `youtube.thumbnailPrompt` / `instagram.reelCoverPrompt`: practical prompts to paste into ChatGPT. Request the right',
   '  aspect ratio (16:9 / 9:16), preserve the Radar Beirut radar/editorial look, bold readable Arabic title, leave Instagram',
   '  safe margins on the cover, and do not ask for exact outlet logos unless source assets are provided.',

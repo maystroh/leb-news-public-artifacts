@@ -18,12 +18,7 @@ if (!fs.existsSync(dataPath)) {
 
 const quoteDuelData = readJson(dataPath);
 const scenes = Array.isArray(quoteDuelData.scenes) ? quoteDuelData.scenes : [];
-const reviewScenes = scenes
-  .map((scene, index) => ({scene, index}))
-  .filter(({scene, index}) => {
-    if (typeof scene.rank === 'number') return scene.rank >= 1 && scene.rank <= 3;
-    return index < 3;
-  });
+const reviewScenes = scenes.map((scene, index) => ({scene, index}));
 const hookFromData = (Array.isArray(quoteDuelData.hooks) ? quoteDuelData.hooks : []).find((hook) => hook.id === selectedHookId);
 const sharedHook = resolveSharedHook(cwd, selectedHookId);
 const hookAudioSeconds = sharedHook?.rawSeconds ?? Math.max(0, (sharedHook?.durationSeconds ?? 2.5) - 0.5);

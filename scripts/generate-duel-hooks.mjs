@@ -112,6 +112,9 @@ for (const item of plan) {
     continue;
   }
   let durationSeconds = null;
+  let speakerCandidate = prior[item.id]?.speakerCandidate ?? null;
+  let ttsSpeaker = prior[item.id]?.ttsSpeaker ?? null;
+  let voiceName = prior[item.id]?.voiceName ?? null;
   if (item.action === 'reuse') {
     durationSeconds = measure(item.outputPath);
     console.log(`Reusing ${item.fileName} (${durationSeconds ?? '?'}s)`);
@@ -120,6 +123,9 @@ for (const item of plan) {
     patchWavHeaderSizes(gen.audio);
     fs.writeFileSync(item.outputPath, gen.audio);
     durationSeconds = getWavDurationSeconds(gen.audio);
+    speakerCandidate = runner.selectedSpeaker;
+    ttsSpeaker = gen.ttsSpeaker;
+    voiceName = gen.voice?.name ?? gen.ttsSpeaker;
     console.log(`Generated ${item.fileName} via ${gen.ttsSpeaker} (${durationSeconds ?? '?'}s)`);
   }
   result[item.id] = {
@@ -127,11 +133,24 @@ for (const item of plan) {
     text: item.text,
     durationSeconds,
     bufferedSeconds: durationSeconds != null ? Number((durationSeconds + BUFFER_SECONDS).toFixed(3)) : null,
-    source: prior[item.id]?.source || 'ai'
+    source: prior[item.id]?.source || 'ai',
+    speakerCandidate,
+    ttsSpeaker,
+    voiceName
   };
 }
 
-writeJson(manifestPath, {generatedAt: new Date().toISOString(), bufferSeconds: BUFFER_SECONDS, hooks: result});
+const manifestSpeaker = Object.values(result).find((entry) => entry?.ttsSpeaker || entry?.speakerCandidate);
+writeJson(manifestPath, {
+  generatedAt: new Date().toISOString(),
+  bufferSeconds: BUFFER_SECONDS,
+  speaker: manifestSpeaker ? {
+    speakerCandidate: manifestSpeaker.speakerCandidate ?? null,
+    ttsSpeaker: manifestSpeaker.ttsSpeaker ?? null,
+    voiceName: manifestSpeaker.voiceName ?? null
+  } : null,
+  hooks: result
+});
 
 for (const w of warnings) console.warn(`Warning: ${w}`);
 console.log(`Wrote shared duel hooks manifest (${Object.keys(result).length} hooks) → ${path.relative(cwd, manifestPath)}`);

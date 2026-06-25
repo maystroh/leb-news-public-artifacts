@@ -20,12 +20,11 @@ import path from 'node:path';
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
 import {formatDuelAudioText, defaultDuelText, duelTextSource, resolveDuelId} from './lib/duel-narration-text.mjs';
 import {patchWavHeaderSizes} from './lib/wav-header.mjs';
+import {loadSharedHooksManifest} from './lib/duel-hooks.mjs';
 import {
   DEFAULTS,
   loadEnvFiles,
   normalizeSpacing,
-  parseList,
-  seededShuffle,
   getWavDurationSeconds,
   createHamsaVoiceRunner
 } from './lib/hamsa-tts.mjs';
@@ -102,14 +101,12 @@ if (fs.existsSync(manifestPath)) {
   }
 }
 
-// Voice pool selection (same seeded-shuffle as the briefing).
-const voiceSelectionSeed = path.basename(briefingFolder);
-const configuredPool = process.env.HAMSA_TTS_SPEAKER
-  ? [process.env.HAMSA_TTS_SPEAKER]
-  : parseList(process.env.HAMSA_TTS_SPEAKERS);
-const speakerCandidates = process.env.HAMSA_TTS_SPEAKER
-  ? configuredPool
-  : seededShuffle(configuredPool.length ? configuredPool : DEFAULTS.speakerPool, voiceSelectionSeed);
+const hooksManifest = loadSharedHooksManifest(cwd);
+const hookSpeaker = hooksManifest?.speaker ?? Object.values(hooksManifest?.hooks ?? {}).find((entry) =>
+  entry?.speakerCandidate || entry?.ttsSpeaker || entry?.voiceName
+);
+const hookSpeakerName = normalizeSpacing(hookSpeaker?.speakerCandidate || hookSpeaker?.voiceName || hookSpeaker?.ttsSpeaker);
+const speakerCandidates = hookSpeakerName ? [hookSpeakerName] : [];
 const dialect = process.env.HAMSA_TTS_DIALECT || DEFAULTS.dialect;
 
 // Plan: decide per-duel action without side effects (drives --dry-run + tests).
@@ -147,15 +144,17 @@ const plan = scenes.map((scene, index) => {
 // script only synthesizes the per-duel narration.
 
 if (dryRun) {
-  console.log(JSON.stringify({
+  const payload = `${JSON.stringify({
     folder: path.relative(cwd, briefingFolder),
     mode: existingOnly ? 'existing-only' : force ? 'force' : 'reuse',
+    hookSpeaker: hookSpeakerName || null,
     speakerCandidates,
     dialect,
     textOverridesPath: path.relative(cwd, textOverridesPath).replace(/\\/g, '/'),
     duels: plan.map(({ordinal, duelId, fileName, textSource, action, skipReason, stale}) =>
       ({ordinal, duelId, fileName, textSource, action, skipReason, stale}))
-  }, null, 2));
+  }, null, 2)}\n`;
+  await new Promise((resolve) => process.stdout.write(payload, resolve));
   process.exit(0);
 }
 
@@ -164,6 +163,11 @@ fs.mkdirSync(audioDir, {recursive: true});
 const needsGeneration = plan.some((p) => p.action === 'generate');
 let runner = null;
 if (needsGeneration) {
+  if (!hookSpeakerName) {
+    console.error('Missing shared Quote Duel hook speaker in audio/hooks/manifest.json.');
+    console.error('Regenerate Step 17 with `npm run briefing:duel:hooks -- --force` so the hook manifest records the speaker, then rerun Step 19.');
+    process.exit(1);
+  }
   if (!process.env.HAMSA_API_KEY) {
     const hint = loadedEnvFiles.length
       ? `Loaded ${loadedEnvFiles.join(', ')}, but HAMSA_API_KEY was not set there or in the shell.`
