@@ -930,7 +930,24 @@ export function getSteps(ctx, state = null) {
               stdinFile: path.join(ctx.output, 'social-captions-prompt.md')
             },
             npmRun('briefing:social:validate', '--folder', folder),
-            npmRun('briefing:social:thumbnail-prompt', '--folder', folder)
+            npmRun('briefing:social:thumbnail-prompt', '--folder', folder),
+            npmRun('briefing:duel:captions', '--folder', folder),
+            {
+              cmd: 'codex',
+              args: [
+                'exec',
+                '--cd',
+                ctx.repoRoot,
+                '--sandbox',
+                'workspace-write',
+                '--skip-git-repo-check',
+                '--output-last-message',
+                path.join(ctx.output, 'quote-duel-social-captions-codex-message.md'),
+                '-'
+              ],
+              stdinFile: path.join(ctx.output, 'quote-duel-social-captions-prompt.md')
+            },
+            npmRun('briefing:duel:social:validate', '--folder', folder)
           ]
         },
         {
@@ -948,7 +965,8 @@ export function getSteps(ctx, state = null) {
           {label: 'social-captions-prompt.md', file: path.join(ctx.output, 'social-captions-prompt.md'), optional: true},
           {label: 'youtube-thumbnail-prompt.md', file: youtubeThumbnailPrompt, optional: true},
           {label: 'instagram-reel-cover-prompt.md', file: instagramReelCoverPrompt, optional: true},
-          {label: 'instagram-reel-cover.png', file: path.join(ctx.output, 'instagram-reel-cover.png'), optional: true}
+          {label: 'instagram-reel-cover.png', file: path.join(ctx.output, 'instagram-reel-cover.png'), optional: true},
+          {label: 'output/quote-duel-social-captions.json', file: path.join(ctx.output, 'quote-duel-social-captions.json'), optional: true}
         ];
       },
       status: (stepState) => {
