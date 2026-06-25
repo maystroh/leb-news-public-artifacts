@@ -79,6 +79,46 @@ export default function SocialPostingPanel({social}) {
           </button>
           {active?.fullVideo?.path && <p className="file-path">{active.fullVideo.path}</p>}
         </div>
+
+        <div className="publish-card">
+          <div className="publish-card-head">
+            <h3>Instagram story clips</h3>
+          </div>
+          <div className="phone-transfer">
+            <div>
+              <strong>Phone transfer</strong>
+              <p className="hint">
+                {phone.user}@{phone.host}:{phone.port} → {phone.remoteFolder}
+              </p>
+              <p className={`phone-status ${phoneCopied ? 'done' : 'pending'}`}>
+                {phoneCopied
+                  ? `Copied to phone${copiedTime ? ` at ${copiedTime}` : ''}${phone.fileCount ? ` (${phone.fileCount} files)` : ''}.`
+                  : 'Not copied to phone yet.'}
+              </p>
+            </div>
+            <div className="phone-transfer-controls">
+              <input
+                type="password"
+                value={phonePassword}
+                onChange={(event) => setPhonePassword(event.target.value)}
+                placeholder="Phone password"
+                autoComplete="current-password"
+              />
+              <button className="btn primary" disabled={phoneBusy || phoneCopied || !active} onClick={uploadToPhone}>
+                {phoneBusy === 'upload' ? 'Uploading…' : 'Upload folder'}
+              </button>
+              <button className="btn ghost danger" disabled={phoneBusy || !phoneCopied} onClick={deleteFromPhone}>
+                {phoneBusy === 'delete' ? 'Deleting…' : 'Delete phone folder'}
+              </button>
+            </div>
+            {phoneMessage && <p className={`phone-message ${phoneMessage.type}`}>{phoneMessage.text}</p>}
+            {instagram.coverImage ? (
+              <p className="hint">Reel cover included: {instagram.coverImage.path}</p>
+            ) : (
+              <p className="hint warn">Reel cover image not found yet: save it as output/instagram-reel-cover.png to include it in phone upload.</p>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
