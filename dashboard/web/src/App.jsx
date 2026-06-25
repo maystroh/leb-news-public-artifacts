@@ -171,26 +171,6 @@ export default function App() {
     }
   };
 
-  const uploadPhoneScenes = async ({mid, password}) => {
-    const result = await api('/api/phone/upload-scenes', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({date, mid, password})
-    });
-    await refresh(date);
-    return result;
-  };
-
-  const deletePhoneFolder = async ({password}) => {
-    const result = await api('/api/phone/delete-folder', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({date, password})
-    });
-    await refresh(date);
-    return result;
-  };
-
   // The Quote Duel steps (17–23) live on their own page (?view=duel), reachable
   // from the step 9 card. Keep them out of the main pipeline + progress count.
   const mainSteps = data ? data.steps.filter((step) => !DUEL_STEP_SET.has(step.id)) : [];
@@ -256,7 +236,7 @@ export default function App() {
             ))}
           </section>
 
-          <SocialPostingPanel social={data.social} onUploadPhoneScenes={uploadPhoneScenes} onDeletePhoneFolder={deletePhoneFolder} />
+          <SocialPostingPanel social={data.social} />
 
           <AudioPanel
             entries={data.audio}

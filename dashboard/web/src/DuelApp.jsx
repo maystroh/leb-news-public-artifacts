@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import StepCard from './StepCard.jsx';
 import DuelNarrationPanel from './DuelNarrationPanel.jsx';
+import DuelPostingPanel from './DuelPostingPanel.jsx';
 import {DUEL_STEP_SET, DUEL_STEP_IDS, SHARED_STEP_SET, SHARED_STEP_IDS} from './duelSteps.js';
 
 // Standalone Quote Duel page (?view=duel). Self-contained on purpose: it shares
@@ -97,6 +98,26 @@ export default function DuelApp() {
     }
   };
 
+  const uploadPhoneScenes = async ({password}) => {
+    const result = await api('/api/phone/upload-scenes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, kind: 'duel', password})
+    });
+    await refresh(date);
+    return result;
+  };
+
+  const deletePhoneFolder = async ({password}) => {
+    const result = await api('/api/phone/delete-folder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, kind: 'duel', password})
+    });
+    await refresh(date);
+    return result;
+  };
+
   const order = [...DUEL_STEP_IDS, ...SHARED_STEP_IDS];
   const duelSteps = data
     ? data.steps
@@ -168,6 +189,11 @@ export default function DuelApp() {
               onConfirm={confirmDuelText}
             />
           )}
+          <DuelPostingPanel
+            social={data.duel?.social}
+            onUploadPhoneScenes={uploadPhoneScenes}
+            onDeletePhoneFolder={deletePhoneFolder}
+          />
         </main>
       )}
     </div>
