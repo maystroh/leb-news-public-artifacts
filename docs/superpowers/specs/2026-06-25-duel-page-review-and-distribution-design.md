@@ -50,9 +50,12 @@ fallback. The exact spoken-text precedence already lives in
 `scripts/generate-quote-duel-audio.mjs`:
 
 ```js
-defaultDuelText(scene) = audioText || narration || formatDuelAudioText(scene) || summary
-textSource(scene)      = 'audioText' | 'narration' | 'generated-format' | 'summary'
+defaultDuelText(scene)               = audioText || narration || formatDuelAudioText(scene) || summary
+duelTextSource(scene, overrideText)  = 'override' | 'audioText' | 'narration' | 'generated-format' | 'summary' | null
 ```
+
+(`duelTextSource` returns `'override'` when an override is present — the panel uses
+that branch to render its "edited" badge.)
 
 The duel page only reviews, edits (as overrides), generates audio for, and renders
 that content — it never authors narration from scratch.
@@ -89,7 +92,10 @@ index in the server array but must appear at the end of the duel page.
 - **`duel-text` (18):**
   - Action `run`: `briefing:duel:build --folder <folder>` (produces
     `output/quote-duel.json` + the review HTML; pre-audio durations).
-  - Action `confirm`: marks narration confirmed (writes the gate marker, below).
+  - Confirm control: the existing step-action model only runs shell `commands`
+    via `/api/run`, so "Confirm narration" is **not** a step action. It is a button
+    rendered by `DuelNarrationPanel` that calls `POST /api/duel/confirm` (frontend,
+    like the AudioPanel's own buttons). The gate marker it sets is described below.
   - Artifacts: the quote-duel HTML set, `quote-duel-audio-script.json`,
     `audio/quote-duel-text-overrides.json`.
   - Status: `pending` until `quote-duel.json` exists; otherwise reflects
@@ -122,7 +128,7 @@ hard lock). State lives in `output/dashboard-state.json` under a `duel` key:
 { "duel": { "narrationConfirmedAt": "<ISO>" } }
 ```
 
-- `duel-text`'s `confirm` action calls `POST /api/duel/confirm`, which sets
+- `DuelNarrationPanel`'s Confirm button calls `POST /api/duel/confirm`, which sets
   `narrationConfirmedAt`.
 - Saving an edit via `POST /api/duel/script` clears `narrationConfirmedAt`
   (re-gate after any text change).
@@ -147,12 +153,18 @@ Mirror the existing scene-narration machinery in `dashboard/audio.mjs`:
 
 - `duelNarrationEntries(ctx)`: read `output/quote-duel.json` `scenes[]` and merge
   with `audio/quote-duel-text-overrides.json`. One entry per duel:
-  `{ duelId, outlets: [a, b], quotes: [a, b], defaultText, defaultSource,
+  `{ duelId, outlets: [a, b], quotes: [a, b], defaultText, source,
   overrideText, effectiveText, isOverridden }` where `defaultText =
-  defaultDuelText(scene)` and `defaultSource = textSource(scene)` from the shared
-  module. `duelId` is the source-ordinal `duel-N` (matches clip identity).
-- Override read/write reuse the `loadTextOverrides` / `saveTextOverride`
-  write-or-delete pattern, keyed by `duel-N`.
+  defaultDuelText(scene)` and `source = duelTextSource(scene, overrideText)` from
+  the shared module. `duelId` is the source-ordinal `duel-N` (matches clip
+  identity).
+- The existing `loadTextOverrides` / `saveTextOverride` in `audio.mjs` are
+  hardcoded to the briefing `text-overrides.json` and call the briefing-specific
+  `narrationScenes(ctx)` for their delete-on-default check — they cannot be reused
+  literally. Add **new duel-scoped helpers** (`loadDuelTextOverrides` /
+  `saveDuelTextOverride`) targeting `quote-duel-text-overrides.json`, keyed by
+  `duel-N`, with the delete-on-default check comparing against `duelNarrationEntries`'
+  `defaultText`. Same write-or-delete behavior, new file + defaults.
 
 Server (`dashboard/server.mjs`):
 
@@ -301,9 +313,9 @@ DuelPostingPanel ─→ reads state.duelSocial; phone upload (kind:'duel')
 
 ## Testing
 
-- Unit test for `duelNarrationEntries` (override precedence; `narration` →
-  `summary` fallback; `isOverridden` flag), alongside
-  `tests/duel-audio-plan.test.mjs`.
+- Unit test for `duelNarrationEntries` (override precedence; the full
+  `audioText → narration → generated-format → summary` default chain;
+  `isOverridden` flag), alongside `tests/duel-audio-plan.test.mjs`.
 - Unit test for `validate-duel-social-captions.mjs` (rejects missing/extra
   `duelId`, accepts a well-formed JSON).
 - Manual walkthrough: launch dashboard → `?view=duel` → run 18–20 locally and
