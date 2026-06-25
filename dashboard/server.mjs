@@ -352,6 +352,31 @@ function sceneMp4Files(sceneDir) {
     .sort();
 }
 
+function correctedBriefingPath(ctx) {
+  return path.join(ctx.folder, `briefing_${ctx.date}_corrected.txt`);
+}
+
+// Editable corrected-briefing text shown in step 0 (remote-sync dates). Seeded by
+// the sync step; saved back via POST /api/briefing/corrected.
+function correctedBriefingState(ctx) {
+  const file = correctedBriefingPath(ctx);
+  const info = statInfo(file);
+  let content = '';
+  if (info.exists && !info.isDirectory) {
+    try {
+      content = fs.readFileSync(file, 'utf8');
+    } catch {
+      content = '';
+    }
+  }
+  return {
+    path: path.relative(REPO_ROOT, file).split(path.sep).join('/'),
+    exists: Boolean(info.exists) && !info.isDirectory,
+    content,
+    mtimeMs: info.mtimeMs ?? null
+  };
+}
+
 function computeState(date) {
   const ctx = briefingContext(date);
   const state = loadState(ctx);
@@ -399,6 +424,7 @@ function computeState(date) {
     date,
     steps,
     remoteSync: state.remoteSync || null,
+    correctedBriefing: correctedBriefingState(ctx),
     audioSource: loadAudioSource(ctx),
     audio: audioEntries(ctx, state),
     social: socialPostingState(ctx, state),
@@ -463,6 +489,25 @@ app.post('/api/run', (req, res) => {
     res.json({runId: run.id, stepId: step.id, actionId: action.id});
   } catch (error) {
     res.status(409).json({error: error.message});
+  }
+});
+
+// Save edits to briefing_<date>_corrected.txt from the step 0 editor.
+app.post('/api/briefing/corrected', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  if (typeof req.body?.content !== 'string') {
+    return res.status(400).json({error: 'Missing content.'});
+  }
+  const ctx = briefingContext(date);
+  const file = correctedBriefingPath(ctx);
+  try {
+    fs.mkdirSync(path.dirname(file), {recursive: true});
+    fs.writeFileSync(file, req.body.content, 'utf8');
+    broadcast(date, {type: 'state-changed'});
+    res.json({ok: true});
+  } catch (error) {
+    res.status(500).json({error: error.message});
   }
 });
 

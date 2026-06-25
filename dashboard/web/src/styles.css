@@ -73,6 +73,8 @@ body {
   padding: 7px 12px;
   font-size: 13px;
   cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
 }
 
 .new-date-btn:hover {
@@ -358,6 +360,17 @@ select {
 
 .btn.ghost {
   background: transparent;
+}
+
+.btn.duel-link {
+  background: #3a2d12;
+  border-color: #8a6d2f;
+  color: #f0d79a;
+  font-weight: 600;
+}
+
+.btn.duel-link:hover:not(:disabled) {
+  background: #4a3a18;
 }
 
 .btn:disabled {
@@ -657,6 +670,37 @@ select {
 }
 
 .script-editor:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.briefing-editor {
+  margin: 10px 0 4px;
+}
+
+.briefing-editor label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.briefing-editor-text {
+  width: 100%;
+  background: #0b0f14;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.briefing-editor-text:focus {
   outline: none;
   border-color: var(--blue);
 }

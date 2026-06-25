@@ -1,8 +1,9 @@
 // Per-duel narration TTS for the Quote Duel video path.
 //
 // Mirrors the briefing audio contract (reuse-by-default / --force / --existing-only)
-// but for duels: reads output/quote-duel.json, synthesizes scene.narration (falling
-// back to scene.summary), and writes WAVs into briefings/<date>/audio/duel-XX.wav
+// but for duels: reads output/quote-duel.json, synthesizes scene.audioText
+// (falling back to legacy scene.narration, then scene.summary), and writes WAVs
+// into briefings/<date>/audio/duel-XX.wav
 // (folder-local audio/, NOT output/audio — matches the briefing + survives the
 // server rsync). Durations are written into timingConfig.quoteDuel.scenes so they
 // survive `briefing:build:folder` rebuilds (output/quote-duel.json is regenerated
@@ -55,6 +56,8 @@ const outputFolder = path.join(briefingFolder, 'output');
 const quoteDuelPath = path.join(outputFolder, 'quote-duel.json');
 const audioDir = path.join(briefingFolder, 'audio');
 const manifestPath = path.join(audioDir, 'quote-duel-manifest.json');
+const textOverridesPath = path.join(audioDir, 'quote-duel-text-overrides.json');
+const audioScriptPath = path.join(outputFolder, 'quote-duel-audio-script.json');
 const timingConfigPath = path.join(outputFolder, 'timing-config.json');
 
 if (!fs.existsSync(quoteDuelPath)) {
@@ -71,19 +74,51 @@ if (!scenes.length) {
 }
 
 const padTwo = (n) => String(n).padStart(2, '0');
-const duelText = (scene) => normalizeSpacing(scene.narration || scene.summary);
+const formatDuelAudioText = (scene) => {
+  const event = normalizeSpacing(scene.eventLabel || scene.contrastLabel);
+  const leftOutlet = normalizeSpacing(scene.left?.outlet);
+  const leftSays = normalizeSpacing(scene.left?.audioLine || scene.left?.stance || scene.left?.quote);
+  const rightOutlet = normalizeSpacing(scene.right?.outlet);
+  const rightSays = normalizeSpacing(scene.right?.audioLine || scene.right?.stance || scene.right?.quote);
+  const lines = [];
+  if (event) lines.push(`الحدث هو "${event}"`);
+  if (leftOutlet && leftSays) lines.push(`"${leftOutlet}" قالت عنو "${leftSays}"`);
+  if (rightOutlet && rightSays) lines.push(`"${rightOutlet}" قالت عنو "${rightSays}"`);
+  return normalizeSpacing(lines.join(' '));
+};
+const defaultDuelText = (scene) => normalizeSpacing(scene.audioText || scene.narration || formatDuelAudioText(scene) || scene.summary);
+const duelTextSource = (scene, overrideText) => {
+  if (overrideText) return 'override';
+  if (scene.audioText) return 'audioText';
+  if (scene.narration) return 'narration';
+  if (formatDuelAudioText(scene)) return 'generated-format';
+  if (scene.summary) return 'summary';
+  return null;
+};
+
+let textOverrides = {};
+if (fs.existsSync(textOverridesPath)) {
+  try {
+    textOverrides = readJson(textOverridesPath);
+  } catch (error) {
+    throw new Error(`Could not parse ${path.relative(cwd, textOverridesPath)}: ${error.message}`);
+  }
+}
 
 // Carry forward each duel's source from a prior manifest (mirrors the briefing
 // manifest carry-forward); freshly generated WAVs are "ai".
 let priorSourceByDuel = {};
+let priorTextByDuel = {};
 if (fs.existsSync(manifestPath)) {
   try {
     const prior = readJson(manifestPath);
     for (const [duelId, entry] of Object.entries(prior.audioByDuel ?? {})) {
       if (entry?.source) priorSourceByDuel[duelId] = entry.source;
+      if (entry?.text) priorTextByDuel[duelId] = normalizeSpacing(entry.text);
     }
   } catch {
     priorSourceByDuel = {};
+    priorTextByDuel = {};
   }
 }
 
@@ -103,9 +138,12 @@ const plan = scenes.map((scene, index) => {
   const duelId = scene.id ?? `duel-${ordinal}`;
   const fileName = `duel-${padTwo(ordinal)}.wav`;
   const outputPath = path.join(audioDir, fileName);
-  const text = duelText(scene);
-  const textSource = scene.narration ? 'narration' : scene.summary ? 'summary' : null;
+  const overrideText = normalizeSpacing(textOverrides[duelId]);
+  const text = overrideText || defaultDuelText(scene);
+  const textSource = duelTextSource(scene, overrideText);
   const exists = fs.existsSync(outputPath);
+  const priorText = priorTextByDuel[duelId] || '';
+  const stale = exists && priorText && text && priorText !== text;
 
   let action;
   let skipReason = null;
@@ -115,13 +153,13 @@ const plan = scenes.map((scene, index) => {
   } else if (existingOnly) {
     action = exists ? 'reuse' : 'skip';
     if (!exists) skipReason = 'no-wav-existing-only';
-  } else if (exists && !force) {
+  } else if (exists && !force && !stale) {
     action = 'reuse';
   } else {
     action = 'generate';
   }
 
-  return {ordinal, duelId, fileName, outputPath, src: `../audio/${fileName}`, text, textSource, action, skipReason};
+  return {ordinal, duelId, fileName, outputPath, src: `../audio/${fileName}`, text, textSource, action, skipReason, stale};
 });
 
 // Hooks are STATIC and shared across all dates — generated once by
@@ -134,8 +172,9 @@ if (dryRun) {
     mode: existingOnly ? 'existing-only' : force ? 'force' : 'reuse',
     speakerCandidates,
     dialect,
-    duels: plan.map(({ordinal, duelId, fileName, textSource, action, skipReason}) =>
-      ({ordinal, duelId, fileName, textSource, action, skipReason}))
+    textOverridesPath: path.relative(cwd, textOverridesPath).replace(/\\/g, '/'),
+    duels: plan.map(({ordinal, duelId, fileName, textSource, action, skipReason, stale}) =>
+      ({ordinal, duelId, fileName, textSource, action, skipReason, stale}))
   }, null, 2));
   process.exit(0);
 }
@@ -177,6 +216,8 @@ for (const item of plan) {
       durationSeconds: null,
       textSource: item.textSource,
       source: priorSourceByDuel[item.duelId] || 'ai',
+      text: item.text,
+      chars: item.text.length,
       skipped: true,
       skipReason: item.skipReason
     };
@@ -204,6 +245,8 @@ for (const item of plan) {
     durationSeconds,
     bufferedSeconds: durationSeconds != null ? Number((durationSeconds + BUFFER_SECONDS).toFixed(3)) : null,
     textSource: item.textSource,
+    text: item.text,
+    chars: item.text.length,
     source,
     skipped: false
   };
@@ -212,8 +255,43 @@ for (const item of plan) {
 writeJson(manifestPath, {
   generatedAt: new Date().toISOString(),
   sourceDataPath: path.relative(cwd, quoteDuelPath).replace(/\\/g, '/'),
+  textOverridesPath: path.relative(cwd, textOverridesPath).replace(/\\/g, '/'),
   bufferSeconds: BUFFER_SECONDS,
   audioByDuel
+});
+
+writeJson(audioScriptPath, {
+  meta: {
+    generatedAt: new Date().toISOString(),
+    sourceDataPath: path.relative(cwd, quoteDuelPath).replace(/\\/g, '/'),
+    textOverridesPath: path.relative(cwd, textOverridesPath).replace(/\\/g, '/'),
+    manifestPath: path.relative(cwd, manifestPath).replace(/\\/g, '/'),
+    note: 'Edit audio/quote-duel-text-overrides.json with keys like "duel-1" to override one clash narration, then rerun step 19.'
+  },
+  duels: plan.map((item) => {
+    const manifestEntry = audioByDuel[item.duelId] ?? {};
+    return {
+      ordinal: item.ordinal,
+      duelId: item.duelId,
+      eventLabel: scenes[item.ordinal - 1]?.eventLabel ?? '',
+      contrastLabel: scenes[item.ordinal - 1]?.contrastLabel ?? '',
+      leftOutlet: scenes[item.ordinal - 1]?.left?.outlet ?? '',
+      leftQuote: scenes[item.ordinal - 1]?.left?.quote ?? '',
+      rightOutlet: scenes[item.ordinal - 1]?.right?.outlet ?? '',
+      rightQuote: scenes[item.ordinal - 1]?.right?.quote ?? '',
+      textSource: item.textSource,
+      text: item.text,
+      chars: item.text.length,
+      file: item.fileName,
+      wavExists: fs.existsSync(item.outputPath),
+      staleBeforeRun: item.stale,
+      action: item.action,
+      skipped: manifestEntry.skipped ?? item.action === 'skip',
+      skipReason: manifestEntry.skipReason ?? item.skipReason,
+      durationSeconds: manifestEntry.durationSeconds ?? null,
+      bufferedSeconds: manifestEntry.bufferedSeconds ?? null
+    };
+  })
 });
 
 // Persist audio-driven durations into timingConfig.quoteDuel.scenes so the
@@ -231,4 +309,5 @@ writeJson(timingConfigPath, timingConfig);
 for (const warning of warnings) console.warn(`Warning: ${warning}`);
 const made = Object.values(audioByDuel).filter((e) => !e.skipped).length;
 console.log(`Wrote duel audio manifest (${made}/${plan.length} duels) → ${path.relative(cwd, manifestPath)}`);
+console.log(`Wrote duel audio script → ${path.relative(cwd, audioScriptPath)}`);
 console.log(`Updated timingConfig.quoteDuel.scenes in ${path.relative(cwd, timingConfigPath)}`);

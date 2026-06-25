@@ -136,10 +136,10 @@ The goal is to preserve the current visual decisions so future edits do not acci
 - The production MP4 renderer is meant for testing and production video output without replacing or breaking the existing HTML pipeline.
 - The existing HTML outputs remain in place and remain the visual source of truth until the user verifies the MP4 output and explicitly decides to replace HTML outputs.
 - The `ProductionBriefing` composition default is:
-  - `1080x1920`
+  - `720x1280`
   - `30fps`
 - The `ProductionIntroOnly` composition default is also:
-  - `1080x1920`
+  - `720x1280`
   - `30fps`
 - Current Remotion parity status:
   - `src/ProductionBriefingVideo.jsx` has been updated to match the full-editorial HTML intro and scene layout much more closely.
@@ -185,6 +185,12 @@ The goal is to preserve the current visual decisions so future edits do not acci
 - Windows rendering was observed to be faster than WSL for this project.
 - The render script sets `NODE_OPTIONS=--dns-result-order=ipv4first` for the child Remotion process to avoid Windows localhost audio downloads failing on `::1:3000`.
 - If Remotion reports `connect ECONNREFUSED ::1:3000` while downloading staged audio from localhost, keep the IPv4-first child process behavior in `scripts/render-briefing-video.mjs`.
+- Render defaults currently use `--concurrency 12`.
+- GPU defaults are platform-specific:
+  - Windows/macOS: `--gl angle`
+  - Linux: `--gl angle-egl --chrome-mode chrome-for-testing`
+- Pass `--gl off` to disable GPU rendering.
+- For full-resolution output, pass an explicit resolution such as `--resolution 1080x1920`.
 - Native resolution variants are supported for visual-impact testing while keeping the same `30fps`.
 - Single resolution example:
   - `npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 720x1280 --log warn`
@@ -291,6 +297,9 @@ If revisiting any of those, confirm with the user first.
   - full-editorial Hamsa audio now covers outlet scenes, the closing/synthesis scene, and the outro question
   - `radar-beirut-briefing-hook-captions.html` / `--variant captions` now combine bottom full-narration karaoke captions with mid-screen focus quote boxes on eligible outlet scenes
   - captions focus boxes exclude the summary/closing scene, `asas-media`, and `almodon`, and they do not show keyword chips or `« »` wrappers
+  - branch `feat/quote-duel-video-pipeline` added the Quote Duel short-video pipeline with shared static attention-hook WAVs generated once into `audio/hooks/`
+  - Quote Duel hook selection uses `--hook <id>` where a bare number normalizes to `hook-N`; render, mux, and split must receive the same hook id
+  - the dashboard default Quote Duel hook is `hook-2`
   - pause notation for AI audio such as `...`, `....`, spaced dot runs like `. . .`, or the ellipsis glyph `…` may remain in narration/audio text to shape speech, but captions should strip runs of three or more dots in both the HTML captions hook and Remotion `--variant captions`
   - when committing/pushing, do not create branches or push feature branches without asking first; if the user asks to push and does not specify a branch, confirm or use `main` according to the user's latest instruction
 
@@ -438,7 +447,7 @@ Full editorial content rule of thumb:
   - one quote on the left
   - one quote on the right
   - one short contrast line naming the fault line
-- The scene should not depend on narration.
+- The scene should remain visually understandable without narration, even though the new video pipeline may add spoken `narration` per duel.
 - The contrast between the two direct quotes is the content.
 - Prefer this format when one day produces unusually sharp rhetorical opposition across outlets.
 - The current example pair to remember is:
@@ -448,6 +457,64 @@ Full editorial content rule of thumb:
 - Do not add back long body text, helper notes, or a secondary analysis block inside the duel scene unless requested.
 - The current quote-duel prototype is:
   - `C:\Users\HassanAlhajj\Desktop\MyProjects\video-animations\radar-beirut-quote-duel.html`
+
+## Quote Duel Video Pipeline Memory
+- Branch `feat/quote-duel-video-pipeline` added a video pipeline for Quote Duel shorts that is parallel to the full-editorial MP4 path.
+- Quote Duel video does not use the shared full-editorial intro; it is atomized into per-duel shorts plus a top-3 full reel.
+- Local pipeline:
+  - `npm run briefing:duel:hooks`
+  - `npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD`
+  - `npm run briefing:duel:audio -- --folder briefings/YYYY-MM-DD`
+  - `npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted --hook hook-2`
+  - `npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD --hook hook-2`
+  - `npm run briefing:duel:split -- --folder briefings/YYYY-MM-DD --hook hook-2`
+  - `npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD`
+- Use the same `--hook <id>` for render, mux, and split so the cold-open offset, mux timing, and split ranges line up.
+- A bare hook number normalizes to `hook-N`.
+- No `--hook` means no attention hook / no cold open.
+- The dashboard currently fixes the Quote Duel flow to `hook-2` by default.
+- Static attention-hook texts live in `scripts/lib/duel-hooks.mjs` as `DEFAULT_DUEL_HOOKS`.
+- Add or change a hook by editing `DEFAULT_DUEL_HOOKS`, then rerun:
+  - `npm run briefing:duel:hooks`
+- Shared hook WAVs are generated once for all dates into:
+  - `audio/hooks/<id>.wav`
+  - `audio/hooks/manifest.json`
+- Shared hook WAVs are not generated inside date folders and are gitignored.
+- The dashboard rsyncs `audio/hooks/` to the render server once; this is separate from per-date folder sync.
+- `build:folder` / `briefing:duel:build` injects hook texts into `output/quote-duel.json` as a read-only hooks review panel for HTML review.
+- Upstream date-folder `quote-duel.json` scenes may carry:
+  - `rank` where ranks `1..3` are main duels for the full reel
+  - `narration`, which is spoken and falls back to `summary`
+- Audio-driven Quote Duel scene durations live in `output/timing-config.json` under `quoteDuel.scenes` and are reapplied on rebuild.
+- Do not manually write durable timing into `output/quote-duel.json`; it is regenerated wholesale.
+- Per-duel narration WAVs live in:
+  - `briefings/YYYY-MM-DD/audio/duel-NN.wav`
+- Per-duel narration manifest lives in:
+  - `briefings/YYYY-MM-DD/audio/quote-duel-manifest.json`
+- The muted Quote Duel master output is:
+  - `briefings/YYYY-MM-DD/output/radar-beirut-quote-duel[-hook-N].mp4`
+- The muxed final output is:
+  - `briefings/YYYY-MM-DD/output/radar-beirut-quote-duel[-hook-N]-final.mp4`
+- Split outputs live in:
+  - `briefings/YYYY-MM-DD/output/duel-videos/duel-NN.mp4`
+  - `briefings/YYYY-MM-DD/output/duel-videos/quote-duel-full.mp4`
+- The splitter prepends the selected hook range to every atomic short and once to the top-3 full reel.
+- Clip identity is source ordinal: `duel-01` means `scenes[0]`; missing-audio duels are skipped without renumbering survivors.
+- `scripts/lib/duel-timeline.mjs` is the single frame-quantized source of truth for Quote Duel composition duration, mux offsets, and split ranges.
+- `src/QuoteDuelVideo.jsx` registers the `QuoteDuel` Remotion composition through `src/Root.jsx`.
+- `QuoteDuel` uses a `405x720` internal stage scaled to the render resolution, matching the production briefing stage approach.
+- `HookScene` in `src/QuoteDuelVideo.jsx` renders the visual cold open for selected hooks.
+- Dashboard Quote Duel steps:
+  - step 17 generates shared hook WAVs locally and lets the user play them
+  - step 18 syncs `audio/hooks/` to the render server
+  - step 19 builds Quote Duel data, generates per-duel narration locally, reapplies durations, and opens the HTML review
+  - step 20 syncs the date folder and renders the muted `QuoteDuel` MP4 on the server with the selected hook
+  - step 21 muxes duel narration plus the selected hook WAV on the server
+  - step 22 downloads final Quote Duel MP4s
+  - step 23 splits into atomic duel shorts and the top-3 full reel
+- Quote Duel social caption prompt output is:
+  - `briefings/YYYY-MM-DD/output/quote-duel-social-captions-prompt.md`
+  - expected filled result: `briefings/YYYY-MM-DD/output/quote-duel-social-captions.json`
 
 ### Quote Duel ASCII Diagram
 ```text

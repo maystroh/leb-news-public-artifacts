@@ -24,9 +24,10 @@ if (!fs.existsSync(briefingDataPath)) {
   throw new Error(`Missing ${path.relative(cwd, briefingDataPath)} — run briefing:build:folder first (dashboard step 6/10).`);
 }
 
-// First present scene-videos*/manifest.json. Clip filenames and scene mapping are
-// identical across the normal/hook split folders, so any one is fine. Error only
-// when none exist (split not run yet — dashboard step 15).
+// First present scene-videos*/manifest.json, if any. Clip filenames and scene
+// mapping are identical across the normal/hook split folders, so any one is fine.
+// The split (dashboard step 15) is OPTIONAL and decoupled from this step — when no
+// manifest exists we simply omit the per-scene clip filename from the prompt.
 const findSceneManifest = () => {
   if (!fs.existsSync(outputFolder)) return null;
   const dirs = fs
@@ -39,12 +40,9 @@ const findSceneManifest = () => {
 };
 
 const sceneManifestPath = findSceneManifest();
-if (!sceneManifestPath) {
-  throw new Error('No scene-videos*/manifest.json found — split the final MP4 first (dashboard step 15).');
-}
 
 const briefing = readJson(briefingDataPath);
-const manifest = readJson(sceneManifestPath);
+const manifest = sceneManifestPath ? readJson(sceneManifestPath) : {segments: []};
 const keywordRadar = fs.existsSync(path.join(outputFolder, 'keyword-radar.json'))
   ? readJson(path.join(outputFolder, 'keyword-radar.json'))
   : {entries: []};
@@ -82,11 +80,11 @@ const sceneBlocks = scenes.map((scene, index) => {
   const toneTag = closing ? '(closing recap — not an outlet)' : normalize(scene.visual?.headline);
   const summary = normalize(scene.visual?.summary || scene.body);
   const terms = termsBySceneId.get(scene.id) ?? [];
-  const clip = clipBySceneId.get(scene.id) || '(no clip found)';
+  const clip = clipBySceneId.get(scene.id) || '';
 
   const lines = [
     `- sceneId: ${scene.id}`,
-    `  clip: ${clip}`,
+    ...(clip ? [`  clip: ${clip}`] : []),
     closing ? `  closing recap: ${outletName}` : `  outlet: ${outletName}`,
     `  tone: ${toneTag || '(none)'}`,
     `  summary: ${summary || '(none)'}`,
@@ -160,5 +158,9 @@ const promptPath = path.join(outputFolder, 'social-captions-prompt.md');
 fs.writeFileSync(promptPath, prompt);
 
 console.log(`Wrote social captions prompt: ${path.relative(cwd, promptPath)}`);
-console.log(`Scene manifest used: ${path.relative(cwd, sceneManifestPath)}`);
+console.log(
+  sceneManifestPath
+    ? `Scene manifest used: ${path.relative(cwd, sceneManifestPath)}`
+    : 'No scene-videos manifest found — clip filenames omitted (split is optional).'
+);
 console.log(`Codex should write: ${path.relative(cwd, captionsPath)}`);

@@ -79,11 +79,55 @@ function finalVideoVariants(ctx) {
     });
 }
 
+function quoteDuelHtmlArtifacts(ctx) {
+  const manifestPath = path.join(ctx.output, 'quote-duel-html-manifest.json');
+  const manifest = readJsonSafe(manifestPath);
+  if (!manifest) {
+    return [
+      {
+        label: 'radar-beirut-quote-duel.html (combined duels + hook intro)',
+        file: path.join(ctx.output, 'radar-beirut-quote-duel.html'),
+        open: true
+      }
+    ];
+  }
+
+  const selectedHookLabel = manifest.selectedHook?.id
+    ? `radar-beirut-quote-duel.html (combined duels + ${manifest.selectedHook.id} intro)`
+    : 'radar-beirut-quote-duel.html (combined duels + hook intro)';
+  return [
+    {label: selectedHookLabel, file: path.join(ctx.output, 'radar-beirut-quote-duel.html'), open: true},
+    ...(manifest.duels ?? []).map((duel, index) => ({
+      label: `${duel.fileName ?? `radar-beirut-quote-duel-${String(index + 1).padStart(2, '0')}.html`} (${duel.duelId ?? `duel-${index + 1}`})`,
+      file: path.join(ctx.output, duel.fileName ?? `radar-beirut-quote-duel-${String(index + 1).padStart(2, '0')}.html`),
+      open: true
+    }))
+  ];
+}
+
 // A date is "remote-sync" (created from the dashboard, fed by the data server)
 // only when its state was stamped by POST /api/create-date.
 export const isRemoteSyncDate = (state) => state?.remoteSync?.source === 'remote-sync';
 
 const correctedBriefingPath = (ctx) => path.join(ctx.folder, `briefing_${ctx.date}_corrected.txt`);
+
+// The source briefing pulled from the data server. The canonical name is
+// briefing_<date>.txt (dashes), but tolerate the underscore-date and .md variants
+// the data pipeline has used so the corrected copy can always be seeded.
+function findSourceBriefing(ctx) {
+  const underscore = ctx.date.replace(/-/g, '_');
+  const candidates = [
+    `briefing_${ctx.date}.txt`,
+    `briefing_${ctx.date}.md`,
+    `briefing_${underscore}.txt`,
+    `briefing_${underscore}.md`
+  ];
+  for (const name of candidates) {
+    const file = path.join(ctx.folder, name);
+    if (exists(file)) return file;
+  }
+  return null;
+}
 
 // Readiness for unlocking later steps: the source briefing text plus at least one
 // image per outlet (unique outlet image keys >= paragraphs - 3). Mirrors the asset
@@ -125,6 +169,23 @@ function buildRemoteSyncSteps(ctx) {
               args: ['-av', '-e', DATA_SSH_E, `${DATA_SERVER_HOST}:${remoteDir}/`, `${ctx.folder}/`]
             },
             {
+              label: 'Seed corrected briefing copy',
+              fn: async (emit) => {
+                const corrected = correctedBriefingPath(ctx);
+                if (exists(corrected)) {
+                  emit(`${path.basename(corrected)} already exists — leaving your edits untouched.`);
+                  return;
+                }
+                const source = findSourceBriefing(ctx);
+                if (!source) {
+                  emit('No source briefing file found yet — corrected copy not created. Re-sync once the server fills it.');
+                  return;
+                }
+                fs.copyFileSync(source, corrected);
+                emit(`Created ${path.basename(corrected)} from ${path.basename(source)} — edit it below, then resync in step 00.`);
+              }
+            },
+            {
               label: 'Readiness check',
               fn: async (emit) => {
                 const report = remotePullReady(ctx);
@@ -147,7 +208,10 @@ function buildRemoteSyncSteps(ctx) {
           ]
         }
       ],
-      artifacts: () => [{label: 'Source briefing', file: path.join(ctx.folder, `briefing_${ctx.date}.txt`)}],
+      artifacts: () => [
+        {label: 'Source briefing', file: path.join(ctx.folder, `briefing_${ctx.date}.txt`)},
+        {label: 'Corrected briefing', file: correctedBriefingPath(ctx)}
+      ],
       status: (stepState, state) => {
         const rs = state?.remoteSync;
         if (stepState?.status === 'failed') {
@@ -752,8 +816,9 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'split-scenes',
-      title: '15. Split final MP4 into scene videos',
+      title: '15. Split final MP4 into scene videos (optional)',
       description:
+        'Optional — run only if you need per-scene clips. No other step depends on it (step 16 runs without it). ' +
         'Cuts each downloaded final MP4 into per-scene clips (intro+scene-1, middles, penultimate+outro). ' +
         'Pick which variants to split — each lands in its own scene-videos[-hook-*]/ folder.',
       kind: 'run',
@@ -840,7 +905,8 @@ export function getSteps(ctx, state = null) {
       title: '16. Generate social captions',
       description:
         'Action A runs Codex once to write an editable output/social-captions.json (per-clip Instagram captions/hashtags + ' +
-        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). The Post now section below uses that JSON with the final MP4s and split clips.',
+        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). Independent of step 15 — runs whether or not the ' +
+        'final MP4 has been split. The Post now section below uses that JSON with the final MP4s, and with split clips if step 15 was run.',
       kind: 'run',
       actions: [
         {
@@ -968,7 +1034,7 @@ export function getSteps(ctx, state = null) {
       id: 'duel-narration',
       title: '19. Quote Duel: generate narration',
       description:
-        `Local only — no server contact. Builds output/quote-duel.json (injects the default hook texts), synthesizes per-duel narration via Hamsa (reused after the first run), and re-applies the audio-driven durations. Open the duel HTML below to verify the duels + hooks before rendering. Hooks come from step 17 (shared). The folder is synced to the server in step 20.`,
+        `Local only — no server contact. Builds output/quote-duel.json, synthesizes per-duel narration via Hamsa from each clash audioText (editable via audio/quote-duel-text-overrides.json), and re-applies the audio-driven durations. All Quote Duel review HTML outputs start with the static date + نفس الحدث غير رواية intro while ${DUEL_HOOK} plays in the background for audio duration + 0.5s. The top three outlet clashes are generated as separate HTML files below, giving four review HTML outputs total. Hooks come from step 17 (shared). The folder is synced to the server in step 20.`,
       kind: 'run',
       actions: [
         {
@@ -990,7 +1056,10 @@ export function getSteps(ctx, state = null) {
         }
       ],
       artifacts: () => [
-        {label: 'radar-beirut-quote-duel.html (review duels + hooks)', file: path.join(ctx.output, 'radar-beirut-quote-duel.html'), open: true},
+        ...quoteDuelHtmlArtifacts(ctx),
+        {label: 'quote-duel-html-manifest.json', file: path.join(ctx.output, 'quote-duel-html-manifest.json'), optional: true},
+        {label: 'output/quote-duel-audio-script.json (review generated clash narration)', file: path.join(ctx.output, 'quote-duel-audio-script.json'), optional: true},
+        {label: 'audio/quote-duel-text-overrides.json (optional per-clash script edits)', file: path.join(ctx.folder, 'audio', 'quote-duel-text-overrides.json'), optional: true},
         {label: 'audio/quote-duel-manifest.json', file: duelManifest}
       ],
       status: (stepState) => {

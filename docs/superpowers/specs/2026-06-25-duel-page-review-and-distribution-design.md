@@ -43,10 +43,19 @@ short-form distribution to where the short-form videos are produced.
 ## Content source (unchanged, stated for clarity)
 
 Main-dashboard **step 3 (`codex-afk`)** fills `briefings/<date>/quote-duel.json`
-with each clash's opposed quotes/outlets **and** the per-duel spoken `narration`
-line (falling back to `summary`). The duel page only reviews, edits (as
-overrides), generates audio for, and renders that content — it never authors
-narration from scratch.
+with each clash's opposed quotes/outlets **and** the per-duel spoken narration.
+The real primary field is **`audioText`** (Codex authors it per clash —
+`scripts/lib/briefing-analysis-pack.mjs:123-127`), with `narration` a legacy
+fallback. The exact spoken-text precedence already lives in
+`scripts/generate-quote-duel-audio.mjs`:
+
+```js
+defaultDuelText(scene) = audioText || narration || formatDuelAudioText(scene) || summary
+textSource(scene)      = 'audioText' | 'narration' | 'generated-format' | 'summary'
+```
+
+The duel page only reviews, edits (as overrides), generates audio for, and renders
+that content — it never authors narration from scratch.
 
 ---
 
@@ -70,10 +79,10 @@ duel-download         (24) local  — rsync finals back (unchanged)
 duel-split            (25) local  — per-duel shorts + top-3 reel (unchanged)
 ```
 
-The duel page must render its cards in `DUEL_STEP_IDS` order (sort the filtered
-list by index in that array) rather than relying on server array order, because
-the shared social step (Part 2) lives at an earlier index in the server array but
-must appear at the end of the duel page.
+The duel page must render its cards in `[...DUEL_STEP_IDS, ...SHARED_STEP_IDS]`
+order (sort the filtered list by index in that combined array) rather than relying
+on server array order, because the shared social step (Part 2) lives at an earlier
+index in the server array but must appear at the end of the duel page.
 
 ### Step definitions (`dashboard/steps.mjs`)
 
@@ -113,7 +122,8 @@ hard lock). State lives in `output/dashboard-state.json` under a `duel` key:
 { "duel": { "narrationConfirmedAt": "<ISO>" } }
 ```
 
-- `duel-text`'s `confirm` action sets `narrationConfirmedAt`.
+- `duel-text`'s `confirm` action calls `POST /api/duel/confirm`, which sets
+  `narrationConfirmedAt`.
 - Saving an edit via `POST /api/duel/script` clears `narrationConfirmedAt`
   (re-gate after any text change).
 - `duel-audio` status reads the marker: `pending` with detail "Confirm narration
@@ -121,22 +131,38 @@ hard lock). State lives in `output/dashboard-state.json` under a `duel` key:
 
 ### Per-duel narration data + API
 
+**Shared text precedence (no reinvention).** Extract `defaultDuelText`,
+`formatDuelAudioText`, and `textSource` from `generate-quote-duel-audio.mjs` into a
+new shared module `scripts/lib/duel-narration-text.mjs`, and have BOTH the audio
+generator and `duelNarrationEntries` import it. This guarantees the editor's shown
+"default" matches exactly what TTS will synthesize. Do not recompute
+`narration || summary` — that diverges from the real `audioText`-first order.
+
+The override file `audio/quote-duel-text-overrides.json` is **already read** by
+`generate-quote-duel-audio.mjs:142` (keys are source-ordinal `duel-N`, e.g.
+`duel-1`). This work only adds the **write** side and a reader for the panel — keep
+the exact same key format; do not introduce a parallel override format.
+
 Mirror the existing scene-narration machinery in `dashboard/audio.mjs`:
 
 - `duelNarrationEntries(ctx)`: read `output/quote-duel.json` `scenes[]` and merge
   with `audio/quote-duel-text-overrides.json`. One entry per duel:
-  `{ duelId, outlets: [a, b], quotes: [a, b], defaultText, overrideText,
-  effectiveText, isOverridden }`. `defaultText` = `narration` || `summary`.
-  Override precedence + `isOverridden` mirror the existing `buildEntry`.
+  `{ duelId, outlets: [a, b], quotes: [a, b], defaultText, defaultSource,
+  overrideText, effectiveText, isOverridden }` where `defaultText =
+  defaultDuelText(scene)` and `defaultSource = textSource(scene)` from the shared
+  module. `duelId` is the source-ordinal `duel-N` (matches clip identity).
 - Override read/write reuse the `loadTextOverrides` / `saveTextOverride`
-  write-or-delete pattern, keyed by `duelId`, against
-  `audio/quote-duel-text-overrides.json`.
+  write-or-delete pattern, keyed by `duel-N`.
 
 Server (`dashboard/server.mjs`):
 
 - `GET /api/duel/script?date=` → `{ entries: duelNarrationEntries(ctx) }`.
 - `POST /api/duel/script` `{ date, duelId, text }` → save/clear one override,
   clear `narrationConfirmedAt`, `broadcast(date, {type:'state-changed'})`.
+- `POST /api/duel/confirm` `{ date }` → set `duel.narrationConfirmedAt` in
+  `dashboard-state.json`, `broadcast(date, {type:'state-changed'})`. This is the
+  contract behind `duel-text`'s `confirm` action (there is no generic step-level
+  "confirm" action type today; closest prior art is `POST /api/review`).
 - Fold entries into `/api/state` as `state.duel.narration` so the panel renders
   without an extra round trip.
 
@@ -176,12 +202,25 @@ shows `done` on both.
 - Result: two JSONs — `social-captions.json` (briefing/YouTube) and
   `quote-duel-social-captions.json` (duel shorts).
 
-### Surfacing on both pages
+### Surfacing on both pages (new shared-step concept)
 
-- Add `social-package` to `DUEL_STEP_IDS`; the duel page sorts it last
-  (after `duel-split`).
-- On the duel page it is labeled **"Social captions"** (no out-of-order number).
-- Status is shared automatically through the artifact-based status function.
+The two pages today filter the same `DUEL_STEP_SET` mutually exclusively:
+`App.jsx:196` keeps `!DUEL_STEP_SET.has(id)`, `DuelApp.jsx:84` keeps
+`DUEL_STEP_SET.has(id)`. Adding `social-package` to `DUEL_STEP_IDS` would
+therefore **remove** it from the main page — the opposite of the goal. Introduce a
+separate set instead:
+
+- New `SHARED_STEP_IDS = ['social-package']` (+ `SHARED_STEP_SET`) in
+  `duelSteps.js`. `social-package` is **not** added to `DUEL_STEP_IDS`.
+- `App.jsx` main filter is unchanged (`!DUEL_STEP_SET.has(id)`), so the shared step
+  stays on the main page.
+- `DuelApp.jsx` duel filter becomes `DUEL_STEP_SET.has(id) || SHARED_STEP_SET.has(id)`,
+  and the duel page orders cards by `[...DUEL_STEP_IDS, ...SHARED_STEP_IDS]` index
+  so the shared step renders last (after `duel-split`).
+- On the duel page the shared step is labeled **"Social captions"** (no
+  out-of-order number).
+- Status is shared automatically through the artifact-based status function — one
+  run shows `done` on both pages.
 
 ---
 
@@ -210,7 +249,12 @@ shows `done` on both.
 - Reuse `POST /api/phone/upload-scenes` and `POST /api/phone/delete-folder` with a
   `kind: 'duel'` flag in the body. When `kind==='duel'`, the upload sources MP4s
   from the duel videos dir (per-duel shorts + reel + full) instead of
-  `sceneMp4Files(variant.sceneDir)`, and uses a duel-specific remote folder name.
+  `sceneMp4Files(variant.sceneDir)`.
+- `phoneRemoteFolder(date)` currently takes only a date and is shared with the
+  briefing upload. Give it a `kind` parameter (or add a sibling) so the duel upload
+  targets a distinct remote folder and does not collide with the briefing upload
+  for the same date. `state.phoneTransfer` likewise needs a duel-scoped key (e.g.
+  `state.duelPhoneTransfer`) so the two transfers track independently.
 - Cover image: keep including a cover if one exists; otherwise upload videos only.
   (Default; no duel-specific cover is required.)
 
@@ -230,7 +274,7 @@ shows `done` on both.
 ## Data flow summary
 
 ```
-step 3 (codex-afk) ── quote-duel.json (clashes + narration) ──┐
+step 3 (codex-afk) ── quote-duel.json (clashes + audioText) ──┐
                                                               │
 duel-text  ── briefing:duel:build ─→ output/quote-duel.json ──┤
    │  GET/POST /api/duel/script ─→ audio/quote-duel-text-overrides.json

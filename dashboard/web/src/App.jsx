@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import StepCard from './StepCard.jsx';
 import AudioPanel from './AudioPanel.jsx';
 import SocialPostingPanel from './SocialPostingPanel.jsx';
+import {DUEL_STEP_SET, duelHref} from './duelSteps.js';
 
 async function api(url, options) {
   const res = await fetch(url, options);
@@ -96,6 +97,19 @@ export default function App() {
     }
   };
 
+  const saveBriefing = async (content) => {
+    try {
+      await api('/api/briefing/corrected', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date, content})
+      });
+      await refresh(date);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const setReviewed = async (done) => {
     try {
       await api('/api/review', {
@@ -177,8 +191,12 @@ export default function App() {
     return result;
   };
 
-  const doneCount = data ? data.steps.filter((step) => step.status === 'done').length : 0;
+  // The Quote Duel steps (17–23) live on their own page (?view=duel), reachable
+  // from the step 9 card. Keep them out of the main pipeline + progress count.
+  const mainSteps = data ? data.steps.filter((step) => !DUEL_STEP_SET.has(step.id)) : [];
+  const doneCount = mainSteps.filter((step) => step.status === 'done').length;
   const busy = Boolean(data?.activeRun);
+  const openDuelPage = () => window.open(duelHref(date), '_blank', 'noopener');
   const audioRegenActive = data?.activeRun?.stepId?.startsWith('audio-regen:')
     ? data.activeRun.stepId.slice('audio-regen:'.length)
     : null;
@@ -193,7 +211,7 @@ export default function App() {
         <div className="header-right">
           {data && (
             <span className="progress-pill">
-              {doneCount}/{data.steps.length} steps done
+              {doneCount}/{mainSteps.length} steps done
             </span>
           )}
           <button className="new-date-btn" onClick={createToday}>
@@ -221,7 +239,7 @@ export default function App() {
       {data && (
         <main>
           <section className="pipeline">
-            {data.steps.map((step) => (
+            {mainSteps.map((step) => (
               <StepCard
                 key={step.id}
                 step={step}
@@ -231,6 +249,9 @@ export default function App() {
                 running={data.activeRun?.stepId === step.id}
                 onRun={(actionId, options) => runStep(step.id, actionId, options)}
                 onReview={step.id === 'html-review' ? setReviewed : null}
+                onOpenDuel={step.id === 'html-review' ? openDuelPage : null}
+                briefing={step.id === 'remote-pull' ? data.correctedBriefing : null}
+                onSaveBriefing={step.id === 'remote-pull' ? saveBriefing : null}
               />
             ))}
           </section>

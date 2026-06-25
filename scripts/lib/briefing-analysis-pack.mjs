@@ -120,6 +120,11 @@ export const buildCodexPrompt = ({
     '- default outlet timing can start in the 15000ms to 20000ms range, but final timing should be adjustable through `output/timing-config.json`',
     '- use only outlets from the allowed outlet list below',
     '- Quote Duel: pick the strongest 2-4 clashes, each scene = one event + two opposed outlets + two direct quotes + one contrast line',
+    '- Quote Duel: every scene must include `audioText`, a spoken Lebanese-Arabic narration for that one clash, using this exact structure: `الحدث هو "..."، "OUTLET A" قالت عنو "..."، و"OUTLET B" قالت عنو "..."`',
+    '- Quote Duel `audioText`: infer the text inside the quotes editorially from the source, stance, and direct quotes; do not blindly copy the on-screen quote if a clearer spoken paraphrase is better',
+    '- Quote Duel: optionally fill `left.audioLine` and `right.audioLine` with the same short inferred outlet phrases used inside the spoken `audioText` quotes',
+    '- Quote Duel `audioText` should sound natural when read aloud, mention both outlet names, state the event/clash clearly, and keep the quoted outlet phrasing short',
+    '- Quote Duel `audioText` is the editable source for per-clash WAV generation; keep it separate from the short on-screen `summary`',
     '- Fault Line Map: create one fresh day-specific axis, not a permanent one',
     '- Keyword Radar: 3-4 charged terms per outlet scene, ordered by rhetorical force',
     '- keep Arabic concise, sharp, editorial, and readable for vertical video',
@@ -181,18 +186,21 @@ export const createEmptyAnalysisFiles = ({dateLabel}) => ({
         eventLabel: '',
         contrastLabel: '',
         summary: '',
+        audioText: '',
         durationSeconds: 8,
         left: {
           outlet: '',
           logoFile: '',
           stance: '',
-          quote: ''
+          quote: '',
+          audioLine: ''
         },
         right: {
           outlet: '',
           logoFile: '',
           stance: '',
-          quote: ''
+          quote: '',
+          audioLine: ''
         }
       }
     ],

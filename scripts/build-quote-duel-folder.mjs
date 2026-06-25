@@ -4,7 +4,8 @@
 //
 // Reads the upstream quote-duel.json, injects the default hook texts, re-applies
 // the audio-driven durations from timingConfig.quoteDuel, writes
-// output/quote-duel.json, and rebuilds radar-beirut-quote-duel.html.
+// output/quote-duel.json, and rebuilds the combined Quote Duel HTML plus
+// top-three standalone clash review HTML files.
 
 import fs from 'node:fs';
 import path from 'node:path';

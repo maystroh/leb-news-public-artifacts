@@ -179,7 +179,7 @@ export default function SocialPostingPanel({social, onUploadPhoneScenes, onDelet
                 </div>
               </div>
             ))}
-            {!active?.clips?.length && <p className="hint">Split clips are not ready yet. Run step 15.</p>}
+            {!active?.clips?.length && <p className="hint">No split clips — run step 15 only if you want per-scene clips (optional).</p>}
           </div>
         </div>
       </div>

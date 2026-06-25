@@ -75,6 +75,7 @@ export const validateBriefingAnalysisFolder = (briefingFolder) => {
       requireFilled(errors, prefix, scene?.eventLabel, 'eventLabel');
       requireFilled(errors, prefix, scene?.contrastLabel, 'contrastLabel');
       requireFilled(errors, prefix, scene?.summary, 'summary');
+      requireFilled(errors, prefix, scene?.audioText, 'audioText');
       requireFilled(errors, prefix, scene?.left?.outlet, 'left.outlet');
       requireFilled(errors, prefix, scene?.left?.quote, 'left.quote');
       requireFilled(errors, prefix, scene?.right?.outlet, 'right.outlet');
