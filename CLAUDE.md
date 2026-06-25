@@ -185,6 +185,7 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/mux-quote-duel-audio.mjs` | muxes per-duel WAVs at frame offsets onto the muted duel MP4 |
 | `scripts/split-quote-duel-video.mjs` | splits into duel-NN.mp4 + re-encoded top-3 quote-duel-full.mp4 |
 | `scripts/build-duel-social-captions-prompt.mjs` | Codex prompt for duelId-keyed Instagram captions + reel description |
+| `scripts/validate-duel-social-captions.mjs` | validates output/quote-duel-social-captions.json against quote-duel.json |
 | `scripts/lib/duel-timeline.mjs` | shared frame-quantized duel timeline (comp + mux + split) |
 | `scripts/lib/hamsa-tts.mjs` | shared Hamsa TTS core + voice-fallback runner |
 | `scripts/lib/audio-mux.mjs` | shared ffmpeg adelay→amix filter_complex builder |
@@ -234,10 +235,17 @@ To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get 
   the duel HTML shows a read-only hooks-review panel. Add a hook: edit `DEFAULT_DUEL_HOOKS` then
   rerun `briefing:duel:hooks`.
 - **Dashboard**: step 17 generates the shared hooks locally (all dates) + plays each one; step 18
-  syncs audio/hooks/ to the render server once (idempotent; shows "done" until a hook changes);
-  steps 19–23 are the per-date duel flow: 19 generates narration locally (no server contact; opens
-  the duel HTML for manual review), 20 re-syncs the folder + renders on the server, then mux →
-  download → local split. Fixed to `hook-2`.
+  reviews and edits per-duel narration locally (per-duel editor + Confirm gate before audio;
+  overrides in `audio/quote-duel-text-overrides.json`); step 19 generates narration audio locally
+  via Hamsa TTS (then rebuilds for audio-driven durations); step 20 builds and checks the duel
+  HTML locally (verify audio + visual + hook before any server contact); step 21 syncs
+  `audio/hooks/` to the render server once (idempotent); steps 22–25 are server-side: sync +
+  render (muted) → mux audio → download → local split. Fixed to `hook-2`. Short-form
+  distribution (Instagram Reels / YouTube Shorts / TikTok + phone transfer) lives exclusively on
+  the duel page (DuelPostingPanel), surfacing three tiers: the all-duels master, the top-3 reel,
+  and per-duel shorts; the main dashboard "Post now" keeps only the YouTube card. Step 16
+  (social captions) is shared across both pages and also generates and validates
+  `output/quote-duel-social-captions.json`.
 
 ## Editing Rules
 
