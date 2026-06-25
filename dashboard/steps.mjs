@@ -999,8 +999,71 @@ export function getSteps(ctx, state = null) {
     },
 
     {
+      id: 'duel-text',
+      title: '18. Quote Duel: review & edit narration',
+      description:
+        'Local only. Builds output/quote-duel.json and surfaces each clash\'s spoken narration for review/edit below (saved to audio/quote-duel-text-overrides.json). Confirm the text before generating audio (step 19).',
+      kind: 'run',
+      actions: [
+        {id: 'run', label: 'Build duel content + load narration (local)', commands: () => [npmRun('briefing:duel:build', '--folder', folder)]}
+      ],
+      artifacts: () => [
+        ...quoteDuelHtmlArtifacts(ctx),
+        {label: 'output/quote-duel.json', file: path.join(ctx.output, 'quote-duel.json'), optional: true},
+        {label: 'audio/quote-duel-text-overrides.json (per-clash script edits)', file: path.join(ctx.folder, 'audio', 'quote-duel-text-overrides.json'), optional: true}
+      ],
+      status: (stepState) => {
+        if (!exists(path.join(ctx.output, 'quote-duel.json'))) return fromLastRun(stepState, 'Duel content not built yet.');
+        const confirmedAt = (loadState(ctx).duel || {}).narrationConfirmedAt;
+        if (!confirmedAt) return {status: 'attention', detail: 'Review the narration below, then Confirm.'};
+        return {status: 'done', detail: 'Narration confirmed — generate audio (step 19).'};
+      }
+    },
+
+    {
+      id: 'duel-audio',
+      title: '19. Quote Duel: generate narration audio',
+      description:
+        'Local only. Synthesizes per-duel narration via Hamsa from the confirmed text, then rebuilds quote-duel.json to re-apply audio-driven durations.',
+      kind: 'run',
+      actions: [
+        {id: 'run', label: 'Generate duel narration (local)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder), npmRun('briefing:duel:build', '--folder', folder)]},
+        {id: 'existing-only', label: 'Refresh durations from existing WAVs (no Hamsa)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'), npmRun('briefing:duel:build', '--folder', folder)]}
+      ],
+      artifacts: () => [
+        {label: 'audio/quote-duel-manifest.json', file: duelManifest},
+        {label: 'output/quote-duel-audio-script.json', file: path.join(ctx.output, 'quote-duel-audio-script.json'), optional: true}
+      ],
+      status: (stepState) => {
+        const confirmedAt = (loadState(ctx).duel || {}).narrationConfirmedAt;
+        if (!confirmedAt) return {status: 'pending', detail: 'Confirm narration first (step 18).'};
+        if (!exists(duelManifest)) return fromLastRun(stepState, 'Duel narration not generated yet.');
+        return fromLastRun(stepState, 'Duel narration ready — check the HTML (step 20).');
+      }
+    },
+
+    {
+      id: 'duel-html',
+      title: '20. Quote Duel: build & check HTML',
+      description:
+        'Local only. Rebuilds the Quote Duel review HTML from the current durations and opens it so you can verify audio + visual + hook together before any server contact.',
+      kind: 'run',
+      actions: [
+        {id: 'run', label: 'Rebuild + open review HTML (local)', commands: () => [npmRun('briefing:duel:build', '--folder', folder)]}
+      ],
+      artifacts: () => quoteDuelHtmlArtifacts(ctx),
+      status: (stepState) => {
+        if (!exists(path.join(ctx.output, 'radar-beirut-quote-duel.html'))) return fromLastRun(stepState, 'HTML not built yet.');
+        if (exists(duelManifest) && mtimeMs(duelManifest) > mtimeMs(path.join(ctx.output, 'radar-beirut-quote-duel.html'))) {
+          return {status: 'stale', detail: 'Audio changed after the HTML — rebuild.'};
+        }
+        return fromLastRun(stepState, 'HTML ready — verify, then sync hooks (step 21).');
+      }
+    },
+
+    {
       id: 'duel-hooks-sync',
-      title: '18. Quote Duel: sync hooks to server (once)',
+      title: '21. Quote Duel: sync hooks to server (once)',
       description:
         `One-time push of the shared audio/hooks/ to ${SSH_HOST}. rsync only transfers changes, so it is safe to re-run, but you only need it once (or after regenerating a hook in step 17). Shows "done" until the hooks change.`,
       kind: 'run',
@@ -1031,46 +1094,8 @@ export function getSteps(ctx, state = null) {
     },
 
     {
-      id: 'duel-narration',
-      title: '19. Quote Duel: generate narration',
-      description:
-        `Local only — no server contact. Builds output/quote-duel.json, synthesizes per-duel narration via Hamsa from each clash audioText (editable via audio/quote-duel-text-overrides.json), and re-applies the audio-driven durations. All Quote Duel review HTML outputs start with the static date + نفس الحدث غير رواية intro while ${DUEL_HOOK} plays in the background for audio duration + 0.5s. The top three outlet clashes are generated as separate HTML files below, giving four review HTML outputs total. Hooks come from step 17 (shared). The folder is synced to the server in step 20.`,
-      kind: 'run',
-      actions: [
-        {
-          id: 'run',
-          label: 'Generate duel narration (local)',
-          commands: () => [
-            npmRun('briefing:duel:build', '--folder', folder),
-            npmRun('briefing:duel:audio', '--folder', folder),
-            npmRun('briefing:duel:build', '--folder', folder)
-          ]
-        },
-        {
-          id: 'existing-only',
-          label: 'Refresh durations from existing WAVs (no Hamsa)',
-          commands: () => [
-            npmRun('briefing:duel:audio', '--folder', folder, '--existing-only'),
-            npmRun('briefing:duel:build', '--folder', folder)
-          ]
-        }
-      ],
-      artifacts: () => [
-        ...quoteDuelHtmlArtifacts(ctx),
-        {label: 'quote-duel-html-manifest.json', file: path.join(ctx.output, 'quote-duel-html-manifest.json'), optional: true},
-        {label: 'output/quote-duel-audio-script.json (review generated clash narration)', file: path.join(ctx.output, 'quote-duel-audio-script.json'), optional: true},
-        {label: 'audio/quote-duel-text-overrides.json (optional per-clash script edits)', file: path.join(ctx.folder, 'audio', 'quote-duel-text-overrides.json'), optional: true},
-        {label: 'audio/quote-duel-manifest.json', file: duelManifest}
-      ],
-      status: (stepState) => {
-        if (!exists(duelManifest)) return {status: 'pending', detail: 'Duel narration not generated yet.'};
-        return fromLastRun(stepState, 'Duel narration ready — verify the HTML, then render (step 20).');
-      }
-    },
-
-    {
       id: 'duel-server-render',
-      title: '20. Quote Duel: sync + render on server (muted)',
+      title: '22. Quote Duel: sync + render on server (muted)',
       description:
         `Re-syncs briefings/${ctx.date}/ (the narration + JSON from step 19) to ${SSH_HOST}, pulls the repo there, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Hooks must be synced once via step 18.`,
       kind: 'run',
@@ -1105,7 +1130,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-server-mux',
-      title: '21. Quote Duel: mux audio on server',
+      title: '23. Quote Duel: mux audio on server',
       description:
         `Attaches the duel narration + the ${DUEL_HOOK} hook WAV to the muted duel render on the server (video stream-copied, finishes in seconds) → radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4.`,
       kind: 'run',
@@ -1135,7 +1160,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-download',
-      title: '22. Quote Duel: download videos from server',
+      title: '24. Quote Duel: download videos from server',
       description: `rsync of the muxed radar-beirut-quote-duel*-final.mp4 from ${SSH_HOST} back into the local output folder.`,
       kind: 'run',
       actions: [
@@ -1165,7 +1190,7 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'duel-split',
-      title: '23. Quote Duel: split into shorts',
+      title: '25. Quote Duel: split into shorts',
       description:
         `Cuts the downloaded final into per-duel shorts + the top-3 full reel (each opens with the ${DUEL_HOOK} hook) → duel-videos-${DUEL_HOOK}/.`,
       kind: 'run',
