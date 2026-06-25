@@ -24,7 +24,9 @@ import {
   buildRecordingCommands,
   loadAudioSource,
   saveAudioSource,
-  saveTextOverride
+  saveTextOverride,
+  duelNarrationEntries,
+  saveDuelTextOverride
 } from './audio.mjs';
 import {statInfo} from './lib/checks.mjs';
 
@@ -427,6 +429,10 @@ function computeState(date) {
     correctedBriefing: correctedBriefingState(ctx),
     audioSource: loadAudioSource(ctx),
     audio: audioEntries(ctx, state),
+    duel: {
+      narration: duelNarrationEntries(ctx),
+      narrationConfirmedAt: (state.duel || {}).narrationConfirmedAt || null
+    },
     social: socialPostingState(ctx, state),
     reviews: state.reviews || {},
     activeRun: active
@@ -596,6 +602,43 @@ app.post('/api/audio/source', (req, res) => {
   const audioSource = saveAudioSource(ctx, String(req.body?.audioSource || 'ai'));
   broadcast(date, {type: 'state-changed'});
   res.json({audioSource});
+});
+
+app.get('/api/duel/script', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  res.json({entries: duelNarrationEntries(briefingContext(date))});
+});
+
+app.post('/api/duel/script', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const {duelId, text} = req.body || {};
+  if (!duelId) return res.status(400).json({error: 'duelId is required.'});
+  const ctx = briefingContext(date);
+  try {
+    saveDuelTextOverride(ctx, String(duelId), String(text ?? ''));
+    const state = loadState(ctx);
+    if (state.duel?.narrationConfirmedAt) {
+      state.duel.narrationConfirmedAt = null; // any edit re-gates
+      saveState(ctx, state);
+    }
+    broadcast(date, {type: 'state-changed'});
+    res.json({ok: true, entries: duelNarrationEntries(ctx)});
+  } catch (error) {
+    res.status(500).json({error: error.message});
+  }
+});
+
+app.post('/api/duel/confirm', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const ctx = briefingContext(date);
+  const state = loadState(ctx);
+  state.duel = {...(state.duel || {}), narrationConfirmedAt: new Date().toISOString()};
+  saveState(ctx, state);
+  broadcast(date, {type: 'state-changed'});
+  res.json({ok: true, narrationConfirmedAt: state.duel.narrationConfirmedAt});
 });
 
 app.post('/api/phone/upload-scenes', async (req, res) => {
