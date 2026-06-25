@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import StepCard from './StepCard.jsx';
-import {DUEL_STEP_SET} from './duelSteps.js';
+import DuelNarrationPanel from './DuelNarrationPanel.jsx';
+import {DUEL_STEP_SET, DUEL_STEP_IDS, SHARED_STEP_SET, SHARED_STEP_IDS} from './duelSteps.js';
 
 // Standalone Quote Duel page (?view=duel). Self-contained on purpose: it shares
 // only StepCard + the duel step id list with the main dashboard, so duel work can
@@ -81,7 +82,27 @@ export default function DuelApp() {
     }
   };
 
-  const duelSteps = data ? data.steps.filter((step) => DUEL_STEP_SET.has(step.id)) : [];
+  const saveDuelText = async (duelId, text) => {
+    try {
+      await api('/api/duel/script', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date, duelId, text})});
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const confirmDuelText = async () => {
+    try {
+      await api('/api/duel/confirm', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date})});
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const order = [...DUEL_STEP_IDS, ...SHARED_STEP_IDS];
+  const duelSteps = data
+    ? data.steps
+        .filter((step) => DUEL_STEP_SET.has(step.id) || SHARED_STEP_SET.has(step.id))
+        .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
+    : [];
   const doneCount = duelSteps.filter((step) => step.status === 'done').length;
   const busy = Boolean(data?.activeRun);
 
@@ -130,7 +151,7 @@ export default function DuelApp() {
               <StepCard
                 key={step.id}
                 step={step}
-                social={null}
+                social={step.id === 'social-package' ? data.social : null}
                 log={logs[step.id] || step.lastRun?.logTail || []}
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
@@ -138,6 +159,15 @@ export default function DuelApp() {
               />
             ))}
           </section>
+          {data?.duel && (
+            <DuelNarrationPanel
+              entries={data.duel.narration}
+              confirmedAt={data.duel.narrationConfirmedAt}
+              busy={busy}
+              onSaveText={saveDuelText}
+              onConfirm={confirmDuelText}
+            />
+          )}
         </main>
       )}
     </div>
