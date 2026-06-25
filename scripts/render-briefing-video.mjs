@@ -3,6 +3,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
+import {createAssetResolver} from './lib/remotion-assets.mjs';
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -124,34 +125,11 @@ fs.rmSync(remotionAssetsFolder, {recursive: true, force: true});
 fs.mkdirSync(remotionAssetsFolder, {recursive: true});
 
 const briefing = readJson(briefingDataPath);
-const resolveFromOutput = (relativePath) => path.resolve(outputFolder, relativePath);
-const safeFilePart = (value) => String(value).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'asset';
-const copyAsset = (sourcePath, targetRelativePath) => {
-  if (!sourcePath || !fs.existsSync(sourcePath)) return null;
-
-  const normalizedTarget = targetRelativePath.replace(/\\/g, '/');
-  const targetPath = path.join(remotionAssetsFolder, normalizedTarget);
-  fs.mkdirSync(path.dirname(targetPath), {recursive: true});
-  fs.copyFileSync(sourcePath, targetPath);
-  return normalizedTarget;
-};
-const resolveAudioSrc = (src) => {
-  if (!src) return null;
-  if (/^(https?|file):/i.test(src)) return src;
-  const sourcePath = resolveFromOutput(src);
-  return copyAsset(sourcePath, `audio/${path.basename(sourcePath)}`);
-};
-
-const logoSrcByFile = new Map();
-const getLogoSrc = (logoFile) => {
-  if (!logoFile) return null;
-  if (logoSrcByFile.has(logoFile)) return logoSrcByFile.get(logoFile);
-
-  const logoPath = path.join(cwd, 'public', 'outlet-logos', logoFile);
-  const src = copyAsset(logoPath, `outlet-logos/${logoFile}`);
-  logoSrcByFile.set(logoFile, src);
-  return src;
-};
+const {safeFilePart, resolveFromOutput, copyAsset, resolveAudioSrc, getLogoSrc} = createAssetResolver({
+  outputFolder,
+  assetsFolder: remotionAssetsFolder,
+  cwd
+});
 
 const FRONT_PAGE_ALIASES = {
   aawsat: ['aawsat', 'asharqalawsat'],

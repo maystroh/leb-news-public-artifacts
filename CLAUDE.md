@@ -177,6 +177,75 @@ npm run briefing:render:mp4 -- --folder briefings/YYYY-MM-DD --resolution 540x96
 | `scripts/package-social-zip.mjs` | standalone legacy utility: zips one video type with full MP4, split clips, captions, and YouTube description |
 | `scripts/lib/prepare-briefing-data.mjs` | shared scene data prep |
 | `scripts/lib/briefing-analysis-pack.mjs` | shared briefing analysis helpers |
+| `scripts/build-quote-duel-folder.mjs` | duel-only rebuild (output/quote-duel.json + HTML); skips the other 3 formats |
+| `scripts/generate-duel-hooks.mjs` | ONCE/all-dates: shared hook WAVs → audio/hooks/<id>.wav + manifest |
+| `scripts/lib/duel-hooks.mjs` | DEFAULT_DUEL_HOOKS, ensureDuelHooks (inject), normalizeHookId, resolveSharedHook |
+| `scripts/generate-quote-duel-audio.mjs` | per-duel narration TTS → WAVs + manifest + timingConfig.quoteDuel.scenes |
+| `scripts/render-quote-duel-video.mjs` | Remotion QuoteDuel renderer (merges audio manifest + logo/audio srcs) |
+| `scripts/mux-quote-duel-audio.mjs` | muxes per-duel WAVs at frame offsets onto the muted duel MP4 |
+| `scripts/split-quote-duel-video.mjs` | splits into duel-NN.mp4 + re-encoded top-3 quote-duel-full.mp4 |
+| `scripts/build-duel-social-captions-prompt.mjs` | Codex prompt for duelId-keyed Instagram captions + reel description |
+| `scripts/validate-duel-social-captions.mjs` | validates output/quote-duel-social-captions.json against quote-duel.json |
+| `scripts/lib/duel-timeline.mjs` | shared frame-quantized duel timeline (comp + mux + split) |
+| `scripts/lib/hamsa-tts.mjs` | shared Hamsa TTS core + voice-fallback runner |
+| `scripts/lib/audio-mux.mjs` | shared ffmpeg adelay→amix filter_complex builder |
+| `scripts/lib/remotion-assets.mjs` | shared copyAsset/getLogoSrc/resolveAudioSrc resolver |
+
+## Quote Duel Video Pipeline
+
+The Quote Duel format has a video path parallel to the briefing (no intro; atomized
+into per-duel shorts). Local pipeline (the server/dashboard parity is in `TODOS.md`):
+
+```powershell
+npm run briefing:duel:hooks                                        # ONCE (all dates): shared hook WAVs → audio/hooks/
+npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD      # builds output/quote-duel.json (+ injects hook texts)
+npm run briefing:duel:audio  -- --folder briefings/YYYY-MM-DD       # per-duel narration WAVs (reuse/--force/--existing-only)
+npm run briefing:duel:render -- --folder briefings/YYYY-MM-DD --muted [--hook hook-2]
+npm run briefing:duel:mux:audio -- --folder briefings/YYYY-MM-DD [--hook hook-2]
+npm run briefing:duel:split  -- --folder briefings/YYYY-MM-DD [--hook hook-2]
+npm run briefing:duel:captions -- --folder briefings/YYYY-MM-DD     # → quote-duel-social-captions-prompt.md
+```
+
+To A/B test hooks, run render→mux→split once per `--hook <id>` (outputs get a
+`-<id>` suffix; pass the SAME `--hook` to all three so they line up).
+
+- **Schema** (`briefings/<date>/quote-duel.json`, upstream): each `scenes[]` duel may carry
+  `rank` (1..N; ranks ≤3 are "main" → the full reel), `narration` (spoken line; falls back
+  to `summary`). `rank`/`narration` pass through `build:folder`; audio-driven durations live
+  in `timingConfig.quoteDuel.scenes` (audio + 0.5s) and are re-applied on rebuild — never
+  write them into `output/quote-duel.json` (it is regenerated wholesale).
+- **Timeline**: `scripts/lib/duel-timeline.mjs` is the single frame-quantized source for the
+  comp, the muxer, and the splitter — they agree to the frame. Clip identity is source-ordinal
+  (`duel-01` == `scenes[0]`); a missing-audio duel is skipped without renumbering survivors.
+- **Output names**: `radar-beirut-quote-duel.mp4` (muted master) → `…-final.mp4` (muxed) →
+  `duel-videos/duel-NN.mp4` (atomic) + `duel-videos/quote-duel-full.mp4` (top-3, ≤60s,
+  re-encoded from the master). WAVs live in `briefings/<date>/audio/duel-NN.wav`, NOT `output/audio/`.
+- **Comp** (`src/QuoteDuelVideo.jsx`, registered `QuoteDuel` in `src/Root.jsx`): 720x1280 with a
+  405x720 internal stage scaled via `useVideoConfig` (full-res, matches ProductionBriefing).
+  Per-duel `layout` prop overrides text placement; logo falls back to outlet-name text.
+- **Attention hooks** (TikTok-style opener) are STATIC across all dates/duels. The texts live in
+  `DEFAULT_DUEL_HOOKS` (`scripts/lib/duel-hooks.mjs`); `build:folder` injects them into each
+  `quote-duel.json` as `hooks: [{id, text}]` for the HTML review. The WAVs are generated ONCE
+  by `briefing:duel:hooks` into the shared `audio/hooks/<id>.wav` (+ `manifest.json`), NOT per
+  date (`audio/hooks/` is gitignored; the dashboard rsyncs it to the render server). `--hook <id>`
+  (bare number → `hook-N`) at render/mux/split selects which variant opens the video via
+  `resolveSharedHook`; it becomes the timeline's `coldOpenSeconds` offset and the splitter
+  prepends that same range to every short AND once to the full reel. No `--hook` → no hook.
+  Default in the dashboard is `hook-2`. The hook visual is `HookScene` in `QuoteDuelVideo.jsx`;
+  the duel HTML shows a read-only hooks-review panel. Add a hook: edit `DEFAULT_DUEL_HOOKS` then
+  rerun `briefing:duel:hooks`.
+- **Dashboard**: step 17 generates the shared hooks locally (all dates) + plays each one; step 18
+  reviews and edits per-duel narration locally (per-duel editor + Confirm gate before audio;
+  overrides in `audio/quote-duel-text-overrides.json`); step 19 generates narration audio locally
+  via Hamsa TTS (then rebuilds for audio-driven durations); step 20 builds and checks the duel
+  HTML locally (verify audio + visual + hook before any server contact); step 21 syncs
+  `audio/hooks/` to the render server once (idempotent); steps 22–25 are server-side: sync +
+  render (muted) → mux audio → download → local split. Fixed to `hook-2`. Short-form
+  distribution (Instagram Reels / YouTube Shorts / TikTok + phone transfer) lives exclusively on
+  the duel page (DuelPostingPanel), surfacing three tiers: the all-duels master, the top-3 reel,
+  and per-duel shorts; the main dashboard "Post now" keeps only the YouTube card. Step 16
+  (social captions) is shared across both pages and also generates and validates
+  `output/quote-duel-social-captions.json`.
 
 ## Editing Rules
 

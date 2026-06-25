@@ -1,3 +1,5 @@
+import {DEFAULT_DUEL_HOOKS} from './duel-hooks.mjs';
+
 const AR = {
   aawsat: '\u0627\u0644\u0634\u0631\u0642 \u0627\u0644\u0623\u0648\u0633\u0637',
   nidaa: '\u0646\u062f\u0627\u0621 \u0627\u0644\u0648\u0637\u0646',
@@ -118,6 +120,16 @@ export const buildCodexPrompt = ({
     '- default outlet timing can start in the 15000ms to 20000ms range, but final timing should be adjustable through `output/timing-config.json`',
     '- use only outlets from the allowed outlet list below',
     '- Quote Duel: pick the strongest 2-4 clashes, each scene = one event + two opposed outlets + two direct quotes + one contrast line',
+    '- Quote Duel: every scene must include `audioText`, a spoken Lebanese-Arabic narration for that one clash',
+    '- Quote Duel `audioText` must be written for one standalone short: state what the event/clash is, name each outlet, and say what each outlet says about that event',
+    '- Quote Duel `audioText` should sound like a natural voiceover, not a mechanical template; do not start every line with `الحدث هو` unless it genuinely sounds best',
+    '- Quote Duel `audioText` can be 1-3 short sentences, but it must still mention both outlet names and their opposing readings clearly',
+    '- Quote Duel `audioText` must fit comfortably under 25 seconds of AI audio; target 35-55 Arabic words and never exceed 65 words',
+    '- Quote Duel `audioText` should be one compact spoken paragraph, not bullets and not a long article-style summary',
+    '- Quote Duel `audioText`: infer the text inside the quotes editorially from the source, stance, and direct quotes; do not blindly copy the on-screen quote if a clearer spoken paraphrase is better',
+    '- Quote Duel: optionally fill `left.audioLine` and `right.audioLine` with the same short inferred outlet phrases used inside the spoken `audioText` quotes',
+    '- Quote Duel `audioText` should sound natural when read aloud, mention both outlet names, state the event/clash clearly, and keep the quoted outlet phrasing short',
+    '- Quote Duel `audioText` is the editable source for per-clash WAV generation; keep it separate from the short on-screen `summary`',
     '- Fault Line Map: create one fresh day-specific axis, not a permanent one',
     '- Keyword Radar: 3-4 charged terms per outlet scene, ordered by rhetorical force',
     '- keep Arabic concise, sharp, editorial, and readable for vertical video',
@@ -172,24 +184,28 @@ export const createEmptyAnalysisFiles = ({dateLabel}) => ({
       subtitle: '',
       durationSeconds: 8
     },
+    hooks: DEFAULT_DUEL_HOOKS.map((h) => ({...h})),
     scenes: [
       {
         id: 'duel-1',
         eventLabel: '',
         contrastLabel: '',
         summary: '',
+        audioText: '',
         durationSeconds: 8,
         left: {
           outlet: '',
           logoFile: '',
           stance: '',
-          quote: ''
+          quote: '',
+          audioLine: ''
         },
         right: {
           outlet: '',
           logoFile: '',
           stance: '',
-          quote: ''
+          quote: '',
+          audioLine: ''
         }
       }
     ],

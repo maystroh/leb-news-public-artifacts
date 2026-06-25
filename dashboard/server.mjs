@@ -24,11 +24,14 @@ import {
   buildRecordingCommands,
   loadAudioSource,
   saveAudioSource,
-  saveTextOverride
+  saveTextOverride,
+  duelNarrationEntries,
+  saveDuelTextOverride
 } from './audio.mjs';
 import {statInfo} from './lib/checks.mjs';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DUEL_HOOK = 'hook-2';
 const webDir = path.join(REPO_ROOT, 'dashboard', 'web');
 const distDir = path.join(webDir, 'dist');
 
@@ -241,25 +244,101 @@ function socialPostingState(ctx, state = {}) {
   };
 }
 
-function phoneRemoteFolder(date) {
-  return `${PHONE_REMOTE_ROOT.replace(/\/+$/, '')}/${date}`;
+function duelPostingState(ctx, state = {}) {
+  const captionsPath = path.join(ctx.output, 'quote-duel-social-captions.json');
+  const captions = readJsonSafe(captionsPath);
+
+  // Map duelId (unpadded, e.g. "duel-1") -> caption clip entry
+  const clipByDuelId = new Map();
+  for (const clip of captions?.clips ?? []) {
+    if (clip?.duelId) clipByDuelId.set(String(clip.duelId), clip);
+  }
+
+  const joinHashtags = (tags) => (Array.isArray(tags) ? tags : []).join(' ');
+  const clipCopy = (clip) => [clip?.caption || '', joinHashtags(clip?.hashtags)].filter(Boolean).join('\n\n');
+
+  // All-duels muxed master
+  const fullMasterFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
+  const full = {
+    path: path.relative(REPO_ROOT, fullMasterFile).split(path.sep).join('/'),
+    copyPath: pcPath(fullMasterFile),
+    url: fs.existsSync(fullMasterFile) ? relUrl(fullMasterFile) : null
+  };
+
+  // Duel videos directory (one per-clash clip; the muxed master is the full video)
+  const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
+  const duelManifestPath = path.join(duelVideosDir, 'manifest.json');
+  const duelManifest = readJsonSafe(duelManifestPath);
+
+  // Build fileName -> duelId map from the split manifest (duels[].fileName + duels[].duelId)
+  const duelIdByFileName = new Map();
+  for (const entry of duelManifest?.duels ?? []) {
+    if (entry?.fileName && entry?.duelId) {
+      duelIdByFileName.set(String(entry.fileName), String(entry.duelId));
+    }
+  }
+
+  // Per-clash videos: duel-NN.mp4 files, sorted by filename.
+  const clashFileNames = fs.existsSync(duelVideosDir)
+    ? fs
+        .readdirSync(duelVideosDir, {withFileTypes: true})
+        .filter((entry) => entry.isFile() && /^duel-\d+\.mp4$/.test(entry.name))
+        .map((entry) => entry.name)
+        .sort()
+    : [];
+
+  const clashes = clashFileNames.map((fileName) => {
+    // Prefer manifest lookup; fall back to filename-ordinal (duel-05.mp4 → duel-5)
+    let duelId = duelIdByFileName.get(fileName);
+    if (!duelId) {
+      const match = fileName.match(/^duel-(\d+)\.mp4$/);
+      duelId = match ? `duel-${parseInt(match[1], 10)}` : fileName.replace(/\.mp4$/, '');
+    }
+    const clip = clipByDuelId.get(duelId) || null;
+    const filePath = path.join(duelVideosDir, fileName);
+    return {
+      duelId,
+      fileName,
+      path: path.relative(REPO_ROOT, filePath).split(path.sep).join('/'),
+      copyPath: pcPath(filePath),
+      url: fs.existsSync(filePath) ? relUrl(filePath) : null,
+      caption: clip?.caption || '',
+      outlet: clip?.outlet || '',
+      hashtags: Array.isArray(clip?.hashtags) ? clip.hashtags : [],
+      copyText: clipCopy(clip)
+    };
+  });
+
+  return {
+    ready: Boolean(captions),
+    full,
+    clashes,
+    phone: phoneTransferState(ctx, state, 'duel')
+  };
 }
 
-function phoneTransferState(ctx, state = {}) {
+function phoneRemoteFolder(date, kind) {
+  const base = `${PHONE_REMOTE_ROOT.replace(/\/+$/, '')}/${date}`;
+  return kind === 'duel' ? `${base}-duel` : base;
+}
+
+function phoneTransferState(ctx, state = {}, kind) {
+  const key = kind === 'duel' ? 'duelPhoneTransfer' : 'phoneTransfer';
+  const transfer = state[key] || {};
   return {
     host: PHONE_SSH_HOST,
     port: PHONE_SSH_PORT,
     user: PHONE_SSH_USER,
     curlInterface: PHONE_CURL_INTERFACE || null,
-    remoteFolder: phoneRemoteFolder(ctx.date),
-    status: state.phoneTransfer?.status || 'not-copied',
-    copiedAt: state.phoneTransfer?.copiedAt || null,
-    deletedAt: state.phoneTransfer?.deletedAt || null,
-    fileCount: state.phoneTransfer?.fileCount ?? null,
-    clipCount: state.phoneTransfer?.clipCount ?? null,
-    coverCount: state.phoneTransfer?.coverCount ?? null,
-    variant: state.phoneTransfer?.variant || null,
-    variantMid: state.phoneTransfer?.variantMid ?? null
+    remoteFolder: phoneRemoteFolder(ctx.date, kind),
+    status: transfer.status || 'not-copied',
+    copiedAt: transfer.copiedAt || null,
+    deletedAt: transfer.deletedAt || null,
+    fileCount: transfer.fileCount ?? null,
+    clipCount: transfer.clipCount ?? null,
+    coverCount: transfer.coverCount ?? null,
+    variant: transfer.variant || null,
+    variantMid: transfer.variantMid ?? null
   };
 }
 
@@ -352,6 +431,31 @@ function sceneMp4Files(sceneDir) {
     .sort();
 }
 
+function correctedBriefingPath(ctx) {
+  return path.join(ctx.folder, `briefing_${ctx.date}_corrected.txt`);
+}
+
+// Editable corrected-briefing text shown in step 0 (remote-sync dates). Seeded by
+// the sync step; saved back via POST /api/briefing/corrected.
+function correctedBriefingState(ctx) {
+  const file = correctedBriefingPath(ctx);
+  const info = statInfo(file);
+  let content = '';
+  if (info.exists && !info.isDirectory) {
+    try {
+      content = fs.readFileSync(file, 'utf8');
+    } catch {
+      content = '';
+    }
+  }
+  return {
+    path: path.relative(REPO_ROOT, file).split(path.sep).join('/'),
+    exists: Boolean(info.exists) && !info.isDirectory,
+    content,
+    mtimeMs: info.mtimeMs ?? null
+  };
+}
+
 function computeState(date) {
   const ctx = briefingContext(date);
   const state = loadState(ctx);
@@ -374,6 +478,7 @@ function computeState(date) {
         mtimeMs: info.mtimeMs ?? null,
         size: info.size ?? null,
         optional: artifact.optional || false,
+        audio: artifact.audio || false,
         url: info.exists && !info.isDirectory ? relUrl(artifact.file) : null
       };
     });
@@ -398,8 +503,14 @@ function computeState(date) {
     date,
     steps,
     remoteSync: state.remoteSync || null,
+    correctedBriefing: correctedBriefingState(ctx),
     audioSource: loadAudioSource(ctx),
     audio: audioEntries(ctx, state),
+    duel: {
+      narration: duelNarrationEntries(ctx),
+      narrationConfirmedAt: (state.duel || {}).narrationConfirmedAt || null,
+      social: duelPostingState(ctx, state)
+    },
     social: socialPostingState(ctx, state),
     reviews: state.reviews || {},
     activeRun: active
@@ -462,6 +573,25 @@ app.post('/api/run', (req, res) => {
     res.json({runId: run.id, stepId: step.id, actionId: action.id});
   } catch (error) {
     res.status(409).json({error: error.message});
+  }
+});
+
+// Save edits to briefing_<date>_corrected.txt from the step 0 editor.
+app.post('/api/briefing/corrected', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  if (typeof req.body?.content !== 'string') {
+    return res.status(400).json({error: 'Missing content.'});
+  }
+  const ctx = briefingContext(date);
+  const file = correctedBriefingPath(ctx);
+  try {
+    fs.mkdirSync(path.dirname(file), {recursive: true});
+    fs.writeFileSync(file, req.body.content, 'utf8');
+    broadcast(date, {type: 'state-changed'});
+    res.json({ok: true});
+  } catch (error) {
+    res.status(500).json({error: error.message});
   }
 });
 
@@ -552,6 +682,43 @@ app.post('/api/audio/source', (req, res) => {
   res.json({audioSource});
 });
 
+app.get('/api/duel/script', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  res.json({entries: duelNarrationEntries(briefingContext(date))});
+});
+
+app.post('/api/duel/script', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const {duelId, text} = req.body || {};
+  if (!duelId) return res.status(400).json({error: 'duelId is required.'});
+  const ctx = briefingContext(date);
+  try {
+    saveDuelTextOverride(ctx, String(duelId), String(text ?? ''));
+    const state = loadState(ctx);
+    if (state.duel?.narrationConfirmedAt) {
+      state.duel.narrationConfirmedAt = null; // any edit re-gates
+      saveState(ctx, state);
+    }
+    broadcast(date, {type: 'state-changed'});
+    res.json({ok: true, entries: duelNarrationEntries(ctx)});
+  } catch (error) {
+    res.status(500).json({error: error.message});
+  }
+});
+
+app.post('/api/duel/confirm', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const ctx = briefingContext(date);
+  const state = loadState(ctx);
+  state.duel = {...(state.duel || {}), narrationConfirmedAt: new Date().toISOString()};
+  saveState(ctx, state);
+  broadcast(date, {type: 'state-changed'});
+  res.json({ok: true, narrationConfirmedAt: state.duel.narrationConfirmedAt});
+});
+
 app.post('/api/phone/upload-scenes', async (req, res) => {
   const date = requireDate(req, res);
   if (!date) return;
@@ -559,17 +726,42 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
   if (!password) return;
 
   const ctx = briefingContext(date);
-  const variant = selectedSocialVariant(ctx, String(req.body?.mid ?? ''));
-  if (!variant) return res.status(400).json({error: 'No final video variant found. Run mux/download first.'});
+  const kind = req.body?.kind === 'duel' ? 'duel' : undefined;
 
-  const sceneFiles = sceneMp4Files(variant.sceneDir);
-  if (!sceneFiles.length) {
-    return res.status(400).json({error: `No scene MP4s found in ${path.relative(REPO_ROOT, variant.sceneDir)}. Run step 15 first.`});
+  let files;
+  let clipCount;
+  let coverFiles = [];
+  let variantLabel = null;
+  let variantMid = null;
+  let remoteFolder;
+
+  if (kind === 'duel') {
+    const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
+    const duelFinalFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
+    const duelDirFiles = sceneMp4Files(duelVideosDir).filter((file) => /^duel-\d+\.mp4$/.test(path.basename(file)));
+    const gathered = [...duelDirFiles];
+    if (fs.existsSync(duelFinalFile)) gathered.push(duelFinalFile);
+    if (!gathered.length) {
+      return res.status(400).json({error: `No duel MP4s found in ${path.relative(REPO_ROOT, duelVideosDir)} or as the muxed master. Create per-clash videos first.`});
+    }
+    files = gathered;
+    clipCount = duelDirFiles.filter((f) => /duel-\d+\.mp4$/.test(path.basename(f))).length;
+    remoteFolder = phoneRemoteFolder(date, 'duel');
+  } else {
+    const variant = selectedSocialVariant(ctx, String(req.body?.mid ?? ''));
+    if (!variant) return res.status(400).json({error: 'No final video variant found. Run mux/download first.'});
+    const sceneFiles = sceneMp4Files(variant.sceneDir);
+    if (!sceneFiles.length) {
+      return res.status(400).json({error: `No scene MP4s found in ${path.relative(REPO_ROOT, variant.sceneDir)}. Run step 15 first.`});
+    }
+    coverFiles = instagramCoverImageFiles(ctx);
+    files = [...sceneFiles, ...coverFiles];
+    clipCount = sceneFiles.length;
+    variantLabel = variant.label;
+    variantMid = variant.mid;
+    remoteFolder = phoneRemoteFolder(date);
   }
-  const coverFiles = instagramCoverImageFiles(ctx);
-  const files = [...sceneFiles, ...coverFiles];
 
-  const remoteFolder = phoneRemoteFolder(date);
   try {
     await withPhoneNetrc(password, async (netrcPath) => {
       for (const file of files) {
@@ -583,20 +775,41 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
       }
     });
     const state = loadState(ctx);
-    state.phoneTransfer = {
-      status: 'copied',
-      copiedAt: new Date().toISOString(),
-      deletedAt: null,
-      remoteFolder,
-      fileCount: files.length,
-      clipCount: sceneFiles.length,
-      coverCount: coverFiles.length,
-      variant: variant.label,
-      variantMid: variant.mid
-    };
+    if (kind === 'duel') {
+      state.duelPhoneTransfer = {
+        status: 'copied',
+        copiedAt: new Date().toISOString(),
+        deletedAt: null,
+        remoteFolder,
+        fileCount: files.length,
+        clipCount,
+        coverCount: 0,
+        variant: null,
+        variantMid: null
+      };
+    } else {
+      state.phoneTransfer = {
+        status: 'copied',
+        copiedAt: new Date().toISOString(),
+        deletedAt: null,
+        remoteFolder,
+        fileCount: files.length,
+        clipCount,
+        coverCount: coverFiles.length,
+        variant: variantLabel,
+        variantMid
+      };
+    }
     saveState(ctx, state);
     broadcast(date, {type: 'state-changed'});
-    res.json({ok: true, remoteFolder, fileCount: files.length, clipCount: sceneFiles.length, coverCount: coverFiles.length, variant: variant.label});
+    res.json({
+      ok: true,
+      remoteFolder,
+      fileCount: files.length,
+      clipCount,
+      coverCount: kind === 'duel' ? 0 : coverFiles.length,
+      ...(variantLabel ? {variant: variantLabel} : {})
+    });
   } catch (error) {
     res.status(500).json({error: error.message});
   }
@@ -608,7 +821,9 @@ app.post('/api/phone/delete-folder', async (req, res) => {
   const password = requirePhonePassword(req, res);
   if (!password) return;
 
-  const remoteFolder = phoneRemoteFolder(date);
+  const ctx = briefingContext(date);
+  const kind = req.body?.kind === 'duel' ? 'duel' : undefined;
+  const remoteFolder = phoneRemoteFolder(date, kind);
   try {
     await withPhoneNetrc(password, async (netrcPath) => {
       const listing = await runCommand('curl', [...phoneCurlBaseArgs(netrcPath), '--list-only', phoneFtpUrl(`${remoteFolder}/`)]);
@@ -628,13 +843,23 @@ app.post('/api/phone/delete-folder', async (req, res) => {
       await runCommand('curl', [...phoneCurlBaseArgs(netrcPath), '--quote', `RMD ${remoteFolder}`, phoneFtpUrl('/device/My_files/')]);
     });
     const state = loadState(ctx);
-    state.phoneTransfer = {
-      ...(state.phoneTransfer || {}),
-      status: 'not-copied',
-      deletedAt: new Date().toISOString(),
-      remoteFolder,
-      fileCount: null
-    };
+    if (kind === 'duel') {
+      state.duelPhoneTransfer = {
+        ...(state.duelPhoneTransfer || {}),
+        status: 'not-copied',
+        deletedAt: new Date().toISOString(),
+        remoteFolder,
+        fileCount: null
+      };
+    } else {
+      state.phoneTransfer = {
+        ...(state.phoneTransfer || {}),
+        status: 'not-copied',
+        deletedAt: new Date().toISOString(),
+        remoteFolder,
+        fileCount: null
+      };
+    }
     saveState(ctx, state);
     broadcast(date, {type: 'state-changed'});
     res.json({ok: true, remoteFolder});

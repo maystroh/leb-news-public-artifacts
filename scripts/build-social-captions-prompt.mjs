@@ -158,11 +158,11 @@ const sceneBlocks = scenes.map((scene, index) => {
   const toneTag = closing ? '(closing recap — not an outlet)' : normalize(scene.visual?.headline);
   const summary = normalize(scene.visual?.summary || scene.body);
   const terms = termsBySceneId.get(scene.id) ?? [];
-  const clip = clipBySceneId.get(scene.id) || '(no clip found)';
+  const clip = clipBySceneId.get(scene.id) || '';
 
   const lines = [
     `- sceneId: ${scene.id}`,
-    `  clip: ${clip}`,
+    ...(clip ? [`  clip: ${clip}`] : []),
     closing ? `  closing recap: ${outletName}` : `  outlet: ${outletName}`,
     `  tone: ${toneTag || '(none)'}`,
     `  summary: ${summary || '(none)'}`,

@@ -11,47 +11,13 @@ async function copyText(text, setCopied, key) {
   window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500);
 }
 
-export default function SocialPostingPanel({social, onUploadPhoneScenes, onDeletePhoneFolder}) {
+export default function SocialPostingPanel({social}) {
   const [copied, setCopied] = useState(null);
   const [variantIndex, setVariantIndex] = useState(0);
-  const [phonePassword, setPhonePassword] = useState('');
-  const [phoneBusy, setPhoneBusy] = useState(null);
-  const [phoneMessage, setPhoneMessage] = useState(null);
 
   const variants = social.variants || [];
   const active = variants[variantIndex] || variants[0] || null;
   const youtube = social.youtube || {};
-  const instagram = social.instagram || {};
-  const phone = social.phone || {};
-  const phoneCopied = phone.status === 'copied';
-  const copiedTime = phone.copiedAt ? new Date(phone.copiedAt).toLocaleString() : null;
-
-  const uploadToPhone = async () => {
-    setPhoneBusy('upload');
-    setPhoneMessage(null);
-    try {
-      const result = await onUploadPhoneScenes({mid: active?.mid || '', password: phonePassword});
-      setPhoneMessage({type: 'done', text: `Uploaded ${result.fileCount} file(s) to ${result.remoteFolder}.`});
-    } catch (err) {
-      setPhoneMessage({type: 'error', text: err.message});
-    } finally {
-      setPhoneBusy(null);
-    }
-  };
-
-  const deleteFromPhone = async () => {
-    if (!window.confirm(`Delete ${phone.remoteFolder} from the phone?`)) return;
-    setPhoneBusy('delete');
-    setPhoneMessage(null);
-    try {
-      const result = await onDeletePhoneFolder({password: phonePassword});
-      setPhoneMessage({type: 'done', text: `Deleted ${result.remoteFolder} from the phone.`});
-    } catch (err) {
-      setPhoneMessage({type: 'error', text: err.message});
-    } finally {
-      setPhoneBusy(null);
-    }
-  };
 
   return (
     <section className="social-panel">
@@ -63,9 +29,6 @@ export default function SocialPostingPanel({social, onUploadPhoneScenes, onDelet
         <div className="platform-links">
           <a className="btn" href="https://studio.youtube.com" target="_blank" rel="noreferrer">
             YouTube Studio
-          </a>
-          <a className="btn" href="https://www.instagram.com" target="_blank" rel="noreferrer">
-            Instagram
           </a>
         </div>
         {variants.length > 1 && (

@@ -5,6 +5,7 @@ import {promisify} from 'node:util';
 import mp3DurationCb from 'mp3-duration';
 
 import {buildPreparedBriefingData} from './lib/prepare-briefing-data.mjs';
+import {ensureDuelHooks} from './lib/duel-hooks.mjs';
 import {
   findBriefingTextFile,
   parseCliArgs,
@@ -56,6 +57,13 @@ const getIntroTextRevealSeconds = (intro, durationOverride = null) => {
   return getNumericDuration(intro?.textRevealSeconds, Math.max(0, durationSeconds - introTextRevealLeadSeconds));
 };
 const quoteDuelData = fs.existsSync(quoteDuelPath) ? readJson(quoteDuelPath) : null;
+// Ensure every day has a stable, selectable hook set (TikTok-style openers).
+// The upstream quote-duel.json may carry its own `hooks`; otherwise inject the
+// committed defaults so the duel video path always has hooks to choose from.
+if (quoteDuelData) {
+  quoteDuelData.hooks = ensureDuelHooks(quoteDuelData);
+  delete quoteDuelData.hook; // normalize legacy single-hook to the hooks[] form
+}
 const getIntroAudioDurationSeconds = async () => {
   if (!fs.existsSync(introAudioPath)) {
     return null;
@@ -207,8 +215,22 @@ const applyTimingOverrides = (preparedData, timingConfig, quoteDuel) => {
   }));
 
   const quoteDuelTiming = timingConfig?.quoteDuel ?? {};
+  const quoteDuelSceneTiming = quoteDuelTiming.scenes ?? {};
   if (quoteDuel) {
     applyIntroTimingOverrides(quoteDuel.intro, quoteDuelTiming);
+    if (typeof quoteDuelTiming.outroSeconds === 'number' && quoteDuel.outro) {
+      quoteDuel.outro.durationSeconds = quoteDuelTiming.outroSeconds;
+    }
+    // Per-duel audio-driven durations (audio + 0.5s buffer) written by
+    // generate-quote-duel-audio.mjs into timingConfig.quoteDuel.scenes. Applying
+    // them here keeps them durable across rebuilds (output/quote-duel.json is
+    // regenerated wholesale every run), mirroring the briefing scene timing.
+    quoteDuel.scenes = (quoteDuel.scenes || []).map((scene) => ({
+      ...scene,
+      durationSeconds: typeof quoteDuelSceneTiming[scene.id] === 'number'
+        ? quoteDuelSceneTiming[scene.id]
+        : scene.durationSeconds
+    }));
   }
 };
 

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {readJsonSafe, wavDurationSeconds, exists, mtimeMs} from './lib/checks.mjs';
+import {defaultDuelText, duelTextSource, resolveDuelId} from '../scripts/lib/duel-narration-text.mjs';
 import {loadState, saveState} from './lib/state.mjs';
 
 const normalize = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -118,6 +119,55 @@ export function saveTextOverride(ctx, sceneId, text) {
     }, null, 2));
   }
   return loadTextOverrides(ctx);
+}
+
+const duelOverridesPath = (ctx) => path.join(ctx.audioDir, 'quote-duel-text-overrides.json');
+
+export function loadDuelTextOverrides(ctx) {
+  return readJsonSafe(duelOverridesPath(ctx)) || {};
+}
+
+// One entry per duel, merging output/quote-duel.json with the override file.
+// Uses the shared text precedence so the panel default == the synthesized default.
+export function duelNarrationEntries(ctx) {
+  const duel = readJsonSafe(path.join(ctx.output, 'quote-duel.json'));
+  const scenes = Array.isArray(duel?.scenes) ? duel.scenes : [];
+  const overrides = loadDuelTextOverrides(ctx);
+
+  return scenes.map((scene, index) => {
+    const duelId = resolveDuelId(scene, index);
+    const overrideText = normalize(overrides[duelId]);
+    const defaultText = defaultDuelText(scene);
+    const effectiveText = overrideText || defaultText;
+    return {
+      duelId,
+      outlets: [normalize(scene.left?.outlet), normalize(scene.right?.outlet)],
+      quotes: [normalize(scene.left?.quote), normalize(scene.right?.quote)],
+      defaultText,
+      overrideText: overrideText || null,
+      effectiveText,
+      isOverridden: Boolean(overrideText),
+      source: duelTextSource(scene, overrideText)
+    };
+  });
+}
+
+export function saveDuelTextOverride(ctx, duelId, text) {
+  const overrides = loadDuelTextOverrides(ctx);
+  const normalized = normalize(text);
+  const entry = duelNarrationEntries(ctx).find((item) => item.duelId === duelId);
+  if (!normalized || (entry && normalized === entry.defaultText)) {
+    delete overrides[duelId];
+  } else {
+    overrides[duelId] = normalized;
+  }
+  fs.mkdirSync(ctx.audioDir, {recursive: true});
+  if (Object.keys(overrides).length === 0) {
+    if (fs.existsSync(duelOverridesPath(ctx))) fs.unlinkSync(duelOverridesPath(ctx));
+  } else {
+    fs.writeFileSync(duelOverridesPath(ctx), JSON.stringify(overrides, null, 2));
+  }
+  return overrides;
 }
 
 // Same scene list and text selection as audio/generate-outlet-audio.mjs

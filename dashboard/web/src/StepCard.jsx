@@ -22,7 +22,75 @@ async function copyText(text, setCopied, key) {
   window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500);
 }
 
-export default function StepCard({step, social, log, busy, running, onRun, onReview}) {
+// Inline editor for briefing_<date>_corrected.txt, shown in step 0. Mirrors the
+// scene-narration editor: local draft, refresh from server only when not dirty.
+function BriefingEditor({briefing, busy, onSave}) {
+  const content = briefing?.content || '';
+  const [draft, setDraft] = useState(content);
+  const [saving, setSaving] = useState(false);
+  const dirty = draft !== content;
+
+  useEffect(() => {
+    if (!dirty) setDraft(content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!briefing?.exists && !content) {
+    return (
+      <div className="briefing-editor">
+        <p className="hint">No corrected briefing yet — run “Sync from server” to create the corrected copy, then edit it here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="briefing-editor">
+      <label>Corrected briefing — edit and save</label>
+      <textarea
+        className="rtl briefing-editor-text"
+        rows={18}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        spellCheck={false}
+      />
+      <div className="script-editor-actions">
+        <span className="char-count">{draft.length} chars</span>
+        <button className="btn primary" disabled={saving || busy || !dirty} onClick={save}>
+          {saving ? 'Saving…' : 'Save briefing'}
+        </button>
+        {dirty && (
+          <button className="btn ghost" disabled={saving} onClick={() => setDraft(content)}>
+            Discard
+          </button>
+        )}
+        {dirty && <span className="hint">Unsaved — resync in step 00 only pushes saved text.</span>}
+      </div>
+    </div>
+  );
+}
+
+export default function StepCard({
+  step,
+  social,
+  log,
+  busy,
+  running,
+  onRun,
+  onReview,
+  onOpenDuel,
+  briefing,
+  onSaveBriefing,
+  duelNarration
+}) {
   const [showLog, setShowLog] = useState(false);
   const [optionSelections, setOptionSelections] = useState({});
   const [copied, setCopied] = useState(null);
@@ -66,6 +134,9 @@ export default function StepCard({step, social, log, busy, running, onRun, onRev
       {step.statusDetail && <p className={`status-detail detail-${step.status}`}>{step.statusDetail}</p>}
       {locked && step.lockReason && <p className="lock-note">{step.lockReason}</p>}
 
+      {briefing && <BriefingEditor briefing={briefing} busy={busy} onSave={onSaveBriefing} />}
+      {duelNarration || null}
+
       {thumbnailPrompt && (
         <div className="step-output">
           <label>YouTube thumbnail prompt</label>
@@ -99,6 +170,9 @@ export default function StepCard({step, social, log, busy, running, onRun, onRev
                 <span>{artifact.label}</span>
               )}
               {artifact.exists && <span className="mtime">{formatMtime(artifact.mtimeMs)}</span>}
+              {artifact.audio && artifact.url && (
+                <audio className="artifact-audio" controls preload="none" src={artifact.url} />
+              )}
             </li>
           ))}
         </ul>
@@ -140,6 +214,11 @@ export default function StepCard({step, social, log, busy, running, onRun, onRev
         {onReview && step.status === 'done' && (
           <button className="btn" disabled={locked} onClick={() => onReview(false)}>
             Unmark review
+          </button>
+        )}
+        {onOpenDuel && (
+          <button className="btn duel-link" onClick={() => onOpenDuel()}>
+            ⚔ Open Quote Duel (steps 17–23) ↗
           </button>
         )}
         {hasLog && (

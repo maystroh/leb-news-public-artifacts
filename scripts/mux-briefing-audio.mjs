@@ -3,6 +3,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
+import {buildMuxFilterComplex} from './lib/audio-mux.mjs';
 
 const FPS = 30;
 
@@ -120,32 +121,11 @@ if (briefing.outro?.durationSeconds) {
   totalMs += Math.round(briefing.outro.durationSeconds * 1000);
 }
 
-const filterParts = audioEntries.map((entry, index) =>
-  `[${index + 1}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,adelay=${entry.delayMs}:all=1[a${index}]`
-);
-const mixInputs = audioEntries.map((_, index) => `[a${index}]`).join('');
-
-let filterComplex;
-if (musicPath) {
-  const bedInputIndex = audioEntries.length + 1;
-  const fadeStartSec = Math.max(0, (totalMs - 1500) / 1000).toFixed(3);
-  const bedChain = [
-    `[${bedInputIndex}:a]aresample=44100`,
-    'aformat=sample_fmts=fltp:channel_layouts=stereo',
-    `volume=${musicDb}dB`,
-    `afade=t=out:st=${fadeStartSec}:d=1.5[bed]`
-  ].join(',');
-  const voiceChain = `${mixInputs}amix=inputs=${audioEntries.length}:normalize=0:dropout_transition=0[voice]`;
-  const mixChain = musicDuck
-    ? `[voice]asplit=2[voiceMix][voiceSc];[bed][voiceSc]sidechaincompress=threshold=0.02:ratio=12:attack=180:release=900[bedduck];[voiceMix][bedduck]amix=inputs=2:normalize=0:dropout_transition=0,apad[aout]`
-    : `[voice][bed]amix=inputs=2:normalize=0:dropout_transition=0,apad[aout]`;
-  filterComplex = [...filterParts, voiceChain, bedChain, mixChain].join(';');
-} else {
-  filterComplex = [
-    ...filterParts,
-    `${mixInputs}amix=inputs=${audioEntries.length}:normalize=0:dropout_transition=0,apad[aout]`
-  ].join(';');
-}
+const filterComplex = buildMuxFilterComplex({
+  audioEntries,
+  totalMs,
+  music: musicPath ? {db: musicDb, duck: musicDuck} : null
+});
 
 const ffmpegArgs = [
   '-y',
