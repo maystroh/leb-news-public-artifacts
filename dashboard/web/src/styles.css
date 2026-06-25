@@ -718,6 +718,17 @@ select {
   font-size: 12px;
 }
 
+.duel-clash-quotes {
+  margin: 2px 0 6px;
+  opacity: 0.85;
+}
+
+.duel-confirm-row {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+
 .hint {
   color: var(--muted);
   font-size: 12px;
