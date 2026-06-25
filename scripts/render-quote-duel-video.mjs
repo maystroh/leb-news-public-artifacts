@@ -39,6 +39,13 @@ const parseResolutions = () => {
   if (args.resolution) return [parseResolution(args.resolution)];
   return [{width: 720, height: 1280, isDefault: true}];
 };
+const padTwo = (value) => String(value).padStart(2, '0');
+const splitList = (value) =>
+  String(value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+const selectedDuelIds = [...splitList(args.duels), ...splitList(args.duel)];
 
 let renderResolutions;
 try {
@@ -78,6 +85,11 @@ const hookSuffix = hookId ? `-${hookId}` : '';
 
 const getOutputPath = (resolution) => {
   if (args.output) return path.resolve(cwd, args.output);
+  if (selectedDuelIds.length === 1) {
+    const selectedIndex = (duelForRender.scenes ?? [])[0]?.sourceIndex;
+    const fileName = selectedIndex ? `duel-${padTwo(selectedIndex)}.mp4` : `${selectedDuelIds[0]}.mp4`;
+    return path.join(outputFolder, `duel-videos${hookSuffix}`, 'muted', fileName);
+  }
   if (resolution.width && resolution.height && !resolution.isDefault) {
     return path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}-${resolution.width}x${resolution.height}.mp4`);
   }
@@ -116,9 +128,32 @@ const withLogo = (outletSide, sceneId) => {
   return {...outletSide, logoSrc};
 };
 
+const allScenes = merged.scenes ?? [];
+const requestedDuelSet = new Set(selectedDuelIds);
+const selectedScenes = requestedDuelSet.size
+  ? allScenes
+      .map((scene, index) => ({...scene, sourceIndex: index + 1, id: scene.id ?? `duel-${index + 1}`}))
+      .filter((scene) => requestedDuelSet.has(scene.id))
+  : allScenes.map((scene, index) => ({...scene, sourceIndex: index + 1, id: scene.id ?? `duel-${index + 1}`}));
+
+if (requestedDuelSet.size && selectedScenes.length !== requestedDuelSet.size) {
+  const found = new Set(selectedScenes.map((scene) => scene.id));
+  const missing = [...requestedDuelSet].filter((duelId) => !found.has(duelId));
+  console.error(`Unknown duel id(s): ${missing.join(', ')}`);
+  process.exit(1);
+}
+if (requestedDuelSet.size > 1 && !args.output) {
+  console.error('Pass one --duel per render, or provide --output when rendering multiple selected duels.');
+  process.exit(1);
+}
+
 const duelForRender = {
   ...merged,
   hooks: undefined,
+  assets: {
+    ...(merged.assets ?? {}),
+    introBackgroundSrc: copyAsset(path.join(cwd, 'logos', 'video-front-page-3.png'), 'logos/video-front-page-3.png')
+  },
   // The hook WAV is a shared asset under audio/hooks/ — copy it into the render
   // staging dir from its absolute path (not output-relative).
   hook: activeHook
@@ -135,8 +170,8 @@ const duelForRender = {
     durationSeconds: activeOutro?.durationSeconds ?? merged.outro?.durationSeconds,
     audioSrc: activeOutro ? copyAsset(activeOutro.wavPath, `audio/${activeOutro.file}`) : undefined
   },
-  scenes: (merged.scenes ?? []).map((scene, index) => {
-    const duelId = scene.id ?? `duel-${index + 1}`;
+  scenes: selectedScenes.map((scene) => {
+    const duelId = scene.id;
     let audio = scene.audio ?? null;
     if (audio?.src) {
       const src = resolveAudioSrc(audio.src);
@@ -169,6 +204,7 @@ const isLinux = process.platform === 'linux';
 
 for (const resolution of renderResolutions) {
   const outputPath = getOutputPath(resolution);
+  fs.mkdirSync(path.dirname(outputPath), {recursive: true});
   const label = `${resolution.width}x${resolution.height}${resolution.isDefault ? ' (default)' : ''}`;
   const remotionArgs = [
     remotionCliPath,

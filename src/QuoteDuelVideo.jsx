@@ -42,8 +42,7 @@ const palette = {
 };
 
 const DEFAULT_LAYOUT = {
-  eventLabelY: 60,
-  quoteFontPx: 25,
+  quoteFontPx: 24,
   quoteMaxLines: 3,
   logoScale: 1.0
 };
@@ -76,36 +75,28 @@ const ellipsize = (text, maxLines, fontPx) => {
 };
 
 const OutletHeader = ({outlet, side, logoScale}) => {
-  const accent = side === 'left' ? palette.amber : palette.cyan;
   const logoSrc = resolveSrc(outlet?.logoSrc);
   return (
-    <div style={{direction: 'rtl', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0}}>
+    <div style={{direction: 'rtl', display: 'grid', placeItems: 'center'}}>
       <div
         style={{
-          width: 78 * logoScale,
-          height: 40 * logoScale,
-          borderRadius: 12,
-          background: 'rgba(244, 247, 250, 0.97)',
-          border: `1px solid ${accent}29`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 10px 22px rgba(0,0,0,0.18)',
-          flexShrink: 0,
-          overflow: 'hidden'
+          width: 86 * logoScale,
+          height: 44 * logoScale,
+          borderRadius: 10,
+          background: 'rgba(244,247,250,0.96)',
+          display: 'grid',
+          placeItems: 'center',
+          overflow: 'hidden',
+          flex: '0 0 auto'
         }}
       >
         {logoSrc ? (
-          <Img src={logoSrc} style={{maxWidth: 62 * logoScale, maxHeight: 24 * logoScale, objectFit: 'contain'}} />
+          <Img src={logoSrc} style={{maxWidth: 72 * logoScale, maxHeight: 30 * logoScale, objectFit: 'contain'}} />
         ) : (
           <span style={{color: '#0a1722', fontSize: 12, fontWeight: 700, padding: '0 6px', textAlign: 'center'}}>
             {outlet?.outlet}
           </span>
         )}
-      </div>
-      <div style={{minWidth: 0}}>
-        <div style={{fontSize: 14, fontWeight: 700, color: palette.ink}}>{outlet?.outlet}</div>
-        <div style={{color: palette.muted, fontSize: 11, fontWeight: 500}}>{outlet?.stance}</div>
       </div>
     </div>
   );
@@ -121,14 +112,14 @@ const DuelPanel = ({data, side, reveal, layout}) => {
     <div
       style={{
         display: 'grid',
-        gridTemplateRows: 'auto 1fr',
+        gridTemplateRows: 'auto minmax(0, 1fr)',
         gap: 12,
         padding: '14px 12px',
         minWidth: 0,
-        borderRadius: 22,
+        minHeight: 0,
+        borderRadius: 18,
         border: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(4,13,21,0.64)',
-        boxShadow: `inset 0 0 0 1px rgba(${rgba},0.08)`,
+        background: 'rgba(2,12,20,0.58)',
         opacity: reveal,
         transform: `translateX(${dx}px)`
       }}
@@ -140,15 +131,14 @@ const DuelPanel = ({data, side, reveal, layout}) => {
           display: 'grid',
           alignContent: 'center',
           minHeight: 0,
-          padding: '14px 12px',
-          borderRadius: 18,
+          padding: '12px 10px',
+          borderRadius: 16,
           fontSize: layout.quoteFontPx,
-          lineHeight: 1.52,
-          fontWeight: 500,
+          lineHeight: 1.48,
           textAlign: 'center',
           color: quoteColor,
-          background: `linear-gradient(180deg, rgba(${rgba},0.14), rgba(${rgba},0.05))`,
-          border: `1px solid rgba(${rgba},0.16)`
+          background: `rgba(${rgba},0.12)`,
+          border: `1px solid rgba(${rgba},0.18)`
         }}
       >
         {ellipsize(data?.quote, layout.quoteMaxLines, layout.quoteFontPx)}
@@ -157,7 +147,125 @@ const DuelPanel = ({data, side, reveal, layout}) => {
   );
 };
 
-const DuelScene = ({scene, durationInFrames, dateLabel}) => {
+const scanTransformForMs = (elapsedMs) => {
+  const cycle = ((elapsedMs % 3200) / 3200) * 100;
+  const x = cycle <= 8
+    ? interpolate(cycle, [0, 8], [-140, -60])
+    : cycle <= 45
+      ? interpolate(cycle, [8, 45], [-60, 90])
+      : cycle <= 68
+        ? interpolate(cycle, [45, 68], [90, 155])
+        : 155;
+  const opacity = cycle <= 8
+    ? interpolate(cycle, [0, 8], [0, 0.9])
+    : cycle <= 45
+      ? interpolate(cycle, [8, 45], [0.9, 1])
+      : cycle <= 68
+        ? interpolate(cycle, [45, 68], [1, 0.18])
+        : interpolate(cycle, [68, 100], [0.18, 0]);
+  return {x, opacity};
+};
+
+const CornerBrackets = () => {
+  const base = {position: 'absolute', width: 40, height: 40, opacity: 0.86};
+  const bars = (flipX = false, flipY = false) => (
+    <div style={{position: 'absolute', inset: 0, transform: `scale(${flipX ? -1 : 1}, ${flipY ? -1 : 1})`}}>
+      <div style={{position: 'absolute', top: 0, left: 0, width: '100%', height: 3, background: 'rgba(205,127,50,0.9)', boxShadow: '0 0 8px rgba(205,127,50,0.82)'}} />
+      <div style={{position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: 'rgba(205,127,50,0.9)', boxShadow: '0 0 8px rgba(205,127,50,0.82)'}} />
+    </div>
+  );
+  return (
+    <>
+      <div style={{...base, top: 10, left: 10}}>{bars()}</div>
+      <div style={{...base, top: 10, right: 10}}>{bars(true, false)}</div>
+      <div style={{...base, bottom: 10, left: 10}}>{bars(false, true)}</div>
+      <div style={{...base, bottom: 10, right: 10}}>{bars(true, true)}</div>
+    </>
+  );
+};
+
+const IntroLayers = ({opacity = 1, zoom = false, backgroundSrc}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const elapsedMs = (frame / fps) * 1000;
+  const gridY = ((elapsedMs % 22000) / 22000) * 52;
+  const scan = scanTransformForMs(elapsedMs);
+  const bgScale = zoom ? 1.08 - 0.08 * clamp01(elapsedMs / 6000) : 1;
+
+  return (
+    <AbsoluteFill style={{opacity}}>
+      {backgroundSrc ? (
+        <Img
+          src={resolveSrc(backgroundSrc)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            opacity: 1,
+            transform: `scale(${bgScale})`
+          }}
+        />
+      ) : null}
+      <div
+        style={{
+          position: 'absolute',
+          inset: '-12%',
+          backgroundImage:
+            'linear-gradient(rgba(103,191,216,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(103,191,216,0.05) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          transform: `translateY(${gridY}px) rotate(-8deg) scale(1.08)`,
+          opacity: 0.34
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(circle at center, transparent 28%, rgba(0,0,0,0.62) 100%), linear-gradient(0deg, rgba(0,0,0,0.88) 0%, transparent 44%)'
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: '0 auto 0 -70%',
+          width: '64%',
+          background:
+            'linear-gradient(90deg, transparent 0%, rgba(205,127,50,0.06) 36%, rgba(205,127,50,0.26) 50%, rgba(205,127,50,0.06) 64%, transparent 100%)',
+          transform: `translateX(${scan.x}%) skewX(-15deg)`,
+          opacity: scan.opacity
+        }}
+      />
+      {[0, 700, 1400].map((offset) => {
+        const cycle = ((elapsedMs - offset) % 2400 + 2400) % 2400;
+        const progress = cycle / 2400;
+        return (
+          <div
+            key={offset}
+            style={{
+              position: 'absolute',
+              top: 70,
+              left: '50%',
+              width: 250,
+              height: 250,
+              marginLeft: -125,
+              borderRadius: '50%',
+              border: '2px solid rgba(205,127,50,0.46)',
+              transform: `scale(${0.86 + progress * (1.52 - 0.86)})`,
+              opacity: Math.max(0, 0.72 - progress * 0.72)
+            }}
+          />
+        );
+      })}
+      <CornerBrackets />
+    </AbsoluteFill>
+  );
+};
+
+const DuelScene = ({scene, durationInFrames, dateLabel, backgroundSrc}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const layout = {...DEFAULT_LAYOUT, ...(scene.layout || {})};
@@ -171,219 +279,144 @@ const DuelScene = ({scene, durationInFrames, dateLabel}) => {
 
   return (
     <AbsoluteFill style={{opacity: fadeOut}}>
-      {/* date pill near the top, centered (visual rule) */}
+      <IntroLayers opacity={0.42} backgroundSrc={backgroundSrc} />
       <div
         style={{
           position: 'absolute',
-          top: 26,
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center'
+          inset: '28px 18px 56px',
+          display: 'grid',
+          gridTemplateRows: 'auto minmax(0, 1fr)',
+          gap: 10,
+          direction: 'rtl',
+          zIndex: 1
         }}
       >
         <div
           style={{
-            padding: '5px 14px',
+            justifySelf: 'center',
+            minWidth: 230,
+            padding: '7px 14px',
             borderRadius: 999,
             fontSize: 12,
-            fontWeight: 500,
-            color: palette.muted,
-            background: 'rgba(5,13,20,0.84)',
-            border: '1px solid rgba(154,178,197,0.2)'
+            letterSpacing: '0.14em',
+            color: '#d4dee8',
+            background: 'rgba(0,0,0,0.36)',
+            border: '1px solid rgba(205,127,50,0.24)',
+            direction: 'ltr',
+            textAlign: 'center'
           }}
         >
           {dateLabel}
         </div>
-      </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          inset: `${layout.eventLabelY}px 16px 16px`,
-          display: 'grid',
-          gridTemplateRows: 'auto auto 1fr auto',
-          gap: 14
-        }}
-      >
-        {/* event pill */}
-        <div
+        <article
           style={{
-            justifySelf: 'center',
-            maxWidth: '100%',
-            padding: '10px 16px',
-            borderRadius: 999,
-            border: '1px solid rgba(205,127,50,0.28)',
-            background: 'rgba(205,127,50,0.08)',
-            color: palette.event,
-            fontSize: 18,
-            lineHeight: 1.4,
-            fontWeight: 700,
-            textAlign: 'center',
-            direction: 'rtl',
+            alignSelf: 'stretch',
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateRows: 'auto auto minmax(0, 1fr) auto',
+            gap: 12,
+            padding: '18px 16px 16px',
+            borderRadius: 24,
+            border: '1px solid rgba(107,162,197,0.18)',
+            background: 'rgba(9,28,42,0.9)',
+            boxShadow: '0 22px 54px rgba(0,0,0,0.34)',
             opacity: reveal
           }}
         >
-          {scene.eventLabel}
-        </div>
-
-        {/* contrast question ("vs") */}
-        <div style={{textAlign: 'center', color: palette.muted, fontSize: 14, lineHeight: 1.5, direction: 'rtl', opacity: reveal}}>
-          {scene.contrastLabel}
-        </div>
-
-        {/* duel grid */}
-        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, direction: 'ltr', minHeight: 0}}>
-          <DuelPanel data={scene.left} side="left" reveal={reveal} layout={layout} />
-          <DuelPanel data={scene.right} side="right" reveal={reveal} layout={layout} />
-        </div>
-
-        {/* bottom summary */}
-        {scene.summary ? (
+          <div style={{color: '#ffdcb2', fontSize: 24, lineHeight: 1.35, fontWeight: 700, textAlign: 'center'}}>
+            {scene.eventLabel}
+          </div>
+          <div style={{color: palette.muted, fontSize: 13, lineHeight: 1.55, textAlign: 'center'}}>
+            {scene.contrastLabel}
+          </div>
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, direction: 'ltr', minHeight: 0}}>
+            <DuelPanel data={scene.left} side="left" reveal={reveal} layout={layout} />
+            <DuelPanel data={scene.right} side="right" reveal={reveal} layout={layout} />
+          </div>
           <div
             style={{
+              alignSelf: 'end',
               textAlign: 'center',
               color: '#f1e2ca',
               fontSize: 13,
-              lineHeight: 1.6,
-              fontWeight: 400,
-              padding: '12px 14px',
+              lineHeight: 1.62,
+              padding: '11px 13px',
               borderTop: '1px solid rgba(205,127,50,0.14)',
-              background: 'linear-gradient(180deg, rgba(205,127,50,0.06), rgba(205,127,50,0.02))',
-              borderRadius: 18,
-              direction: 'rtl',
-              opacity: reveal
+              background: 'rgba(205,127,50,0.06)',
+              borderRadius: 16,
+              direction: 'rtl'
             }}
           >
             {scene.summary}
           </div>
-        ) : (
-          <div />
-        )}
+        </article>
       </div>
     </AbsoluteFill>
   );
 };
 
-// Attention hook prepended to the master start (e.g. "اليوم شو عم بقولوا
-// للبنانية"). Punchy radar-ping visual + big bold text; spoken via <Audio> when
-// a hook WAV was synthesized. The splitter prepends this same range to every
-// output, so every short and the full reel open with it.
-const HookScene = ({hook, durationInFrames}) => {
+// Attention hook prepended to the master start. The audio still uses the
+// selected hook WAV, while the visual matches the Quote Duel HTML intro.
+const HookScene = ({hook, durationInFrames, dateLabel, backgroundSrc}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const t = frame / fps;
-
-  // Text punch-in: scale overshoot + fade over the first ~12 frames.
-  const enter = clamp01(interpolate(frame, [0, 12], [0, 1], {extrapolateRight: 'clamp'}));
-  const scale = interpolate(enter, [0, 0.6, 1], [1.18, 0.99, 1]);
   const fadeOut = interpolate(frame, [durationInFrames - 6, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp'
   });
-  // Sweeping scan beam + breathing.
-  const sweep = interpolate(frame % Math.max(1, Math.round(fps * 1.6)), [0, Math.round(fps * 1.6)], [-120, 120]);
-  const breathe = 1 + 0.015 * Math.sin(t * 6);
-
-  // Two radar pulse rings expanding on a loop.
-  const ring = (offset) => {
-    const cyc = (t + offset) % 1.3;
-    return {
-      size: interpolate(cyc, [0, 1.3], [40, 360]),
-      opacity: interpolate(cyc, [0, 0.15, 1.3], [0, 0.5, 0])
-    };
-  };
-  const rings = [ring(0), ring(0.65)];
+  const revealFrame = Math.max(0, durationInFrames - Math.round(3 * fps));
+  const copyProgress = clamp01(interpolate(frame, [revealFrame, revealFrame + Math.round(0.8 * fps)], [0, 1], {extrapolateRight: 'clamp'}));
 
   return (
     <AbsoluteFill style={{opacity: fadeOut}}>
-      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
-        {rings.map((r, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              width: r.size,
-              height: r.size,
-              borderRadius: '50%',
-              border: `2px solid ${palette.amber}`,
-              opacity: r.opacity
-            }}
-          />
-        ))}
-        {/* sweeping beam */}
+      <IntroLayers opacity={1} zoom backgroundSrc={backgroundSrc} />
+      <section
+        style={{
+          position: 'absolute',
+          inset: '34px 20px',
+          display: 'grid',
+          gridTemplateRows: 'auto 1fr auto',
+          gap: 16,
+          zIndex: 1,
+          direction: 'rtl'
+        }}
+      >
+        <div />
         <div
           style={{
-            position: 'absolute',
-            width: 2,
-            height: STAGE_H,
-            left: `calc(50% + ${sweep}px)`,
-            background: `linear-gradient(180deg, transparent, ${palette.amber}55, transparent)`,
-            opacity: 0.5
-          }}
-        />
-      </AbsoluteFill>
-      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center', padding: '0 36px'}}>
-        <div
-          style={{
-            direction: 'rtl',
-            textAlign: 'center',
-            fontSize: 40,
-            lineHeight: 1.3,
-            fontWeight: 700,
-            color: palette.ink,
-            textShadow: `0 0 24px ${palette.amber}66`,
-            transform: `scale(${scale * breathe})`,
-            opacity: enter
+            alignSelf: 'end',
+            marginBottom: 56,
+            opacity: copyProgress,
+            transform: `translateY(${20 * (1 - copyProgress)}px)`,
+            textAlign: 'center'
           }}
         >
-          {hook?.text}
+          <h1 style={{margin: 0, color: '#ffd39f', fontSize: 50, lineHeight: 1.24, fontWeight: 700, textShadow: '0 6px 22px rgba(0,0,0,0.88)'}}>
+            نفس الحدث غير رواية
+          </h1>
+          <div style={{color: 'rgba(205,127,50,0.84)', fontSize: 12, letterSpacing: '0.16em', fontWeight: 500, direction: 'ltr', textShadow: '0 5px 18px rgba(0,0,0,0.82)'}}>
+            {dateLabel}
+          </div>
         </div>
-      </AbsoluteFill>
+        <div />
+      </section>
       {hook?.audioSrc ? <Audio src={resolveSrc(hook.audioSrc)} /> : null}
     </AbsoluteFill>
   );
 };
 
-const OutroScene = ({outro, durationInFrames}) => {
+const OutroScene = ({outro, durationInFrames, backgroundSrc}) => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
-  const t = frame / fps;
   const copyProgress = clamp01(interpolate(frame, [0, 24], [0, 1], {extrapolateRight: 'clamp'}));
   const fadeOut = interpolate(frame, [durationInFrames - 8, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp'
   });
-  const sweep = interpolate(frame % Math.max(1, Math.round(fps * 1.8)), [0, Math.round(fps * 1.8)], [-150, 150]);
-  const pulse = 1 + 0.025 * Math.sin(t * 5);
   const audioSrc = resolveSrc(outro?.audioSrc);
 
   return (
     <AbsoluteFill style={{opacity: fadeOut}}>
-      <AbsoluteFill style={{justifyContent: 'center', alignItems: 'center'}}>
-        <div
-          style={{
-            position: 'absolute',
-            width: 330,
-            height: 330,
-            borderRadius: '50%',
-            border: `1px solid ${palette.amber}44`,
-            boxShadow: `0 0 48px ${palette.amber}18`,
-            transform: `scale(${pulse})`,
-            opacity: 0.9
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: 2,
-            height: STAGE_H,
-            left: `calc(50% + ${sweep}px)`,
-            background: `linear-gradient(180deg, transparent, ${palette.cyan}44, transparent)`,
-            opacity: 0.55
-          }}
-        />
-      </AbsoluteFill>
+      <IntroLayers opacity={0.42} backgroundSrc={backgroundSrc} />
       <AbsoluteFill style={{justifyContent: 'flex-end', alignItems: 'center'}}>
         <div
           style={{
@@ -414,23 +447,11 @@ const OutroScene = ({outro, durationInFrames}) => {
   );
 };
 
-const StageBackground = () => {
-  const frame = useCurrentFrame();
-  const {durationInFrames} = useVideoConfig();
-  const drift = interpolate(frame, [0, Math.max(1, durationInFrames)], [0, 40], {extrapolateRight: 'clamp'});
-  return (
-    <AbsoluteFill
-      style={{
-        background: `radial-gradient(120% 80% at 50% ${10 + drift / 8}%, #06131d 0%, ${palette.bgDeep} 72%)`
-      }}
-    />
-  );
-};
-
 export const QuoteDuelVideo = ({duel}) => {
   const {fps, width, height} = useVideoConfig();
   const data = duel ?? {scenes: []};
   const dateLabel = data?.meta?.dateLabel ?? '';
+  const backgroundSrc = data?.assets?.introBackgroundSrc;
   // requireAudio:false → silent placeholder renders keep declared durations.
   const timeline = computeDuelTimeline(data, fps, {requireAudio: false});
   const scale = Math.min(width / STAGE_W, height / STAGE_H);
@@ -451,10 +472,9 @@ export const QuoteDuelVideo = ({duel}) => {
             overflow: 'hidden'
           }}
         >
-          <StageBackground />
           {timeline.coldOpenFrames > 0 && data.hook?.text ? (
             <Sequence from={0} durationInFrames={timeline.coldOpenFrames} name="hook">
-              <HookScene hook={data.hook} durationInFrames={timeline.coldOpenFrames} />
+              <HookScene hook={data.hook} durationInFrames={timeline.coldOpenFrames} dateLabel={dateLabel} backgroundSrc={backgroundSrc} />
             </Sequence>
           ) : null}
           {(data.scenes ?? []).map((scene, index) => {
@@ -464,14 +484,14 @@ export const QuoteDuelVideo = ({duel}) => {
             const audioSrc = resolveSrc(scene.audio?.src);
             return (
               <Sequence key={duelId} from={t.startFrame} durationInFrames={t.durationFrames} name={duelId}>
-                <DuelScene scene={scene} durationInFrames={t.durationFrames} dateLabel={dateLabel} />
+                <DuelScene scene={scene} durationInFrames={t.durationFrames} dateLabel={dateLabel} backgroundSrc={backgroundSrc} />
                 {audioSrc ? <Audio src={audioSrc} /> : null}
               </Sequence>
             );
           })}
           {timeline.outroFrames > 0 ? (
             <Sequence from={timeline.outroStartFrame} durationInFrames={timeline.outroFrames} name="outro">
-              <OutroScene outro={data.outro} durationInFrames={timeline.outroFrames} />
+              <OutroScene outro={data.outro} durationInFrames={timeline.outroFrames} backgroundSrc={backgroundSrc} />
             </Sequence>
           ) : null}
         </div>
