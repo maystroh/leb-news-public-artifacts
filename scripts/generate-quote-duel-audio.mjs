@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/briefing-helpers.mjs';
+import {formatDuelAudioText, defaultDuelText, duelTextSource, resolveDuelId} from './lib/duel-narration-text.mjs';
 import {patchWavHeaderSizes} from './lib/wav-header.mjs';
 import {
   DEFAULTS,
@@ -74,27 +75,6 @@ if (!scenes.length) {
 }
 
 const padTwo = (n) => String(n).padStart(2, '0');
-const formatDuelAudioText = (scene) => {
-  const event = normalizeSpacing(scene.eventLabel || scene.contrastLabel);
-  const leftOutlet = normalizeSpacing(scene.left?.outlet);
-  const leftSays = normalizeSpacing(scene.left?.audioLine || scene.left?.stance || scene.left?.quote);
-  const rightOutlet = normalizeSpacing(scene.right?.outlet);
-  const rightSays = normalizeSpacing(scene.right?.audioLine || scene.right?.stance || scene.right?.quote);
-  const lines = [];
-  if (event) lines.push(`الحدث هو "${event}"`);
-  if (leftOutlet && leftSays) lines.push(`"${leftOutlet}" قالت عنو "${leftSays}"`);
-  if (rightOutlet && rightSays) lines.push(`"${rightOutlet}" قالت عنو "${rightSays}"`);
-  return normalizeSpacing(lines.join(' '));
-};
-const defaultDuelText = (scene) => normalizeSpacing(scene.audioText || scene.narration || formatDuelAudioText(scene) || scene.summary);
-const duelTextSource = (scene, overrideText) => {
-  if (overrideText) return 'override';
-  if (scene.audioText) return 'audioText';
-  if (scene.narration) return 'narration';
-  if (formatDuelAudioText(scene)) return 'generated-format';
-  if (scene.summary) return 'summary';
-  return null;
-};
 
 let textOverrides = {};
 if (fs.existsSync(textOverridesPath)) {
@@ -135,7 +115,7 @@ const dialect = process.env.HAMSA_TTS_DIALECT || DEFAULTS.dialect;
 // Plan: decide per-duel action without side effects (drives --dry-run + tests).
 const plan = scenes.map((scene, index) => {
   const ordinal = index + 1;
-  const duelId = scene.id ?? `duel-${ordinal}`;
+  const duelId = resolveDuelId(scene, index);
   const fileName = `duel-${padTwo(ordinal)}.wav`;
   const outputPath = path.join(audioDir, fileName);
   const overrideText = normalizeSpacing(textOverrides[duelId]);
