@@ -45,6 +45,25 @@ const staleIfBriefingNewer = (ctx, base, finishedAtMs) => {
   return base;
 };
 
+const staleIfDuelInputsNewer = (ctx, base, finishedAtMs) => {
+  const inputs = [
+    path.join(ctx.output, 'quote-duel.json'),
+    path.join(ctx.audioDir, 'quote-duel-manifest.json'),
+    path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json')
+  ];
+  const audioMtimes = exists(ctx.audioDir)
+    ? fs
+        .readdirSync(ctx.audioDir)
+        .filter((name) => /^duel-\d+\.wav$/.test(name))
+        .map((name) => mtimeMs(path.join(ctx.audioDir, name)))
+    : [];
+  const newest = Math.max(0, ...inputs.map(mtimeMs), ...audioMtimes);
+  if (newest && finishedAtMs && newest > finishedAtMs + 5000) {
+    return {status: 'stale', detail: 'Quote Duel JSON, narration audio, or hook manifest changed after this step last ran.'};
+  }
+  return base;
+};
+
 const finishedAtMsOf = (stepState) => (stepState?.finishedAt ? Date.parse(stepState.finishedAt) : 0);
 const POST180_PARAGRAPH_PATTERN = /(?:180\s*(?:post|بوست)|١٨٠\s*بوست)/iu;
 
@@ -1199,7 +1218,7 @@ export function getSteps(ctx, state = null) {
       id: 'duel-server-render',
       title: '22. Quote Duel: sync + render on server (muted)',
       description:
-        `Re-syncs briefings/${ctx.date}/ (the narration + JSON from step 19) to ${SSH_HOST}, pulls the repo there, then renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Hooks must be synced once via step 18.`,
+        `Syncs only the Quote Duel render inputs for briefings/${ctx.date}/ to ${SSH_HOST}: output/quote-duel.json, output/timing-config.json, audio/quote-duel-manifest.json, and audio/duel-*.wav. Then pulls the repo there and renders the muted QuoteDuel comp over ssh with --hook ${DUEL_HOOK}. Long-running (frames are ~99% of the time). Shared hook WAVs must be synced once via step 21.`,
       kind: 'run',
       actions: [
         {
@@ -1209,7 +1228,20 @@ export function getSteps(ctx, state = null) {
             {cmd: 'ssh', args: sshArgs(`mkdir -p ${REMOTE_ROOT}/briefings/${ctx.date}`)},
             {
               cmd: 'rsync',
-              args: ['-av', '-e', `ssh -p ${SSH_PORT}`, `${folder}/`, `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`]
+              args: [
+                '-av',
+                '-e',
+                `ssh -p ${SSH_PORT}`,
+                '--include=/audio/',
+                '--include=/audio/duel-*.wav',
+                '--include=/audio/quote-duel-manifest.json',
+                '--include=/output/',
+                '--include=/output/quote-duel.json',
+                '--include=/output/timing-config.json',
+                '--exclude=*',
+                `${folder}/`,
+                `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`
+              ]
             },
             {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin`)},
             {
@@ -1226,7 +1258,7 @@ export function getSteps(ctx, state = null) {
         if (!stepState) return {status: 'pending', detail: 'Not rendered yet (or rendered outside the dashboard).'};
         const base = fromLastRun(stepState);
         if (base.status !== 'done') return base;
-        return staleIfBriefingNewer(ctx, base, finishedAtMsOf(stepState));
+        return staleIfDuelInputsNewer(ctx, base, finishedAtMsOf(stepState));
       }
     },
 
