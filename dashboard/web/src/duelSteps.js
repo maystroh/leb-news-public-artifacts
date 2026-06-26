@@ -11,13 +11,13 @@ export const DUEL_STEP_IDS = [
   'duel-server-render',
   'duel-server-mux',
   'duel-download',
-  'duel-split'
+  'duel-social-prompts'
 ];
 
 export const DUEL_STEP_SET = new Set(DUEL_STEP_IDS);
 
 // Steps that must appear on BOTH pages (not subtracted by the main filter).
-export const SHARED_STEP_IDS = ['social-package'];
+export const SHARED_STEP_IDS = [];
 export const SHARED_STEP_SET = new Set(SHARED_STEP_IDS);
 
 // Link to the duel page (new tab), carrying the current date through.

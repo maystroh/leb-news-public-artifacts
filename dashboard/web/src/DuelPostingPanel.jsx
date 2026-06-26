@@ -101,7 +101,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
               <div className="story-row" key={`${short.duelId}-${short.fileName}`}>
                 <div className="story-meta">
                   <strong>{String(index + 1).padStart(2, '0')}. {short.outlet || short.duelId}</strong>
-                  <span>{short.fileName}</span>
+                  <span>{short.fileName || 'Prompt ready; video not downloaded yet'}</span>
                 </div>
                 <div className="story-actions">
                   {short.url && (

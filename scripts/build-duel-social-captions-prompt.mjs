@@ -4,9 +4,9 @@ import path from 'node:path';
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 
 // Writes output/quote-duel-social-captions-prompt.md: a Codex prompt that turns
-// the day's duels into output/quote-duel-social-captions.json with one Instagram
-// caption block PER CLASH VIDEO (keyed by duelId) plus a YouTube description +
-// cover prompts for the full Quote Duel video.
+// the day's duels into output/quote-duel-social-captions.json with one caption
+// block PER CLASH VIDEO (keyed by duelId), plus a YouTube description + cover
+// prompts for the full Quote Duel video.
 //
 // Kept separate from the sceneId-keyed briefing captions (build-social-captions-
 // prompt.mjs) so the two video products never collide on schema (Codex#4). The
@@ -89,7 +89,7 @@ const prompt = [
   '  "clips": [',
   '    {',
   '      "duelId": "duel-1",',
-  '      "caption": "1–3 line Instagram body that leads with the clash hook",',
+  '      "caption": "1–3 line caption body that leads with the clash hook",',
   '      "hashtags": ["#...", "#..."]',
   '    }',
   '  ]',
@@ -99,7 +99,7 @@ const prompt = [
   '## Rules',
   '- Output ONE clips entry per duelId listed below, keyed by duelId. Do not invent or skip duelIds.',
   '- `caption`: Arabic. LEAD WITH THE CLASH — "صحيفة X قالت كذا، والأخبار قالت العكس" energy. One hook line, then',
-  '  one line of context. Tight enough to read in the first 2 seconds of a vertical post.',
+  '  one line of context. Tight enough to read in the first 2 seconds of a vertical post on any platform.',
   '- `hashtags`: 8–15, MIX Arabic + English/transliterated. Include both outlets + the topic + a few high-reach tags',
   '  (#لبنان #Lebanon #Beirut #بيروت). Every tag starts with `#`, no spaces.',
   '- `youtube.description`: frame the full video as the day’s sharpest clashes; one line per duel.',

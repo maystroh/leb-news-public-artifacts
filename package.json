@@ -29,6 +29,8 @@
     "briefing:duel:split": "node ./scripts/split-quote-duel-video.mjs",
     "briefing:duel:captions": "node ./scripts/build-duel-social-captions-prompt.mjs",
     "briefing:duel:social:validate": "node ./scripts/validate-duel-social-captions.mjs",
+    "briefing:duel:social-prompts": "node ./scripts/build-duel-social-prompts-prompt.mjs",
+    "briefing:duel:social-prompts:validate": "node ./scripts/validate-duel-social-prompts.mjs",
     "briefing:render:mp4": "node ./scripts/render-briefing-video.mjs",
     "briefing:render:intro": "node ./scripts/render-briefing-intro-video.mjs",
     "briefing:mux:audio": "node ./scripts/mux-briefing-audio.mjs",

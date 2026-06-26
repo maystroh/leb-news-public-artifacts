@@ -35,9 +35,44 @@ const DUEL_HOOK = 'hook-2';
 const webDir = path.join(REPO_ROOT, 'dashboard', 'web');
 const distDir = path.join(webDir, 'dist');
 
+function newestMtimeMs(root, predicate = () => true) {
+  if (!fs.existsSync(root)) return 0;
+  let newest = 0;
+  const entries = fs.readdirSync(root, {withFileTypes: true});
+  for (const entry of entries) {
+    const file = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      newest = Math.max(newest, newestMtimeMs(file, predicate));
+    } else if (predicate(file)) {
+      newest = Math.max(newest, fs.statSync(file).mtimeMs);
+    }
+  }
+  return newest;
+}
+
+function frontendSourceMtimeMs() {
+  const sourceRoots = [
+    path.join(webDir, 'src'),
+    path.join(webDir, 'vite.config.mjs'),
+    path.join(REPO_ROOT, 'package.json'),
+    path.join(REPO_ROOT, 'package-lock.json')
+  ];
+  return Math.max(
+    ...sourceRoots.map((source) => {
+      if (!fs.existsSync(source)) return 0;
+      const stat = fs.statSync(source);
+      return stat.isDirectory() ? newestMtimeMs(source) : stat.mtimeMs;
+    })
+  );
+}
+
 function ensureFrontendBuilt() {
-  if (fs.existsSync(path.join(distDir, 'index.html'))) return;
-  console.log('dashboard/web/dist missing — building frontend with Vite (one-time)...');
+  const indexPath = path.join(distDir, 'index.html');
+  const indexMtime = fs.existsSync(indexPath) ? fs.statSync(indexPath).mtimeMs : 0;
+  const sourceMtime = frontendSourceMtimeMs();
+  if (indexMtime >= sourceMtime) return;
+  const reason = indexMtime ? 'dashboard/web source changed' : 'dashboard/web/dist missing';
+  console.log(`${reason} — building frontend with Vite...`);
   const result = spawnSync('npx', ['vite', 'build', '--config', 'dashboard/web/vite.config.mjs'], {
     cwd: REPO_ROOT,
     stdio: 'inherit'
@@ -256,6 +291,8 @@ function duelPostingState(ctx, state = {}) {
 
   const joinHashtags = (tags) => (Array.isArray(tags) ? tags : []).join(' ');
   const clipCopy = (clip) => [clip?.caption || '', joinHashtags(clip?.hashtags)].filter(Boolean).join('\n\n');
+  const youtube = captions?.youtube || null;
+  const instagram = captions?.instagram || null;
 
   // All-duels muxed master
   const fullMasterFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
@@ -287,21 +324,37 @@ function duelPostingState(ctx, state = {}) {
         .sort()
     : [];
 
-  const clashes = clashFileNames.map((fileName) => {
-    // Prefer manifest lookup; fall back to filename-ordinal (duel-05.mp4 → duel-5)
+  const clashFileNamesByDuelId = new Map();
+  for (const fileName of clashFileNames) {
     let duelId = duelIdByFileName.get(fileName);
     if (!duelId) {
       const match = fileName.match(/^duel-(\d+)\.mp4$/);
       duelId = match ? `duel-${parseInt(match[1], 10)}` : fileName.replace(/\.mp4$/, '');
     }
+    clashFileNamesByDuelId.set(duelId, fileName);
+  }
+
+  const captionDuelIds = [...clipByDuelId.keys()];
+  const orderedDuelIds = [
+    ...clashFileNames.map((fileName) => {
+      const match = fileName.match(/^duel-(\d+)\.mp4$/);
+      return duelIdByFileName.get(fileName) || (match ? `duel-${parseInt(match[1], 10)}` : fileName.replace(/\.mp4$/, ''));
+    }),
+    ...captionDuelIds.filter((duelId) => !clashFileNamesByDuelId.has(duelId))
+  ];
+
+  const clashes = orderedDuelIds.map((duelId) => {
+    // Prefer manifest lookup; fall back to filename-ordinal (duel-05.mp4 → duel-5)
+    const fileName = clashFileNamesByDuelId.get(duelId) || '';
     const clip = clipByDuelId.get(duelId) || null;
     const filePath = path.join(duelVideosDir, fileName);
     return {
       duelId,
       fileName,
-      path: path.relative(REPO_ROOT, filePath).split(path.sep).join('/'),
-      copyPath: pcPath(filePath),
-      url: fs.existsSync(filePath) ? relUrl(filePath) : null,
+      path: fileName ? path.relative(REPO_ROOT, filePath).split(path.sep).join('/') : '',
+      copyPath: fileName ? pcPath(filePath) : '',
+      url: fileName && fs.existsSync(filePath) ? relUrl(filePath) : null,
+      socialPrompt: clip?.socialPrompt || '',
       caption: clip?.caption || '',
       outlet: clip?.outlet || '',
       hashtags: Array.isArray(clip?.hashtags) ? clip.hashtags : [],
@@ -311,9 +364,43 @@ function duelPostingState(ctx, state = {}) {
 
   return {
     ready: Boolean(captions),
+    captionsPath: fs.existsSync(captionsPath) ? path.relative(REPO_ROOT, captionsPath).split(path.sep).join('/') : null,
+    youtube: youtube
+      ? {
+          title: youtube.title || '',
+          description: youtube.description || '',
+          thumbnailPrompt: youtube.thumbnailPrompt || '',
+          hashtags: Array.isArray(youtube.hashtags) ? youtube.hashtags : [],
+          copyText: [youtube.title || '', youtube.description || '', joinHashtags(youtube.hashtags)].filter(Boolean).join('\n\n')
+        }
+      : null,
+    instagram: instagram
+      ? {
+          reelCoverPrompt: instagram.reelCoverPrompt || ''
+        }
+      : null,
     full,
     clashes,
     phone: phoneTransferState(ctx, state, 'duel')
+  };
+}
+
+function duelSocialPromptsState(ctx) {
+  const promptsPath = path.join(ctx.output, 'quote-duel-social-prompts.json');
+  const prompts = readJsonSafe(promptsPath);
+  const joinHashtags = (tags) => (Array.isArray(tags) ? tags : []).join(' ');
+  const duels = (prompts?.duels ?? []).map((entry, index) => ({
+    duelId: entry.duelId || `duel-${index + 1}`,
+    title: entry.title || '',
+    description: entry.description || '',
+    hashtags: Array.isArray(entry.hashtags) ? entry.hashtags : [],
+    reelCoverPrompt: entry.reelCoverPrompt || '',
+    copyText: [entry.title || '', entry.description || '', joinHashtags(entry.hashtags)].filter(Boolean).join('\n\n')
+  }));
+  return {
+    ready: Boolean(prompts),
+    promptsPath: fs.existsSync(promptsPath) ? path.relative(REPO_ROOT, promptsPath).split(path.sep).join('/') : null,
+    duels
   };
 }
 
@@ -456,12 +543,16 @@ function correctedBriefingState(ctx) {
   };
 }
 
-function computeState(date) {
+function viewMode(value) {
+  return String(value || '') === 'duel' ? 'duel' : 'main';
+}
+
+function computeState(date, options = {}) {
   const ctx = briefingContext(date);
   const state = loadState(ctx);
   const active = runner.activeRun(date);
 
-  const steps = getSteps(ctx, state).map((step) => {
+  const steps = getSteps(ctx, state, {mode: viewMode(options.mode)}).map((step) => {
     const stepState = state.steps?.[step.id] || null;
     let status;
     if (active && active.stepId === step.id) {
@@ -509,7 +600,8 @@ function computeState(date) {
     duel: {
       narration: duelNarrationEntries(ctx),
       narrationConfirmedAt: (state.duel || {}).narrationConfirmedAt || null,
-      social: duelPostingState(ctx, state)
+      social: duelPostingState(ctx, state),
+      prompts: duelSocialPromptsState(ctx)
     },
     social: socialPostingState(ctx, state),
     reviews: state.reviews || {},
@@ -531,7 +623,7 @@ app.get('/api/dates', (req, res) => {
 app.get('/api/state', (req, res) => {
   const date = requireDate(req, res);
   if (!date) return;
-  res.json(computeState(date));
+  res.json(computeState(date, {mode: req.query.view}));
 });
 
 // Create a new date folder fed by the data server and flag it for the remote-sync
@@ -562,7 +654,7 @@ app.post('/api/run', (req, res) => {
   const {stepId, actionId} = req.body || {};
   const ctx = briefingContext(date);
   const state = loadState(ctx);
-  const step = getStep(ctx, String(stepId || ''), state);
+  const step = getStep(ctx, String(stepId || ''), state, {mode: viewMode(req.body?.view)});
   if (!step) return res.status(404).json({error: `Unknown step: ${stepId}`});
   if (step.locked) return res.status(423).json({error: step.lockReason || 'Step is locked.'});
   const action = step.actions.find((item) => item.id === actionId) || step.actions[0];

@@ -223,3 +223,48 @@ const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
   assert.equal(manifest.audioByScene['scene-3'].audioPath, relativeAudioPath);
   assert.equal(manifest.audioByScene['scene-3'].status, 'reused');
 }
+
+{
+  const currentText = 'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط.';
+  const {folder} = createBriefingFolder({
+    oldText: currentText,
+    currentText,
+    sceneId: 'scene-11'
+  });
+
+  runAudio(folder, ['--dry-run']);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'audio', 'manifest.json'), 'utf8'));
+  assert.equal(
+    manifest.entries[0].text,
+    'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط. .. ... وهيك منوصل لسؤال اليوم'
+  );
+}
+
+{
+  const currentText = 'نص المشهد الأصلي.';
+  const overrideText = 'النص المعدل لخلاصة المشهد.';
+  const {folder} = createBriefingFolder({
+    oldText: currentText,
+    currentText,
+    sceneId: 'scene-11'
+  });
+  fs.writeFileSync(path.join(folder, 'audio', 'text-overrides.json'), JSON.stringify({
+    meta: {
+      schema: 'text-overrides/v2',
+      dateLabel: '2026-06-26'
+    },
+    overrides: {
+      'scene-11': {
+        text: overrideText,
+        defaultTextHash: textFingerprint(`${currentText} .. ... وهيك منوصل لسؤال اليوم`)
+      }
+    }
+  }, null, 2));
+
+  runAudio(folder, ['--dry-run']);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'audio', 'manifest.json'), 'utf8'));
+  assert.equal(manifest.entries[0].text, `${overrideText} .. ... وهيك منوصل لسؤال اليوم`);
+  assert.equal(manifest.entries[0].textSource, 'override');
+}

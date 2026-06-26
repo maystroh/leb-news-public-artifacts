@@ -57,11 +57,8 @@ Other commands:
    variants you select. Step 16 can run before splitting; _Generate social
    captions (Codex)_ writes an editable `output/social-captions.json`
    (per-clip Instagram captions/hashtags, one YouTube description, one YouTube
-   thumbnail-generation prompt, and one Instagram Reel cover prompt), then extracts the asset prompts to
-   `output/youtube-thumbnail-prompt.md` and
-   `output/instagram-reel-cover-prompt.md`. Save the generated Reel cover image
-   as `output/instagram-reel-cover.png`; the phone upload includes it with the
-   scene clips. The **Post now** panel appears below the numbered steps and uses
+   thumbnail-generation prompt), then extracts the thumbnail prompt to
+   `output/youtube-thumbnail-prompt.md`. The **Post now** panel appears below the numbered steps and uses
    the same JSON with the final MP4s and split clips.
 6. Only one run can be active per date at a time.
 

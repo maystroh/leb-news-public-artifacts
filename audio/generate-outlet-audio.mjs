@@ -174,6 +174,7 @@ const findLatestBriefingFolder = (cwd) => {
 const normalizeSpacing = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
 const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
+const SCENE_11_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
 
 const parseList = (value) => String(value ?? '')
   .split(',')
@@ -274,7 +275,18 @@ const ensureScene2AudioPrefix = (scene, text) => {
   return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
 };
 
-const materializeSceneAudioText = (scene, text) => ensureScene2AudioPrefix(scene, text);
+const ensureScene11QuestionHandoffSuffix = (scene, text) => {
+  const normalized = normalizeSpacing(text);
+  if (scene.id !== 'scene-11' || !normalized || normalized.endsWith(SCENE_11_AUDIO_SUFFIX)) {
+    return normalized;
+  }
+  return `${normalized} ${SCENE_11_AUDIO_SUFFIX}`;
+};
+
+const materializeSceneAudioText = (scene, text) => ensureScene11QuestionHandoffSuffix(
+  scene,
+  ensureScene2AudioPrefix(scene, text)
+);
 
 const getScene2CaptionText = (scene, audioText) => {
   let captionText = normalizeSpacing(audioText);

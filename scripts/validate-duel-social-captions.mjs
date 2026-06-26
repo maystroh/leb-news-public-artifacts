@@ -68,7 +68,6 @@ const missingIds = manifestDuelIds.filter((id) => !captionedDuelIds.has(id));
 if (missingIds.length > 0) {
   errors.push(`Missing captions for duel id(s): ${missingIds.join(', ')}.`);
 }
-
 if (errors.length > 0) {
   console.error(`quote-duel-social-captions.json is not ready (${errors.length} problem(s)):`);
   for (const error of errors) console.error(`- ${error}`);

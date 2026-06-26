@@ -436,15 +436,16 @@ function buildRemoteSyncSteps(ctx) {
   ];
 }
 
-export function getSteps(ctx, state = null) {
+export function getSteps(ctx, state = null, options = {}) {
   const out = ctx.outputRel;
   const folder = ctx.folderRel;
+  const mode = options?.mode === 'duel' ? 'duel' : 'main';
+  const duelMode = mode === 'duel';
   const finalMp4 = path.join(ctx.output, 'radar-beirut-briefing-final.mp4');
   const mutedMp4 = path.join(ctx.output, 'radar-beirut-briefing.mp4');
   const splitVariants = finalVideoVariants(ctx);
   const socialCaptions = path.join(ctx.output, 'social-captions.json');
   const youtubeThumbnailPrompt = path.join(ctx.output, 'youtube-thumbnail-prompt.md');
-  const instagramReelCoverPrompt = path.join(ctx.output, 'instagram-reel-cover-prompt.md');
   const htmlFiles = [
     'radar-beirut-briefing.html',
     'radar-beirut-briefing-hook-captions.html',
@@ -460,6 +461,10 @@ export function getSteps(ctx, state = null) {
   const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
   const duelClipManifest = path.join(duelVideosDir, 'manifest.json');
   const duelRenderChoices = quoteDuelRenderChoices(ctx);
+  const quoteDuelJson = path.join(ctx.output, 'quote-duel.json');
+  const duelSocialCaptions = path.join(ctx.output, 'quote-duel-social-captions.json');
+  const duelSocialPrompts = path.join(ctx.output, 'quote-duel-social-prompts.json');
+  const duelSocialReady = exists(quoteDuelJson) && exists(duelManifest);
 
   const baseSteps = [
     {
@@ -1063,37 +1068,20 @@ export function getSteps(ctx, state = null) {
 
     {
       id: 'social-package',
-      title: '16. Generate social captions',
-      description:
-        'Action A runs Codex once to write an editable output/social-captions.json (per-clip Instagram captions/hashtags + ' +
-        'a YouTube description, thumbnail prompt, and Instagram Reel cover prompt). This can run as soon as a final MP4 is downloaded; ' +
-        'the Post now section below uses that JSON with the final MP4s and split clips.',
+      title: duelMode ? '16. Generate Quote Duel social captions' : '16. Generate social captions',
+      description: duelMode
+        ? 'Writes and validates output/quote-duel-social-captions.json for the Quote Duel full/per-clash videos. This is independent from the main briefing full-video render.'
+        : 'Generates the main full-video publishing text: YouTube title, description, hashtags, and thumbnail prompt. This can run as soon as a final MP4 is downloaded.',
       kind: 'run',
-      locked: splitVariants.length === 0,
-      lockReason: 'Locked — download at least one final MP4 first (step 14).',
-      actions: [
+      locked: duelMode ? !duelSocialReady : splitVariants.length === 0,
+      lockReason: duelMode
+        ? 'Locked — build Quote Duel content and narration first (steps 18-19).'
+        : 'Locked — download at least one final MP4 first (step 14).',
+      actions: duelMode ? [
         {
           id: 'generate',
-          label: 'Generate social captions (Codex)',
+          label: 'Generate duel social captions (Codex)',
           commands: () => [
-            npmRun('briefing:social:prompt', '--folder', folder),
-            {
-              cmd: 'codex',
-              args: [
-                'exec',
-                '--cd',
-                ctx.repoRoot,
-                '--sandbox',
-                'workspace-write',
-                '--skip-git-repo-check',
-                '--output-last-message',
-                path.join(ctx.output, 'social-captions-codex-message.md'),
-                '-'
-              ],
-              stdinFile: path.join(ctx.output, 'social-captions-prompt.md')
-            },
-            npmRun('briefing:social:validate', '--folder', folder),
-            npmRun('briefing:social:thumbnail-prompt', '--folder', folder),
             npmRun('briefing:duel:captions', '--folder', folder),
             {
               cmd: 'codex',
@@ -1115,6 +1103,36 @@ export function getSteps(ctx, state = null) {
         },
         {
           id: 'validate',
+          label: 'Validate duel captions only',
+          commands: () => [npmRun('briefing:duel:social:validate', '--folder', folder)]
+        }
+      ] : [
+        {
+          id: 'generate',
+          label: 'Generate social captions (Codex)',
+          commands: () => [
+            npmRun('briefing:social:prompt', '--folder', folder),
+            {
+              cmd: 'codex',
+              args: [
+                'exec',
+                '--cd',
+                ctx.repoRoot,
+                '--sandbox',
+                'workspace-write',
+                '--skip-git-repo-check',
+                '--output-last-message',
+                path.join(ctx.output, 'social-captions-codex-message.md'),
+                '-'
+              ],
+              stdinFile: path.join(ctx.output, 'social-captions-prompt.md')
+            },
+            npmRun('briefing:social:validate', '--folder', folder),
+            npmRun('briefing:social:thumbnail-prompt', '--folder', folder)
+          ]
+        },
+        {
+          id: 'validate',
           label: 'Validate captions only',
           commands: () => [
             npmRun('briefing:social:validate', '--folder', folder),
@@ -1123,29 +1141,51 @@ export function getSteps(ctx, state = null) {
         }
       ],
       artifacts: () => {
+        if (duelMode) {
+          return [
+            {label: 'output/quote-duel-social-captions.json', file: duelSocialCaptions, optional: true},
+            {label: 'output/quote-duel-social-captions-prompt.md', file: path.join(ctx.output, 'quote-duel-social-captions-prompt.md'), optional: true},
+            {label: 'output/quote-duel-social-captions-codex-message.md', file: path.join(ctx.output, 'quote-duel-social-captions-codex-message.md'), optional: true}
+          ];
+        }
         return [
           {label: 'social-captions.json (editable)', file: socialCaptions, optional: true},
           {label: 'social-captions-prompt.md', file: path.join(ctx.output, 'social-captions-prompt.md'), optional: true},
-          {label: 'youtube-thumbnail-prompt.md', file: youtubeThumbnailPrompt, optional: true},
-          {label: 'instagram-reel-cover-prompt.md', file: instagramReelCoverPrompt, optional: true},
-          {label: 'instagram-reel-cover.png', file: path.join(ctx.output, 'instagram-reel-cover.png'), optional: true},
-          {label: 'output/quote-duel-social-captions.json', file: path.join(ctx.output, 'quote-duel-social-captions.json'), optional: true}
+          {label: 'youtube-thumbnail-prompt.md', file: youtubeThumbnailPrompt, optional: true}
         ];
       },
       status: (stepState) => {
+        if (duelMode) {
+          if (!exists(duelSocialCaptions)) {
+            if (duelSocialReady) {
+              return {status: 'attention', detail: 'Quote Duel narration is ready — generate duel social captions when ready.'};
+            }
+            return fromLastRun(stepState, 'Build Quote Duel content and narration first.');
+          }
+          const captionsMtime = mtimeMs(duelSocialCaptions);
+          const newestDuelInput = Math.max(
+            mtimeMs(quoteDuelJson),
+            mtimeMs(duelManifest),
+            mtimeMs(path.join(REPO_ROOT, 'audio', 'hooks', 'manifest.json'))
+          );
+          if (newestDuelInput > captionsMtime + 5000) {
+            return {status: 'stale', detail: 'Quote Duel JSON, narration audio, or hook manifest changed after captions were generated.'};
+          }
+          return {status: 'done', detail: 'Quote Duel social captions are ready.'};
+        }
         if (!exists(socialCaptions)) {
           if (splitVariants.length) {
             return {status: 'attention', detail: 'Final MP4 downloaded — generate social captions when ready.'};
           }
           return fromLastRun(stepState, 'Download a final MP4 first.');
         }
-        if (!exists(youtubeThumbnailPrompt) || !exists(instagramReelCoverPrompt)) {
-          return {status: 'attention', detail: 'Captions ready — run Validate captions only to write the social asset prompts.'};
+        if (!exists(youtubeThumbnailPrompt)) {
+          return {status: 'attention', detail: 'Captions ready — run Validate captions only to write the YouTube thumbnail prompt.'};
         }
-        if (mtimeMs(socialCaptions) > Math.min(mtimeMs(youtubeThumbnailPrompt), mtimeMs(instagramReelCoverPrompt))) {
-          return {status: 'stale', detail: 'social-captions.json changed after the social asset prompts — validate to refresh them.'};
+        if (mtimeMs(socialCaptions) > mtimeMs(youtubeThumbnailPrompt)) {
+          return {status: 'stale', detail: 'social-captions.json changed after the YouTube thumbnail prompt — validate to refresh it.'};
         }
-        return staleIfBriefingNewer(ctx, {status: 'done', detail: 'Social captions, YouTube description, and social asset prompts are ready.'}, mtimeMs(socialCaptions));
+        return staleIfBriefingNewer(ctx, {status: 'done', detail: 'Social captions, YouTube description, and thumbnail prompt are ready.'}, mtimeMs(socialCaptions));
       }
     },
 
@@ -1391,7 +1431,7 @@ export function getSteps(ctx, state = null) {
     {
       id: 'duel-download',
       title: '24. Quote Duel: download videos from server',
-      description: `Downloads the server-rendered per-duel MP4s from ${SSH_HOST}: output/duel-videos-${DUEL_HOOK}/. No local split step is needed.`,
+      description: `Downloads only the final server-rendered per-duel MP4s and manifest from ${SSH_HOST}: output/duel-videos-${DUEL_HOOK}/. Muted render intermediates are left on the server.`,
       kind: 'run',
       actions: [
         {
@@ -1404,6 +1444,7 @@ export function getSteps(ctx, state = null) {
                 '-av',
                 '-e',
                 `ssh -p ${SSH_PORT}`,
+                '--exclude=muted/',
                 `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/output/duel-videos-${DUEL_HOOK}/`,
                 `${out}/duel-videos-${DUEL_HOOK}/`
               ]
@@ -1415,6 +1456,66 @@ export function getSteps(ctx, state = null) {
       status: () => {
         if (!exists(duelClipManifest)) return {status: 'pending', detail: 'Rendered duel videos not downloaded yet.'};
         return {status: 'done', detail: 'Server-rendered per-duel videos are here.'};
+      }
+    },
+
+    {
+      id: 'duel-social-prompts',
+      title: '25. Quote Duel: social text + reel cover prompts',
+      description:
+        'Generates one platform-neutral publishing text block and one full 9:16 social media reel/short cover prompt for each duel. These prompts are for Reels, Shorts, TikTok, and similar vertical social video feeds.',
+      kind: 'run',
+      locked: !exists(quoteDuelJson),
+      lockReason: 'Locked - build Quote Duel content first (step 18).',
+      actions: [
+        {
+          id: 'generate',
+          label: 'Generate per-duel text + cover prompts (Codex)',
+          commands: () => [
+            npmRun('briefing:duel:social-prompts', '--folder', folder),
+            {
+              cmd: 'codex',
+              args: [
+                'exec',
+                '--cd',
+                ctx.repoRoot,
+                '--sandbox',
+                'workspace-write',
+                '--skip-git-repo-check',
+                '--output-last-message',
+                path.join(ctx.output, 'quote-duel-social-prompts-codex-message.md'),
+                '-'
+              ],
+              stdinFile: path.join(ctx.output, 'quote-duel-social-prompts-prompt.md')
+            },
+            npmRun('briefing:duel:social-prompts:validate', '--folder', folder)
+          ]
+        },
+        {
+          id: 'validate',
+          label: 'Validate prompts only',
+          commands: () => [npmRun('briefing:duel:social-prompts:validate', '--folder', folder)]
+        }
+      ],
+      artifacts: () => [
+        {label: 'output/quote-duel-social-prompts.json', file: duelSocialPrompts, optional: true},
+        {label: 'output/quote-duel-social-prompts-prompt.md', file: path.join(ctx.output, 'quote-duel-social-prompts-prompt.md'), optional: true},
+        {label: 'output/quote-duel-social-prompts-codex-message.md', file: path.join(ctx.output, 'quote-duel-social-prompts-codex-message.md'), optional: true}
+      ],
+      status: (stepState) => {
+        if (!exists(duelSocialPrompts)) {
+          if (exists(quoteDuelJson)) return {status: 'attention', detail: 'Quote Duel content is ready - generate per-duel social prompts when ready.'};
+          return fromLastRun(stepState, 'Build Quote Duel content first.');
+        }
+        const prompts = readJsonSafe(duelSocialPrompts);
+        if (prompts?.draft === true) {
+          return {status: 'attention', detail: 'Draft prompt file exists - run Codex generation to fill it.'};
+        }
+        if (stepState?.status === 'failed') return {status: 'failed', detail: 'Last prompt generation/validation failed - review the log.'};
+        if (mtimeMs(quoteDuelJson) > mtimeMs(duelSocialPrompts) + 5000) {
+          return {status: 'stale', detail: 'quote-duel.json changed after the social prompts were generated.'};
+        }
+        return {status: 'done', detail: 'Per-duel social text and reel cover prompts are ready.'};
       }
     }
   ];
@@ -1434,6 +1535,6 @@ export function getSteps(ctx, state = null) {
   return [...buildRemoteSyncSteps(ctx), ...gatedBase];
 }
 
-export function getStep(ctx, stepId, state = null) {
-  return getSteps(ctx, state).find((step) => step.id === stepId) || null;
+export function getStep(ctx, stepId, state = null, options = {}) {
+  return getSteps(ctx, state, options).find((step) => step.id === stepId) || null;
 }

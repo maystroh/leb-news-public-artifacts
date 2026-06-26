@@ -26,7 +26,7 @@ export default function DuelApp() {
   const refresh = useCallback(async (selectedDate) => {
     if (!selectedDate) return;
     try {
-      const state = await api(`/api/state?date=${selectedDate}`);
+      const state = await api(`/api/state?date=${selectedDate}&view=duel`);
       setData(state);
       if (state.activeRun) {
         setLogs((prev) => ({...prev, [state.activeRun.stepId]: state.activeRun.log}));
@@ -76,7 +76,7 @@ export default function DuelApp() {
       await api('/api/run', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({date, stepId, actionId, ...(options ? {options} : {})})
+        body: JSON.stringify({date, view: 'duel', stepId, actionId, ...(options ? {options} : {})})
       });
     } catch (err) {
       setError(err.message);
@@ -135,7 +135,7 @@ export default function DuelApp() {
       <header className="header">
         <div>
           <h1>Radar Beirut — Quote Duel</h1>
-          <p className="subtitle">Steps 17–23 · separate from the main briefing video · local only</p>
+          <p className="subtitle">Steps 17-25 · separate from the main briefing video · local only</p>
         </div>
         <div className="header-right">
           {data && (
@@ -175,7 +175,7 @@ export default function DuelApp() {
               <StepCard
                 key={step.id}
                 step={step}
-                social={step.id === 'social-package' ? data.social : null}
+                social={step.id === 'duel-social-prompts' ? data.duel?.prompts : null}
                 log={logs[step.id] || step.lastRun?.logTail || []}
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}

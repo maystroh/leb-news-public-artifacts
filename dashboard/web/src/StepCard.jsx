@@ -107,7 +107,10 @@ export default function StepCard({
   const hasLog = log && log.length > 0;
   const locked = Boolean(step.locked);
   const thumbnailPrompt = step.id === 'social-package' ? social?.youtube?.thumbnailPrompt || '' : '';
-  const reelCoverPrompt = step.id === 'social-package' ? social?.instagram?.reelCoverPrompt || '' : '';
+  const duelSocialPrompts = step.id === 'duel-social-prompts'
+    ? (social?.duels || []).filter((item) => item?.reelCoverPrompt)
+    : [];
+  const missingDuelPrompts = step.id === 'duel-social-prompts' && social?.ready && duelSocialPrompts.length === 0;
 
   const selectedFor = (action) =>
     optionSelections[action.id] ?? action.options?.defaultSelected ?? [];
@@ -147,13 +150,40 @@ export default function StepCard({
         </div>
       )}
 
-      {reelCoverPrompt && (
+      {duelSocialPrompts.length > 0 && (
         <div className="step-output">
-          <label>Instagram Reel cover prompt</label>
-          <textarea className="step-thumbnail-prompt" readOnly value={reelCoverPrompt} />
-          <button className="btn" onClick={() => copyText(reelCoverPrompt, setCopied, 'reel-cover-prompt')}>
-            {copied === 'reel-cover-prompt' ? 'Copied' : 'Copy Reel cover prompt'}
-          </button>
+          <label>Duel social media reel cover prompts (Reels / Shorts / TikTok)</label>
+          <div className="duel-prompt-list">
+            {duelSocialPrompts.map((item, index) => {
+              const key = item.duelId || `duel-prompt-${index}`;
+              return (
+                <div className="duel-prompt-item" key={key}>
+                  <div className="duel-prompt-head">
+                    <strong>{String(index + 1).padStart(2, '0')}. {item.title || item.duelId || 'Duel'}</strong>
+                    <div className="duel-prompt-actions">
+                      {item.copyText && (
+                        <button className="btn" onClick={() => copyText(item.copyText, setCopied, `duel-text-${key}`)}>
+                          {copied === `duel-text-${key}` ? 'Copied' : 'Copy text'}
+                        </button>
+                      )}
+                      <button className="btn" onClick={() => copyText(item.reelCoverPrompt, setCopied, `duel-prompt-${key}`)}>
+                        {copied === `duel-prompt-${key}` ? 'Copied' : 'Copy image prompt'}
+                      </button>
+                    </div>
+                  </div>
+                  {item.copyText && <textarea className="step-thumbnail-prompt duel-social-text" readOnly value={item.copyText} />}
+                  <textarea className="step-thumbnail-prompt duel-social-prompt" readOnly value={item.reelCoverPrompt} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {missingDuelPrompts && (
+        <div className="step-output">
+          <label>Duel social media reel cover prompts</label>
+          <p className="hint warn">Existing Quote Duel social prompts do not include per-duel reelCoverPrompt fields yet. Re-run Step 25 to regenerate them.</p>
         </div>
       )}
 

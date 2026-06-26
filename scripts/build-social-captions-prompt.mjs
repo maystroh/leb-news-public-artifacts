@@ -5,7 +5,7 @@ import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-help
 
 // Writes output/social-captions-prompt.md: a Codex prompt that turns the day's
 // briefing + keyword data into output/social-captions.json (per-clip Instagram
-// captions/hashtags + one YouTube description + social asset prompts). Step 16,
+// captions/hashtags + one YouTube description + YouTube thumbnail prompt). Step 16,
 // Action A.
 
 const cwd = process.cwd();
@@ -192,9 +192,6 @@ const prompt = [
   '    "thumbnailPrompt": "string — prompt to give ChatGPT/image generation for a 16:9 YouTube thumbnail",',
   '    "hashtags": ["#لبنان", "#Lebanon", "..."]',
   '  },',
-  '  "instagram": {',
-  '    "reelCoverPrompt": "string — prompt to give ChatGPT/image generation for a 9:16 Instagram Reel cover; ask the user to save the generated image as output/instagram-reel-cover.png"',
-  '  },',
   '  "clips": [',
   '    {',
   '      "sceneId": "scene-3",',
@@ -218,11 +215,6 @@ const prompt = [
   '- `youtube.thumbnailPrompt`: write a practical prompt the user can paste into ChatGPT to generate a YouTube video thumbnail.',
   '  It must request a 16:9 thumbnail, preserve the Radar Beirut editorial/radar look, use bold readable Arabic title text,',
   '  mention the key visual metaphor from the day, and avoid asking for exact outlet logos unless source assets are provided.',
-  '- `instagram.reelCoverPrompt`: write a practical prompt the user can paste into ChatGPT to generate ONE vertical Instagram Reel cover.',
-  '  It must request a 9:16 image, preserve the Radar Beirut editorial/radar look, use bold readable Arabic title text that fits',
-  '  a phone screen, leave top/bottom safe margins for Instagram UI, mention the key visual metaphor from the day, and avoid',
-  '  asking for exact outlet logos unless source assets are provided. End the prompt by saying: Save the generated image as',
-  `  \`${path.relative(cwd, path.join(outputFolder, 'instagram-reel-cover.png')).replace(/\\/g, '/')}\` so the dashboard can copy it to the phone folder.`,
   '- Write ONLY the JSON file. Do not print commentary.',
   '',
   '## Scenes (one clip each)',

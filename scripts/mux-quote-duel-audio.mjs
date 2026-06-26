@@ -44,6 +44,7 @@ if (!fs.existsSync(quoteDuelPath)) {
 
 const hookId = normalizeHookId(args.hook);
 const hookSuffix = hookId ? `-${hookId}` : '';
+const selectedDuelId = args.duel ? String(args.duel).trim() : '';
 const inputPath = args.input
   ? path.resolve(cwd, args.input)
   : path.join(outputFolder, `radar-beirut-quote-duel${hookSuffix}.mp4`);
@@ -69,6 +70,16 @@ const audioByDuel = manifest?.audioByDuel ?? {};
 const activeHook = resolveSharedHook(cwd, hookId);
 const activeOutro = resolveSharedOutro(cwd);
 const baseMerged = mergeDuelAudioManifest(duel, manifest);
+const sourceScenes = baseMerged.scenes ?? [];
+const selectedSource = selectedDuelId
+  ? sourceScenes
+      .map((scene, index) => ({...scene, sourceIndex: index + 1, id: scene.id ?? `duel-${index + 1}`}))
+      .find((scene) => scene.id === selectedDuelId)
+  : null;
+if (selectedDuelId && !selectedSource) {
+  console.error(`Unknown duel id: ${selectedDuelId}`);
+  process.exit(1);
+}
 const merged = {
   ...baseMerged,
   hook: activeHook ?? undefined,
@@ -76,7 +87,10 @@ const merged = {
     ...(baseMerged.outro ?? {}),
     text: activeOutro?.text ?? baseMerged.outro?.text,
     durationSeconds: activeOutro?.durationSeconds ?? baseMerged.outro?.durationSeconds
-  }
+  },
+  scenes: selectedDuelId
+    ? [selectedSource]
+    : sourceScenes.map((scene, index) => ({...scene, sourceIndex: index + 1, id: scene.id ?? `duel-${index + 1}`}))
 };
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
@@ -175,3 +189,29 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 console.log(`Final duel video with audio at ${outputPath}`);
+
+if (selectedDuelId) {
+  const manifestPath = path.join(path.dirname(outputPath), 'manifest.json');
+  let prior = {};
+  try {
+    prior = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch {
+    prior = {};
+  }
+  const fileName = path.basename(outputPath);
+  const nextEntry = {
+    duelId: selectedDuelId,
+    index: selectedSource.sourceIndex,
+    fileName,
+    rank: selectedSource.rank ?? selectedSource.sourceIndex,
+    source: 'server-render'
+  };
+  const duels = [...(prior.duels ?? []).filter((entry) => entry.duelId !== selectedDuelId), nextEntry]
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  fs.writeFileSync(manifestPath, JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    hook: hookId || null,
+    duels
+  }, null, 2));
+  console.log(`Updated duel video manifest at ${manifestPath}`);
+}

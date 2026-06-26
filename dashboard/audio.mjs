@@ -8,6 +8,7 @@ import {loadState, saveState} from './lib/state.mjs';
 const normalize = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
 const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
+const SCENE_11_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
 
 const overridesPath = (ctx) => path.join(ctx.audioDir, 'text-overrides.json');
 
@@ -71,7 +72,18 @@ const ensureScene2AudioPrefix = (scene, text) => {
   return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
 };
 
-const materializeSceneAudioText = (scene, text) => ensureScene2AudioPrefix(scene, text);
+const ensureScene11QuestionHandoffSuffix = (scene, text) => {
+  const normalized = normalize(text);
+  if (scene.id !== 'scene-11' || !normalized || normalized.endsWith(SCENE_11_AUDIO_SUFFIX)) {
+    return normalized;
+  }
+  return `${normalized} ${SCENE_11_AUDIO_SUFFIX}`;
+};
+
+const materializeSceneAudioText = (scene, text) => ensureScene11QuestionHandoffSuffix(
+  scene,
+  ensureScene2AudioPrefix(scene, text)
+);
 
 export function loadTextOverrides(ctx) {
   const raw = normalizeOverrideStore(readJsonSafe(overridesPath(ctx)));
@@ -86,16 +98,19 @@ export function loadTextOverrides(ctx) {
   }
 
   return Object.fromEntries(
-    scenes.map((scene) => [scene.id, overrideTextForScene(raw, scene.id, scene.defaultText)])
+    scenes.map((scene) => [
+      scene.id,
+      materializeSceneAudioText(scene, overrideTextForScene(raw, scene.id, scene.defaultText))
+    ])
       .filter(([, text]) => text)
   );
 }
 
 export function saveTextOverride(ctx, sceneId, text) {
   const rawOverrides = normalizeOverrideStore(readJsonSafe(overridesPath(ctx)));
-  const normalized = normalize(text);
   const scenes = narrationScenes(ctx);
   const scene = scenes.find((item) => item.id === sceneId);
+  const normalized = scene ? materializeSceneAudioText(scene, text) : normalize(text);
   if (!normalized || (scene && normalized === scene.defaultText)) {
     delete rawOverrides[sceneId];
   } else {
