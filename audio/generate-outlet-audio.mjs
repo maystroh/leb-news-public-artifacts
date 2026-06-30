@@ -8,7 +8,7 @@ const DEFAULTS = {
   endpoint: 'https://api.tryhamsa.com/v1/realtime/tts',
   projectEndpoint: 'https://api.tryhamsa.com/v1/projects/by-api-key',
   voicesEndpoint: 'https://api.tryhamsa.com/v2/tts/voices',
-  speakerPool: ['Lamees', 'Nabil', 'Gassan'],
+  speakerPool: ['Marwan'],
   dialect: 'leb',
   outputFormat: 'wav',
   textSource: 'body'
@@ -668,6 +668,10 @@ for (const scene of audioScenes) {
   const captionText = stripTtsCueTextForCaptions(rawCaptionText);
   const audioKey = scene.outlet?.key || scene.audioKey || scene.id;
   const carriedSource = priorSourceByScene[scene.id] || 'ai';
+  const priorEntry = priorEntryByScene[scene.id] ?? {};
+  const carriedSpeakerCandidate = priorEntry.speakerCandidate ?? priorEntry.speaker ?? null;
+  const carriedTtsSpeaker = priorEntry.ttsSpeaker ?? priorEntry.speaker ?? null;
+  const carriedVoiceName = priorEntry.voiceName ?? priorEntry.resolvedSpeakerName ?? null;
   if (!text) {
     entries.push({
       id: scene.id,
@@ -681,6 +685,9 @@ for (const scene of audioScenes) {
       outlet: scene.outlet,
       textSource: effectiveTextSource,
       source: carriedSource,
+      speakerCandidate: carriedSpeakerCandidate,
+      ttsSpeaker: carriedTtsSpeaker,
+      voiceName: carriedVoiceName,
       text: '',
       captionText: '',
       captionStartOffsetSeconds: 0,
@@ -710,6 +717,9 @@ for (const scene of audioScenes) {
     outlet: scene.outlet ?? null,
     textSource: effectiveTextSource,
     source: carriedSource,
+    speakerCandidate: carriedSpeakerCandidate,
+    ttsSpeaker: carriedTtsSpeaker,
+    voiceName: carriedVoiceName,
     text,
     captionText,
     captionStartOffsetSeconds: 0,
@@ -789,6 +799,9 @@ for (const scene of audioScenes) {
       // value (e.g. re-generating a previously recorded scene flips it back to ai).
       source: 'ai',
       speaker: result.ttsSpeaker,
+      speakerCandidate: selectedTtsSpeaker ?? result.ttsSpeaker,
+      ttsSpeaker: result.ttsSpeaker,
+      voiceName: result.voice.name ?? result.ttsSpeaker,
       resolvedSpeakerId: result.voice.id ?? null,
       resolvedSpeakerName: result.voice.name ?? null,
       resolvedSpeakerSource: result.voice.source ?? null,
@@ -822,6 +835,9 @@ const manifest = {
     provider: 'hamsa',
     endpoint: process.env.HAMSA_TTS_ENDPOINT || DEFAULTS.endpoint,
     speaker: selectedTtsSpeaker ?? hamsaSpeaker,
+    speakerCandidate: selectedTtsSpeaker ?? hamsaSpeaker,
+    ttsSpeaker: selectedTtsSpeaker ?? hamsaSpeaker,
+    voiceName: selectedResolvedVoice?.name ?? selectedTtsSpeaker ?? hamsaSpeaker,
     speakerCandidates: hamsaSpeakerCandidates,
     speakerSelectionSeed: voiceSelectionSeed,
     voiceFallbackAttempts,

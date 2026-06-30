@@ -23,7 +23,7 @@ Defaults:
 - Provider: Hamsa realtime TTS
 - Endpoint: `https://api.tryhamsa.com/v1/realtime/tts`
 - Auth header: `Authorization: Token <API key>`
-- Speaker pool: `Lamees`, `Nabil`, `Gassan`
+- Default speaker: `Marwan`
 - Dialect: `leb`
 - Text source: scene `audioText` when present, otherwise scene `body`
 - Output: `briefings/YYYY-MM-DD/audio/`
@@ -60,11 +60,10 @@ penultimate summary for analysis/display context, but `audioText` should contain
 only the penultimate summary paragraph. Hamsa generation prefers `audioText` so
 the closing WAV does not repeat the opening paragraph.
 
-The script shuffles the speaker pool from the date folder name, so each briefing
-day gets one stable first-choice voice. If that voice fails during generation,
-the script tries the remaining voices and keeps using the first working fallback
-for that run. Override the pool with comma-separated `HAMSA_TTS_SPEAKERS`, or
-force one voice with `HAMSA_TTS_SPEAKER`.
+The default speaker is `Marwan`, so newly generated manifest entries record
+`speakerCandidate`, `ttsSpeaker`, and `voiceName` as `Marwan` unless a different
+speaker is configured. Override the pool with comma-separated
+`HAMSA_TTS_SPEAKERS`, or force one voice with `HAMSA_TTS_SPEAKER`.
 
 The script validates configured speakers through Hamsa's voice catalog and
 records the resolved voice id in the manifest. For built-in catalog voices it

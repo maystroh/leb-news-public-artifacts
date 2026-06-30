@@ -19,7 +19,7 @@ export const DEFAULTS = {
   endpoint: 'https://api.tryhamsa.com/v1/realtime/tts',
   projectEndpoint: 'https://api.tryhamsa.com/v1/projects/by-api-key',
   voicesEndpoint: 'https://api.tryhamsa.com/v2/tts/voices',
-  speakerPool: ['Lamees', 'Marwan', 'Nabil', 'Gassan'],
+  speakerPool: ['Marwan'],
   dialect: 'leb'
 };
 

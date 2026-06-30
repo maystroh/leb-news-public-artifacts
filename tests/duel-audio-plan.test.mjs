@@ -49,6 +49,7 @@ test('plan: narration vs summary text source; missing text → skip', () => {
   ]);
   const plan = runPlan(folder);
   assert.equal(plan.mode, 'reuse');
+  assert.deepEqual(plan.speakerCandidates, ['Marwan']);
   assert.deepEqual(plan.duels.map((d) => d.textSource), ['audioText', 'narration', 'generated-format', null]);
   // no WAVs exist yet → generate the three with text, skip the textless one
   assert.deepEqual(plan.duels.map((d) => d.action), ['generate', 'generate', 'generate', 'skip']);

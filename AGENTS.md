@@ -663,12 +663,12 @@ Quote Duel rule of thumb:
   - run `scripts/sync-outlet-audio-timing.mjs`
   - rebuild folder outputs
   - report whether the new WAV is longer, same length, or shorter so the user knows whether a re-render or only a re-mux is needed
-- The default Hamsa voice pool is `Lamees`, `Nabil`, `Gassan`, Lebanese dialect `leb`, with realtime TTS endpoint:
+- The default Hamsa voice is `Marwan`, Lebanese dialect `leb`, with realtime TTS endpoint:
   - `https://api.tryhamsa.com/v1/realtime/tts`
 - Hamsa auth uses:
   - `Authorization: Token <API key>`
-- The audio generator shuffles the voice pool by date folder, so each briefing day gets one stable first-choice voice.
-- If the selected voice fails, the generator tries the remaining voices and keeps using the first working fallback for that run.
+- By default, generated manifest entries should record `speakerCandidate`, `ttsSpeaker`, and `voiceName` as `Marwan`.
+- If a configured speaker pool has multiple voices and the selected voice fails, the generator tries the remaining voices and keeps using the first working fallback for that run.
 - `HAMSA_TTS_SPEAKERS` may override the pool with comma-separated names; `HAMSA_TTS_SPEAKER` forces one voice for manual testing.
 - The script resolves the configured voice through the Hamsa voice catalog and may record the resolved voice id in the manifest.
 - For built-in catalog voices, realtime TTS should receive the voice name, not the catalog UUID; `HAMSA_TTS_SPEAKER_ID` is reserved for explicitly configured custom/preloaded voice ids.

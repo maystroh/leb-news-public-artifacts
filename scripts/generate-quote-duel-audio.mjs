@@ -25,6 +25,8 @@ import {
   DEFAULTS,
   loadEnvFiles,
   normalizeSpacing,
+  parseList,
+  seededShuffle,
   getWavDurationSeconds,
   createHamsaVoiceRunner
 } from './lib/hamsa-tts.mjs';
@@ -88,16 +90,25 @@ if (fs.existsSync(textOverridesPath)) {
 // manifest carry-forward); freshly generated WAVs are "ai".
 let priorSourceByDuel = {};
 let priorTextByDuel = {};
+let priorSpeakerByDuel = {};
 if (fs.existsSync(manifestPath)) {
   try {
     const prior = readJson(manifestPath);
     for (const [duelId, entry] of Object.entries(prior.audioByDuel ?? {})) {
       if (entry?.source) priorSourceByDuel[duelId] = entry.source;
       if (entry?.text) priorTextByDuel[duelId] = normalizeSpacing(entry.text);
+      if (entry?.speakerCandidate || entry?.ttsSpeaker || entry?.voiceName) {
+        priorSpeakerByDuel[duelId] = {
+          speakerCandidate: entry.speakerCandidate ?? null,
+          ttsSpeaker: entry.ttsSpeaker ?? null,
+          voiceName: entry.voiceName ?? null
+        };
+      }
     }
   } catch {
     priorSourceByDuel = {};
     priorTextByDuel = {};
+    priorSpeakerByDuel = {};
   }
 }
 
@@ -106,7 +117,14 @@ const hookSpeaker = hooksManifest?.speaker ?? Object.values(hooksManifest?.hooks
   entry?.speakerCandidate || entry?.ttsSpeaker || entry?.voiceName
 );
 const hookSpeakerName = normalizeSpacing(hookSpeaker?.speakerCandidate || hookSpeaker?.voiceName || hookSpeaker?.ttsSpeaker);
-const speakerCandidates = hookSpeakerName ? [hookSpeakerName] : [];
+const configuredPool = process.env.HAMSA_TTS_SPEAKER
+  ? [process.env.HAMSA_TTS_SPEAKER]
+  : parseList(process.env.HAMSA_TTS_SPEAKERS);
+const speakerCandidates = process.env.HAMSA_TTS_SPEAKER
+  ? configuredPool
+  : configuredPool.length
+  ? seededShuffle(configuredPool, 'quote-duel-audio')
+  : DEFAULTS.speakerPool;
 const dialect = process.env.HAMSA_TTS_DIALECT || DEFAULTS.dialect;
 
 // Plan: decide per-duel action without side effects (drives --dry-run + tests).
@@ -163,11 +181,6 @@ fs.mkdirSync(audioDir, {recursive: true});
 const needsGeneration = plan.some((p) => p.action === 'generate');
 let runner = null;
 if (needsGeneration) {
-  if (!hookSpeakerName) {
-    console.error('Missing shared Quote Duel hook speaker in audio/hooks/manifest.json.');
-    console.error('Regenerate Step 17 with `npm run briefing:duel:hooks -- --force` so the hook manifest records the speaker, then rerun Step 19.');
-    process.exit(1);
-  }
   if (!process.env.HAMSA_API_KEY) {
     const hint = loadedEnvFiles.length
       ? `Loaded ${loadedEnvFiles.join(', ')}, but HAMSA_API_KEY was not set there or in the shell.`
@@ -210,6 +223,10 @@ for (const item of plan) {
 
   let durationSeconds = null;
   let source = priorSourceByDuel[item.duelId] || 'ai';
+  const priorSpeaker = priorSpeakerByDuel[item.duelId] ?? {};
+  let speakerCandidate = priorSpeaker.speakerCandidate ?? null;
+  let ttsSpeaker = priorSpeaker.ttsSpeaker ?? null;
+  let voiceName = priorSpeaker.voiceName ?? null;
 
   if (item.action === 'reuse') {
     durationSeconds = measure(item.outputPath);
@@ -220,6 +237,9 @@ for (const item of plan) {
     fs.writeFileSync(item.outputPath, result.audio);
     durationSeconds = getWavDurationSeconds(result.audio);
     source = 'ai';
+    speakerCandidate = runner.selectedSpeaker;
+    ttsSpeaker = result.ttsSpeaker;
+    voiceName = result.voice?.name ?? result.ttsSpeaker;
     console.log(`Generated ${item.fileName} via ${result.ttsSpeaker} (${durationSeconds ?? '?'}s)`);
   }
 
@@ -232,15 +252,25 @@ for (const item of plan) {
     text: item.text,
     chars: item.text.length,
     source,
+    speakerCandidate,
+    ttsSpeaker,
+    voiceName,
     skipped: false
   };
 }
+
+const manifestSpeaker = Object.values(audioByDuel).find((entry) => entry?.ttsSpeaker || entry?.speakerCandidate);
 
 writeJson(manifestPath, {
   generatedAt: new Date().toISOString(),
   sourceDataPath: path.relative(cwd, quoteDuelPath).replace(/\\/g, '/'),
   textOverridesPath: path.relative(cwd, textOverridesPath).replace(/\\/g, '/'),
   bufferSeconds: BUFFER_SECONDS,
+  speaker: manifestSpeaker ? {
+    speakerCandidate: manifestSpeaker.speakerCandidate ?? null,
+    ttsSpeaker: manifestSpeaker.ttsSpeaker ?? null,
+    voiceName: manifestSpeaker.voiceName ?? null
+  } : null,
   audioByDuel
 });
 

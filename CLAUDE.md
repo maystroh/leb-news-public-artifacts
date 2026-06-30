@@ -340,7 +340,7 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 
 - Provider: Hamsa realtime TTS (`https://api.tryhamsa.com/v1/realtime/tts`)
 - Auth: `Authorization: Token <API key>` — key in `.env` as `HAMSA_API_KEY`
-- Voice pool: `Lamees`, `Nabil`, `Gassan`; the generator shuffles by date folder and uses one stable first-choice voice per day, then falls back through the remaining pool if Hamsa rejects that voice
+- Default voice: `Marwan`; generated manifest entries record `speakerCandidate`, `ttsSpeaker`, and `voiceName` as `Marwan` unless `HAMSA_TTS_SPEAKER` or `HAMSA_TTS_SPEAKERS` specifies a different speaker
 - WAV files: `briefings/YYYY-MM-DD/audio/scene-{id}-{outletKey}.wav`
 - Non-outlet closing scene: `scene-11-scene-11.wav`
 - Outro: `outro-open-question.wav`

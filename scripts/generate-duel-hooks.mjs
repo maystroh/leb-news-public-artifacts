@@ -105,17 +105,14 @@ if (needsGeneration) {
     process.exit(1);
   }
   // Stable voice for hooks/outro (not date-seeded — these are global assets).
-  const priorManifest = loadSharedHooksManifest(cwd);
-  const priorSpeaker = priorManifest?.speaker;
-  const priorSpeakerName = normalizeSpacing(priorSpeaker?.speakerCandidate || priorSpeaker?.voiceName || priorSpeaker?.ttsSpeaker);
   const configuredPool = process.env.HAMSA_TTS_SPEAKER
     ? [process.env.HAMSA_TTS_SPEAKER]
     : parseList(process.env.HAMSA_TTS_SPEAKERS);
-  const speakerCandidates = priorSpeakerName
-    ? [priorSpeakerName]
-    : process.env.HAMSA_TTS_SPEAKER
+  const speakerCandidates = process.env.HAMSA_TTS_SPEAKER
     ? configuredPool
-    : seededShuffle(configuredPool.length ? configuredPool : DEFAULTS.speakerPool, 'duel-hooks');
+    : configuredPool.length
+    ? seededShuffle(configuredPool, 'duel-hooks')
+    : DEFAULTS.speakerPool;
   runner = createHamsaVoiceRunner({
     apiKey: process.env.HAMSA_API_KEY,
     dialect: process.env.HAMSA_TTS_DIALECT || DEFAULTS.dialect,

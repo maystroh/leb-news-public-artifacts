@@ -1193,7 +1193,7 @@ export function getSteps(ctx, state = null, options = {}) {
       id: 'duel-hooks',
       title: '17. Quote Duel: generate hooks (shared — all dates)',
       description:
-        `Static, all-dates step (run once, or when a hook or ending line is added/changed): synthesizes the shared attention-hook WAVs and the shared ending WAV into audio/hooks/ via Hamsa (reused after the first run) and records the speaker in audio/hooks/manifest.json. Step 19 uses that same speaker for every duel narration. Listen to each below. The hooks and ending are the same across every date and duel; edit DEFAULT_DUEL_HOOKS or DEFAULT_DUEL_OUTRO_AUDIO in scripts/lib/duel-hooks.mjs to change them. Pushing them to the server is the separate step 18. In use for render: ${DUEL_HOOK}.`,
+        `Static, all-dates step (run once, or when a hook or ending line is added/changed): synthesizes the shared attention-hook WAVs and the shared ending WAV into audio/hooks/ via Hamsa (reused after the first run) and records the speaker in audio/hooks/manifest.json. Defaults to Marwan unless HAMSA_TTS_SPEAKER or HAMSA_TTS_SPEAKERS specifies a different speaker. Step 19 uses that same speaker for every duel narration. Listen to each below. The hooks and ending are the same across every date and duel; edit DEFAULT_DUEL_HOOKS or DEFAULT_DUEL_OUTRO_AUDIO in scripts/lib/duel-hooks.mjs to change them. Pushing them to the server is the separate step 18. In use for render: ${DUEL_HOOK}.`,
       kind: 'run',
       actions: [
         {
@@ -1256,7 +1256,7 @@ export function getSteps(ctx, state = null, options = {}) {
       id: 'duel-audio',
       title: '19. Quote Duel: generate narration audio',
       description:
-        'Local only. Review and confirm the loaded duel narration here, then synthesize per-duel WAVs via Hamsa from the confirmed text. Uses the same speaker recorded by Step 17 in audio/hooks/manifest.json for every duel. If the hook manifest has no speaker metadata, regenerate Step 17 with --force before running this step. Rebuild/check the HTML separately in step 20.',
+        'Local only. Review and confirm the loaded duel narration here, then synthesize per-duel WAVs via Hamsa from the confirmed text. Defaults to Marwan unless HAMSA_TTS_SPEAKER or HAMSA_TTS_SPEAKERS specifies a different speaker. Rebuild/check the HTML separately in step 20.',
       kind: 'run',
       actions: [
         {id: 'run', label: 'Generate missing/stale duel narration (local)', commands: () => [npmRun('briefing:duel:audio', '--folder', folder)]},
