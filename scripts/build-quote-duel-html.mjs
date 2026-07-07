@@ -3,7 +3,11 @@ import path from 'node:path';
 
 import {parseCliArgs, readJson, writeJson} from './lib/briefing-helpers.mjs';
 import {DEFAULT_HOOK_ID, normalizeHookId, resolveSharedHook, resolveSharedOutro} from './lib/duel-hooks.mjs';
-import {DEFAULT_DUEL_OUTRO_TEXT} from './lib/duel-timeline.mjs';
+import {
+  DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS,
+  DEFAULT_DUEL_OUTRO_TEXT,
+  mergeDuelAudioManifest
+} from './lib/duel-timeline.mjs';
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -17,7 +21,10 @@ if (!fs.existsSync(dataPath)) {
   process.exit(1);
 }
 
-const quoteDuelData = readJson(dataPath);
+const quoteDuelSourceData = readJson(dataPath);
+const audioManifestPath = path.join(path.dirname(path.dirname(dataPath)), 'audio', 'quote-duel-manifest.json');
+const audioManifest = fs.existsSync(audioManifestPath) ? readJson(audioManifestPath) : null;
+const quoteDuelData = mergeDuelAudioManifest(quoteDuelSourceData, audioManifest);
 const scenes = Array.isArray(quoteDuelData.scenes) ? quoteDuelData.scenes : [];
 const reviewScenes = scenes.map((scene, index) => ({scene, index}));
 const hookFromData = (Array.isArray(quoteDuelData.hooks) ? quoteDuelData.hooks : []).find((hook) => hook.id === selectedHookId);
@@ -62,6 +69,12 @@ const escapeHtml = (value) =>
 
 const padTwo = (value) => String(value).padStart(2, '0');
 const introBackgroundSrc = toHtmlRelativePath(path.join(cwd, 'logos', 'video-front-page-3.png'));
+const getSceneDurationSeconds = (scene) => {
+  const declaredSeconds = typeof scene?.durationSeconds === 'number' ? scene.durationSeconds : 5;
+  const audioSeconds = typeof scene?.audio?.durationSeconds === 'number' ? scene.audio.durationSeconds : 0;
+  const bufferedAudioSeconds = audioSeconds > 0 ? audioSeconds + DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS : 0;
+  return Math.max(declaredSeconds, bufferedAudioSeconds);
+};
 
 const css = `
   @font-face {
@@ -647,7 +660,7 @@ const introStageAttrs = `data-intro-ms="${escapeHtml(Math.round(selectedHook.dur
 const duelOutputs = reviewScenes.map(({scene, index}, outputIndex) => {
   const fileName = duelFileName(outputIndex);
   const filePath = path.join(outputDir, fileName);
-  const durationSeconds = typeof scene.durationSeconds === 'number' ? scene.durationSeconds : 5;
+  const durationSeconds = getSceneDurationSeconds(scene);
   const html = pageShell({
     title: `Radar Beirut Quote Duel ${padTwo(outputIndex + 1)}`,
     body: `
@@ -665,17 +678,25 @@ const duelOutputs = reviewScenes.map(({scene, index}, outputIndex) => {
 ${playbackScript({sceneDurations: [Math.round(durationSeconds * 1000)], outroDuration: selectedOutro.durationSeconds})}`
   });
   fs.writeFileSync(filePath, html);
-  return {label: fileName, fileName, path: filePath, duelId: scene.id ?? `duel-${index + 1}`, sourceIndex: index + 1};
+  return {
+    label: fileName,
+    fileName,
+    path: filePath,
+    duelId: scene.id ?? `duel-${index + 1}`,
+    sourceIndex: index + 1,
+    durationSeconds,
+    audioDurationSeconds: scene.audio?.durationSeconds ?? null
+  };
 });
 
-const combinedSceneDurations = reviewScenes.map(({scene}) => Math.round((typeof scene.durationSeconds === 'number' ? scene.durationSeconds : 5) * 1000));
+const combinedSceneDurations = reviewScenes.map(({scene}) => Math.round(getSceneDurationSeconds(scene) * 1000));
 const combinedHtml = pageShell({
   title: `Radar Beirut Quote Duel - ${selectedHook.id}`,
   body: `
 <main class="stage" data-duration-seconds="${escapeHtml(selectedHook.durationSeconds + combinedSceneDurations.reduce((sum, durationMs) => sum + durationMs, 0) / 1000 + selectedOutro.durationSeconds)}" ${introStageAttrs} data-hook-id="${escapeHtml(selectedHook.id)}">
   ${introScreen()}
   ${reviewScenes.map(({scene, index}) => {
-    const durationSeconds = typeof scene.durationSeconds === 'number' ? scene.durationSeconds : 5;
+    const durationSeconds = getSceneDurationSeconds(scene);
     return `<section class="scene-screen">${sceneScreen(scene, index, durationSeconds)}</section>`;
   }).join('\n')}
   <section class="scene-screen outro-screen">
@@ -704,7 +725,13 @@ writeJson(manifestPath, {
     durationSeconds: selectedOutro.durationSeconds,
     audioPath: path.relative(cwd, selectedOutro.audioPath).replace(/\\/g, '/')
   },
-  duels: duelOutputs.map(({fileName, duelId, sourceIndex}) => ({fileName, duelId, sourceIndex}))
+  duels: duelOutputs.map(({fileName, duelId, sourceIndex, durationSeconds, audioDurationSeconds}) => ({
+    fileName,
+    duelId,
+    sourceIndex,
+    durationSeconds,
+    audioDurationSeconds
+  }))
 });
 
 console.log(`Built combined quote duel HTML at ${htmlPath}`);

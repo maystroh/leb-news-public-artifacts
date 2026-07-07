@@ -22,7 +22,7 @@ export const DEFAULT_FPS = 30;
 export const DEFAULT_MAIN_RANK = 3; // ranks 1..3 are "main" → quote-duel-full.mp4
 export const FULL_REEL_MAX_SECONDS = 60;
 export const DEFAULT_DUEL_OUTRO_SECONDS = 3;
-export const DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS = 0.5;
+export const DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS = 1;
 export const DEFAULT_DUEL_OUTRO_TEXT = 'للمزيد من التفاصيل، شاهدوا صفحتنا على يوتيوب. الرابط في الوصف.';
 
 export const fpsFromSeconds = (seconds, fps = DEFAULT_FPS) =>

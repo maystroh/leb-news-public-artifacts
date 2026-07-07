@@ -21,6 +21,7 @@ import {parseCliArgs, readJson, resolveBriefingFolder, writeJson} from './lib/br
 import {formatDuelAudioText, defaultDuelText, duelTextSource, resolveDuelId} from './lib/duel-narration-text.mjs';
 import {patchWavHeaderSizes} from './lib/wav-header.mjs';
 import {loadSharedHooksManifest} from './lib/duel-hooks.mjs';
+import {DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS} from './lib/duel-timeline.mjs';
 import {
   DEFAULTS,
   loadEnvFiles,
@@ -31,7 +32,7 @@ import {
   createHamsaVoiceRunner
 } from './lib/hamsa-tts.mjs';
 
-const BUFFER_SECONDS = 0.5;
+const BUFFER_SECONDS = DEFAULT_DUEL_ENDING_AUDIO_GAP_SECONDS;
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));

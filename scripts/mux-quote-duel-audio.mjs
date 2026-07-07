@@ -95,6 +95,17 @@ const merged = {
 
 const timeline = computeDuelTimeline(merged, FPS, {requireAudio: true});
 const frameToMs = (frame) => Math.round((frame / FPS) * 1000);
+const probeDurationSeconds = (filePath) => {
+  const result = spawnSync(args.ffprobe || 'ffprobe', [
+    '-v', 'error',
+    '-show_entries', 'format=duration',
+    '-of', 'default=noprint_wrappers=1:nokey=1',
+    filePath
+  ], {encoding: 'utf8'});
+  if (result.error || result.status !== 0) return null;
+  const duration = Number(result.stdout.trim());
+  return Number.isFinite(duration) ? duration : null;
+};
 
 const audioEntries = [];
 
@@ -139,6 +150,16 @@ if (!audioEntries.length) {
 }
 
 const totalMs = frameToMs(timeline.totalFrames);
+const inputDurationSeconds = probeDurationSeconds(inputPath);
+const expectedDurationSeconds = totalMs / 1000;
+if (inputDurationSeconds != null && inputDurationSeconds + 0.05 < expectedDurationSeconds) {
+  console.error(
+    `Input video is too short for the Quote Duel audio timeline: ` +
+    `${inputDurationSeconds.toFixed(3)}s video < ${expectedDurationSeconds.toFixed(3)}s expected.`
+  );
+  console.error('Re-render the muted Quote Duel MP4 after regenerating/syncing duel audio and timing.');
+  process.exit(1);
+}
 
 const DEFAULT_MUSIC_PATH = path.join(cwd, 'audio', 'ambient-radar-bed.mp3');
 const musicPath = args.music === true ? DEFAULT_MUSIC_PATH : args.music ? path.resolve(cwd, args.music) : null;
