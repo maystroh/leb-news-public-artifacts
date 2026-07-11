@@ -53,6 +53,14 @@ test('derives clip plan from quote-duel.json when no split manifest', () => {
   // keyed by duelId in the JSON schema spec, not sceneId
   assert.match(prompt, /"duelId": "duel-1"/);
   assert.doesNotMatch(prompt, /sceneId/);
+  assert.match(prompt, /Known outlet YouTube channels/);
+  assert.match(prompt, /Required publishing hashtags for youtube\.hashtags/);
+  assert.match(prompt, /#RadarBeirut/);
+  assert.match(prompt, /#صحافة_لبنانية/);
+  assert.match(prompt, /الأخبار https:\/\/www\.youtube\.com\/channel\/UCesINM73oox7GBSXTHz9Xiw/);
+  assert.match(prompt, /نداء الوطن https:\/\/www\.youtube\.com\/channel\/UCgDmbBPDnUWZdvMRrYG2C8Q/);
+  assert.match(prompt, /المدن https:\/\/www\.youtube\.com\/user\/Almodononline/);
+  assert.match(prompt, /الديار https:\/\/www\.youtube\.com\/channel\/UC6ObY8lCD2oHmyLjKqLAn1g\/featured/);
 });
 
 test('uses split manifest clip names and omits skipped duels', () => {

@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
+import {OUTLET_YOUTUBE_CHANNELS, findOutletYoutubeChannelForOutlet, formatYoutubeChannelList} from './lib/outlet-youtube-channels.mjs';
+import {RADAR_BEIRUT_PUBLISHING_HASHTAGS} from './lib/social-publishing-hashtags.mjs';
 
 // Writes output/social-captions-prompt.md: a Codex prompt that turns the day's
 // briefing + keyword data into output/social-captions.json (per-clip Instagram
@@ -152,6 +154,7 @@ const isClosingScene = (scene, index) => index === scenes.length - 1 || !scene.o
 
 const sceneBlocks = scenes.map((scene, index) => {
   const closing = isClosingScene(scene, index);
+  const youtubeChannel = closing ? null : findOutletYoutubeChannelForOutlet(scene.outlet);
   const outletName = closing
     ? normalize(scene.title || scene.visual?.headline || 'خلاصة المشهد')
     : normalize(scene.outlet?.name || scene.title);
@@ -164,6 +167,7 @@ const sceneBlocks = scenes.map((scene, index) => {
     `- sceneId: ${scene.id}`,
     ...(clip ? [`  clip: ${clip}`] : []),
     closing ? `  closing recap: ${outletName}` : `  outlet: ${outletName}`,
+    ...(youtubeChannel ? [`  outlet YouTube channel: ${youtubeChannel.url}`] : []),
     `  tone: ${toneTag || '(none)'}`,
     `  summary: ${summary || '(none)'}`,
     `  loaded terms: ${terms.length ? terms.join('، ') : '(none)'}`
@@ -207,15 +211,26 @@ const prompt = [
   '- Output ONE clips entry per sceneId listed below, keyed by sceneId. Do not invent sceneIds.',
   '- `outlet`: the outlet name as given. For the closing recap scene use the recap label given (it is not an outlet).',
   '- `caption`: Arabic, capture the daily tone AND what THIS outlet said/emphasised. Keep it tight.',
-  '- `hashtags`: a MIX of Arabic and English/transliterated tags (8–15). Include outlet- and topic-specific tags',
-  '  plus a few high-reach tags (e.g. #لبنان #Lebanon #Beirut #بيروت). Every tag starts with `#` and has no spaces.',
+  '- `hashtags`: a MIX of Arabic and English/transliterated tags. Include outlet- and topic-specific tags',
+  '  plus the strongest relevant publishing tags from the required set below. Every tag starts with `#` and has no spaces.',
+  '- `youtube.hashtags` MUST include ALL required publishing hashtags listed below, plus ALL outlet hashtags listed in the source-channel section.',
   '- The closing recap clip bundles the outro open question — let its caption gesture at that question.',
   '- `youtube.description` is for the FULL video shared on YouTube: lead with the day’s overall tone, then a short',
   '  per-outlet recap. End with the open question. `youtube.hashtags`: same Arabic+English mix.',
+  '- At the end of `youtube.description`, add a short source-channel section. It MUST include every YouTube channel listed',
+  '  below exactly once, with the outlet name and exact URL. Do not put these source links in hashtags.',
   '- `youtube.thumbnailPrompt`: write a practical prompt the user can paste into ChatGPT to generate a YouTube video thumbnail.',
   '  It must request a 16:9 thumbnail, preserve the Radar Beirut editorial/radar look, use bold readable Arabic title text,',
   '  mention the key visual metaphor from the day, and avoid asking for exact outlet logos unless source assets are provided.',
   '- Write ONLY the JSON file. Do not print commentary.',
+  '',
+  '## Required publishing hashtags for youtube.hashtags',
+  '',
+  RADAR_BEIRUT_PUBLISHING_HASHTAGS.join(' '),
+  '',
+  '## YouTube source channels to include in youtube.description',
+  '',
+  formatYoutubeChannelList(OUTLET_YOUTUBE_CHANNELS),
   '',
   '## Scenes (one clip each)',
   '',

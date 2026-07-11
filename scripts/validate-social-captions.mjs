@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
+import {OUTLET_YOUTUBE_CHANNELS, missingOutletHashtags, missingYoutubeChannelUrls} from './lib/outlet-youtube-channels.mjs';
+import {missingPublishingHashtags} from './lib/social-publishing-hashtags.mjs';
 
 // Validates output/social-captions.json against the day's briefing.json: every
 // scene must have a clip entry with a caption + hashtags, and the YouTube
@@ -50,8 +52,20 @@ const validHashtags = (tags) =>
 const youtube = captions.youtube || {};
 if (!isNonEmpty(youtube.title)) errors.push('youtube.title is empty.');
 if (!isNonEmpty(youtube.description)) errors.push('youtube.description is empty.');
+const missingYoutubeChannels = missingYoutubeChannelUrls(youtube.description, OUTLET_YOUTUBE_CHANNELS);
+if (missingYoutubeChannels.length > 0) {
+  errors.push(`youtube.description is missing source channel URL(s): ${missingYoutubeChannels.map((channel) => channel.outletName).join(', ')}.`);
+}
 if (!isNonEmpty(youtube.thumbnailPrompt)) errors.push('youtube.thumbnailPrompt is empty.');
 if (!validHashtags(youtube.hashtags)) errors.push('youtube.hashtags must be a non-empty array of #tags (no spaces).');
+const missingRequiredPublishingTags = missingPublishingHashtags(youtube.hashtags);
+if (missingRequiredPublishingTags.length > 0) {
+  errors.push(`youtube.hashtags is missing required publishing tag(s): ${missingRequiredPublishingTags.join(', ')}.`);
+}
+const missingYoutubeHashtags = missingOutletHashtags(youtube.hashtags, OUTLET_YOUTUBE_CHANNELS);
+if (missingYoutubeHashtags.length > 0) {
+  errors.push(`youtube.hashtags is missing outlet tag(s): ${missingYoutubeHashtags.map((entry) => `${entry.channel.outletName} (${entry.missing.join(', ')})`).join('; ')}.`);
+}
 
 // Clips: one per scene, keyed by sceneId.
 const clips = Array.isArray(captions.clips) ? captions.clips : [];
