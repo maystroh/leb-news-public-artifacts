@@ -293,6 +293,7 @@ function duelPostingState(ctx, state = {}) {
   const clipCopy = (clip) => [clip?.caption || '', joinHashtags(clip?.hashtags)].filter(Boolean).join('\n\n');
   const youtube = captions?.youtube || null;
   const instagram = captions?.instagram || null;
+  const coverFiles = quoteDuelPngFiles(ctx);
 
   // All-duels muxed master
   const fullMasterFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
@@ -381,6 +382,12 @@ function duelPostingState(ctx, state = {}) {
       : null,
     full,
     clashes,
+    covers: coverFiles.map((file) => ({
+      fileName: path.basename(file),
+      path: path.relative(REPO_ROOT, file).split(path.sep).join('/'),
+      copyPath: pcPath(file),
+      url: fs.existsSync(file) ? relUrl(file) : null
+    })),
     phone: phoneTransferState(ctx, state, 'duel')
   };
 }
@@ -516,6 +523,22 @@ function sceneMp4Files(sceneDir) {
     .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.mp4'))
     .map((entry) => path.join(sceneDir, entry.name))
     .sort();
+}
+
+function quoteDuelPngFiles(ctx) {
+  const accepted = new Set(['.png']);
+  const files = [];
+  const addMatchingFiles = (root, predicate) => {
+    if (!fs.existsSync(root)) return;
+    for (const entry of fs.readdirSync(root, {withFileTypes: true})) {
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (accepted.has(ext) && predicate(entry.name)) files.push(path.join(root, entry.name));
+    }
+  };
+  addMatchingFiles(ctx.output, (name) => /^quote-duel.*\.png$/i.test(name));
+  addMatchingFiles(path.join(ctx.output, `duel-videos-${DUEL_HOOK}`), () => true);
+  return [...new Set(files)].sort();
 }
 
 function correctedBriefingPath(ctx) {
@@ -831,13 +854,15 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
     const duelVideosDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`);
     const duelFinalFile = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
     const duelDirFiles = sceneMp4Files(duelVideosDir).filter((file) => /^duel-\d+\.mp4$/.test(path.basename(file)));
+    coverFiles = quoteDuelPngFiles(ctx);
     const gathered = [...duelDirFiles];
     if (fs.existsSync(duelFinalFile)) gathered.push(duelFinalFile);
+    gathered.push(...coverFiles);
     if (!gathered.length) {
-      return res.status(400).json({error: `No duel MP4s found in ${path.relative(REPO_ROOT, duelVideosDir)} or as the muxed master. Create per-clash videos first.`});
+      return res.status(400).json({error: `No duel MP4/PNG assets found in ${path.relative(REPO_ROOT, ctx.output)}. Create the muxed/per-clash videos first.`});
     }
     files = gathered;
-    clipCount = duelDirFiles.filter((f) => /duel-\d+\.mp4$/.test(path.basename(f))).length;
+    clipCount = duelDirFiles.length + (fs.existsSync(duelFinalFile) ? 1 : 0);
     remoteFolder = phoneRemoteFolder(date, 'duel');
   } else {
     const variant = selectedSocialVariant(ctx, String(req.body?.mid ?? ''));
@@ -875,7 +900,7 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
         remoteFolder,
         fileCount: files.length,
         clipCount,
-        coverCount: 0,
+        coverCount: coverFiles.length,
         variant: null,
         variantMid: null
       };
@@ -899,7 +924,7 @@ app.post('/api/phone/upload-scenes', async (req, res) => {
       remoteFolder,
       fileCount: files.length,
       clipCount,
-      coverCount: kind === 'duel' ? 0 : coverFiles.length,
+      coverCount: coverFiles.length,
       ...(variantLabel ? {variant: variantLabel} : {})
     });
   } catch (error) {

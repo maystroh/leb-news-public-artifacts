@@ -17,13 +17,18 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
   const phoneCopied = phone.status === 'copied';
   const copiedTime = phone.copiedAt ? new Date(phone.copiedAt).toLocaleString() : null;
   const clashes = social?.clashes || social?.shorts || [];
+  const covers = social?.covers || [];
+  const uploadableCount = (social?.full?.url ? 1 : 0) + clashes.filter((item) => item.url).length + covers.filter((item) => item.url).length;
 
   const uploadToPhone = async () => {
     setPhoneBusy('upload');
     setPhoneMessage(null);
     try {
       const result = await onUploadPhoneScenes({password: phonePassword});
-      setPhoneMessage({type: 'done', text: `Uploaded ${result.fileCount} file(s) to ${result.remoteFolder}.`});
+      setPhoneMessage({
+        type: 'done',
+        text: `Uploaded ${result.fileCount} file(s) to ${result.remoteFolder}: ${result.clipCount || 0} MP4, ${result.coverCount || 0} PNG.`
+      });
     } catch (err) {
       setPhoneMessage({type: 'error', text: err.message});
     } finally {
@@ -50,7 +55,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
       <div className="social-panel-head">
         <div>
           <h2>Post Quote Duel</h2>
-          <p className="description">Use the full muxed video, or publish one clash at a time with the matching caption.</p>
+          <p className="description">Use the full muxed video, or publish one clash at a time with the matching caption step in the dashboard.</p>
         </div>
         <div className="platform-links">
           <a className="btn" href="https://www.instagram.com" target="_blank" rel="noreferrer">
@@ -89,6 +94,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
                 )}
               </div>
             </div>
+            <p className="file-path">{social.full.path}</p>
           </div>
         )}
 
@@ -126,15 +132,47 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
               <p className="hint">No per-clash videos yet — run the per-clash video step.</p>
             )}
           </div>
+
+          <div className="story-list asset-list">
+            <div className="publish-card-head compact">
+              <h3>PNG covers</h3>
+            </div>
+            {covers.map((cover, index) => (
+              <div className="story-row" key={cover.path || cover.fileName}>
+                <div className="story-meta">
+                  <strong>{String(index + 1).padStart(2, '0')}. {cover.fileName}</strong>
+                  <span>{cover.path}</span>
+                </div>
+                <div className="story-actions">
+                  {cover.url && (
+                    <a className="btn" href={cover.url} target="_blank" rel="noreferrer">
+                      Open PNG
+                    </a>
+                  )}
+                  {cover.copyPath && (
+                    <button className="btn" onClick={() => copyText(cover.copyPath, setCopied, `cover-path-${index}`)}>
+                      {copied === `cover-path-${index}` ? 'Copied' : 'Copy path'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {!covers.length && (
+              <p className="hint">No Quote Duel PNG covers found yet — generate the reel cover images from step 25 prompts.</p>
+            )}
+          </div>
           <div className="phone-transfer">
             <div>
               <strong>Phone transfer</strong>
               <p className="hint">
+                Uploads the muxed MP4, per-clash MP4s, and Quote Duel PNG covers from this date's output folder.
+                <br />
                 {phone.user}@{phone.host}:{phone.port} → {phone.remoteFolder}
+                {phone.curlInterface ? ` · via ${phone.curlInterface}` : ''}
               </p>
               <p className={`phone-status ${phoneCopied ? 'done' : 'pending'}`}>
                 {phoneCopied
-                  ? `Copied to phone${copiedTime ? ` at ${copiedTime}` : ''}${phone.fileCount ? ` (${phone.fileCount} files)` : ''}.`
+                  ? `Copied to phone${copiedTime ? ` at ${copiedTime}` : ''}${phone.fileCount ? ` (${phone.fileCount} files: ${phone.clipCount || 0} MP4, ${phone.coverCount || 0} PNG)` : ''}.`
                   : 'Not copied to phone yet.'}
               </p>
             </div>
@@ -146,7 +184,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
                 placeholder="Phone password"
                 autoComplete="current-password"
               />
-              <button className="btn primary" disabled={phoneBusy || phoneCopied || !clashes.length} onClick={uploadToPhone}>
+              <button className="btn primary" disabled={phoneBusy || phoneCopied || uploadableCount === 0} onClick={uploadToPhone}>
                 {phoneBusy === 'upload' ? 'Uploading…' : 'Upload folder'}
               </button>
               <button className="btn ghost danger" disabled={phoneBusy || !phoneCopied} onClick={deleteFromPhone}>
