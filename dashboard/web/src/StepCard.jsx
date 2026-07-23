@@ -4,6 +4,7 @@ const STATUS_LABELS = {
   done: 'Done',
   failed: 'Failed',
   running: 'Running…',
+  cancelled: 'Cancelled',
   pending: 'Pending',
   stale: 'Stale',
   attention: 'Needs attention'
@@ -27,12 +28,14 @@ async function copyText(text, setCopied, key) {
 function BriefingEditor({briefing, busy, onSave}) {
   const content = briefing?.content || '';
   const [draft, setDraft] = useState(content);
+  const previousContentRef = useRef(content);
   const [saving, setSaving] = useState(false);
   const dirty = draft !== content;
 
   useEffect(() => {
-    if (!dirty) setDraft(content);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const previousContent = previousContentRef.current;
+    previousContentRef.current = content;
+    setDraft((currentDraft) => (currentDraft === previousContent ? content : currentDraft));
   }, [content]);
 
   const save = async () => {
@@ -85,6 +88,7 @@ export default function StepCard({
   busy,
   running,
   onRun,
+  onCancel,
   onReview,
   onOpenDuel,
   briefing,
@@ -236,6 +240,11 @@ export default function StepCard({
             {running && index === 0 ? 'Running…' : action.label}
           </button>
         ))}
+        {running && onCancel && (
+          <button className="btn danger" onClick={onCancel}>
+            Stop
+          </button>
+        )}
         {onReview && step.status !== 'done' && (
           <button className="btn primary" disabled={locked} onClick={() => onReview(true)}>
             Mark reviewed

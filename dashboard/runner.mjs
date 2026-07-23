@@ -2,6 +2,27 @@ import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
+const terminateChild = (child) => {
+  if (!child?.pid || child.killed) return;
+  if (process.platform === 'win32') {
+    spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], {stdio: 'ignore'});
+    return;
+  }
+  try {
+    process.kill(-child.pid, 'SIGTERM');
+  } catch {
+    child.kill('SIGTERM');
+  }
+  setTimeout(() => {
+    if (child.killed) return;
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      child.kill('SIGKILL');
+    }
+  }, 5000).unref();
+};
+
 // One active run per date. Commands run sequentially; a non-zero exit stops the run.
 export class Runner {
   constructor({repoRoot, broadcast, onFinish}) {
@@ -29,12 +50,33 @@ export class Runner {
       finishedAt: null,
       exitCode: null,
       log: [],
+      cancelRequested: false,
+      currentChild: null,
       shared
     };
     this.activeByDate.set(date, run);
     this.broadcast(date, {type: 'run-started', stepId, actionId, runId: run.id});
     this.#execute(run, commands).catch(() => {});
     return run;
+  }
+
+  cancel(date, reason = 'Cancelled by user') {
+    const run = this.activeByDate.get(date);
+    if (!run) return null;
+    run.cancelRequested = true;
+    run.log.push(reason);
+    this.broadcast(date, {type: 'log', stepId: run.stepId, runId: run.id, line: reason});
+    terminateChild(run.currentChild);
+    return run;
+  }
+
+  cancelAll(reason = 'Cancelled all active runs by user') {
+    const runs = [];
+    for (const date of this.activeByDate.keys()) {
+      const run = this.cancel(date, reason);
+      if (run) runs.push(run);
+    }
+    return runs;
   }
 
   async #execute(run, commands) {
@@ -47,13 +89,15 @@ export class Runner {
 
     let failed = false;
     for (const command of commands) {
+      if (run.cancelRequested) break;
       try {
         if (command.fn) {
           emit(`>> ${command.label || 'internal step'}`);
           await command.fn(emit, run.shared);
         } else {
           emit(`$ ${command.cmd} ${command.args.join(' ')}`);
-          const exitCode = await this.#spawn(command, emit);
+          const exitCode = await this.#spawn(command, emit, run);
+          if (run.cancelRequested) break;
           if (exitCode !== 0) {
             run.exitCode = exitCode;
             emit(`Command exited with status ${exitCode}.`);
@@ -68,8 +112,8 @@ export class Runner {
       }
     }
 
-    run.status = failed ? 'failed' : 'success';
-    if (run.exitCode === null) run.exitCode = failed ? 1 : 0;
+    run.status = run.cancelRequested ? 'cancelled' : failed ? 'failed' : 'success';
+    if (run.exitCode === null) run.exitCode = run.cancelRequested ? 130 : failed ? 1 : 0;
     run.finishedAt = new Date().toISOString();
     this.activeByDate.delete(run.date);
     try {
@@ -79,13 +123,15 @@ export class Runner {
     }
   }
 
-  #spawn(command, emit) {
+  #spawn(command, emit, run) {
     return new Promise((resolve, reject) => {
       const child = spawn(command.cmd, command.args, {
         cwd: this.repoRoot,
         env: {...process.env, FORCE_COLOR: '0', NO_COLOR: '1'},
-        stdio: [command.stdinFile ? 'pipe' : 'ignore', 'pipe', 'pipe']
+        stdio: [command.stdinFile ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+        detached: process.platform !== 'win32'
       });
+      run.currentChild = child;
 
       if (command.stdinFile) {
         const stream = fs.createReadStream(command.stdinFile);
@@ -111,6 +157,7 @@ export class Runner {
 
       child.on('error', (error) => reject(new Error(`Failed to start ${command.cmd}: ${error.message}`)));
       child.on('close', (code) => {
+        if (run.currentChild === child) run.currentChild = null;
         if (stdoutRest) emit(stdoutRest);
         if (stderrRest) emit(stderrRest);
         resolve(code ?? 1);

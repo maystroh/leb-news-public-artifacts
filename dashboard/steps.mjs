@@ -34,6 +34,7 @@ const sshArgs = (remoteCommand) => ['-p', SSH_PORT, '-o', 'ConnectTimeout=8', SS
 const fromLastRun = (stepState, pendingDetail = '') => {
   if (!stepState) return {status: 'pending', detail: pendingDetail};
   if (stepState.status === 'success') return {status: 'done', detail: `Last run ${stepState.finishedAt || ''}`.trim()};
+  if (stepState.status === 'cancelled') return {status: 'cancelled', detail: `Stopped ${stepState.finishedAt || ''}`.trim()};
   return {status: 'failed', detail: `Last run failed (exit ${stepState.exitCode ?? '?'})`};
 };
 
@@ -189,7 +190,10 @@ function safeDuelChoices(ctx, requested) {
 
 function quoteDuelVideoArtifacts(ctx, hookId) {
   const videoDir = path.join(ctx.output, `duel-videos-${hookId}`);
+  const mutedDir = path.join(videoDir, 'muted');
   const manifestPath = path.join(videoDir, 'manifest.json');
+  const fullFinalPath = path.join(ctx.output, `radar-beirut-quote-duel-${hookId}-final.mp4`);
+  const fullMutedPath = path.join(ctx.output, `radar-beirut-quote-duel-${hookId}.mp4`);
   const manifest = readJsonSafe(manifestPath);
   const manifestFiles = (manifest?.duels ?? [])
     .map((duel) => duel?.fileName)
@@ -200,8 +204,21 @@ function quoteDuelVideoArtifacts(ctx, hookId) {
         .filter((entry) => entry.isFile() && /^duel-\d+\.mp4$/.test(entry.name))
         .map((entry) => entry.name)
     : [];
+  const mutedFiles = exists(mutedDir)
+    ? fs
+        .readdirSync(mutedDir, {withFileTypes: true})
+        .filter((entry) => entry.isFile() && /^duel-\d+\.mp4$/.test(entry.name))
+        .map((entry) => entry.name)
+    : [];
   const fileNames = [...new Set([...manifestFiles, ...directoryFiles])].sort();
   return [
+    {label: `radar-beirut-quote-duel-${hookId}-final.mp4 (full: hook + all duels + ending)`, file: fullFinalPath, open: true, optional: true},
+    {label: `radar-beirut-quote-duel-${hookId}.mp4 (muted full render)`, file: fullMutedPath, optional: true},
+    ...mutedFiles.sort().map((fileName) => ({
+      label: `duel-videos-${hookId}/muted/${fileName}`,
+      file: path.join(mutedDir, fileName),
+      optional: true
+    })),
     {label: `duel-videos-${hookId}/manifest.json`, file: manifestPath, optional: true},
     ...fileNames.map((fileName) => ({
       label: `duel-videos-${hookId}/${fileName}`,
@@ -212,23 +229,28 @@ function quoteDuelVideoArtifacts(ctx, hookId) {
 }
 
 const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
+const QUOTE_DUEL_SERVER_CODE_PATHS = [
+  'src/QuoteDuelVideo.jsx',
+  'scripts/render-quote-duel-video.mjs',
+  'scripts/mux-quote-duel-audio.mjs',
+  'scripts/lib/audio-mux.mjs',
+  'scripts/lib/briefing-helpers.mjs',
+  'scripts/lib/duel-hooks.mjs',
+  'scripts/lib/duel-timeline.mjs',
+  'scripts/lib/remotion-assets.mjs'
+];
 const quoteDuelServerCodeSync = () => ({
   cmd: 'rsync',
   args: [
     '-avR',
     '-e',
     `ssh -p ${SSH_PORT}`,
-    'src/QuoteDuelVideo.jsx',
-    'scripts/render-quote-duel-video.mjs',
-    'scripts/mux-quote-duel-audio.mjs',
-    'scripts/lib/audio-mux.mjs',
-    'scripts/lib/briefing-helpers.mjs',
-    'scripts/lib/duel-hooks.mjs',
-    'scripts/lib/duel-timeline.mjs',
-    'scripts/lib/remotion-assets.mjs',
+    ...QUOTE_DUEL_SERVER_CODE_PATHS,
     `${SSH_HOST}:${REMOTE_ROOT}/`
   ]
 });
+const quoteDuelServerGitUpdate = () =>
+  `cd ${REMOTE_ROOT} && git checkout -- ${QUOTE_DUEL_SERVER_CODE_PATHS.map(shellQuote).join(' ')} && git pull origin main`;
 
 // A date is "remote-sync" (created from the dashboard, fed by the data server)
 // only when its state was stamped by POST /api/create-date.
@@ -442,7 +464,11 @@ export function getSteps(ctx, state = null, options = {}) {
   const mode = options?.mode === 'duel' ? 'duel' : 'main';
   const duelMode = mode === 'duel';
   const finalMp4 = path.join(ctx.output, 'radar-beirut-briefing-final.mp4');
+  const finalHookCaptionsMp4 = path.join(ctx.output, 'radar-beirut-briefing-hook-captions-final.mp4');
+  const finalHookStampsMp4 = path.join(ctx.output, 'radar-beirut-briefing-hook-stamps-final.mp4');
   const mutedMp4 = path.join(ctx.output, 'radar-beirut-briefing.mp4');
+  const mutedHookCaptionsMp4 = path.join(ctx.output, 'radar-beirut-briefing-hook-captions.mp4');
+  const mutedHookStampsMp4 = path.join(ctx.output, 'radar-beirut-briefing-hook-stamps.mp4');
   const splitVariants = finalVideoVariants(ctx);
   const socialCaptions = path.join(ctx.output, 'social-captions.json');
   const youtubeThumbnailPrompt = path.join(ctx.output, 'youtube-thumbnail-prompt.md');
@@ -465,6 +491,26 @@ export function getSteps(ctx, state = null, options = {}) {
   const duelSocialCaptions = path.join(ctx.output, 'quote-duel-social-captions.json');
   const duelSocialPrompts = path.join(ctx.output, 'quote-duel-social-prompts.json');
   const duelSocialReady = exists(quoteDuelJson) && exists(duelManifest);
+  const renderVariantOptions = {
+    id: 'variants',
+    label: 'Variants to render',
+    type: 'multi',
+    choices: [
+      {value: 'default', label: 'Normal briefing'},
+      {value: 'captions', label: 'Hook: captions + focus boxes'},
+      {value: 'stamps', label: 'Hook: quote stamps + chips'}
+    ],
+    defaultSelected: ['default']
+  };
+  const serverRenderVariantOptions = {...renderVariantOptions, label: 'Server variants to render'};
+  const localRenderVariantOptions = {...renderVariantOptions, label: 'Local variants to render'};
+  const selectedRenderVariants = (selectedOptions) => {
+    const allowed = ['default', 'captions', 'stamps'];
+    const requested = Array.isArray(selectedOptions?.variants) ? selectedOptions.variants : [];
+    const variants = allowed.filter((variant) => requested.includes(variant));
+    if (!variants.length) variants.push('default');
+    return variants;
+  };
 
   const baseSteps = [
     {
@@ -586,7 +632,8 @@ export function getSteps(ctx, state = null, options = {}) {
     {
       id: 'image-prompt',
       title: '4. Generate closing summary image prompt',
-      description: 'Writes the *summary-image.md prompt used for manual image generation in Codex/ChatGPT.',
+      description:
+        'Optional/non-blocking. Writes the *summary-image.md prompt used for manual image generation in Codex/ChatGPT; later steps can continue while the image is being generated.',
       kind: 'run',
       actions: [{id: 'run', label: 'Generate prompt', commands: () => [npmRun('briefing:image:prompt', '--folder', folder)]}],
       artifacts: () => {
@@ -595,10 +642,10 @@ export function getSteps(ctx, state = null, options = {}) {
       },
       status: (stepState) => {
         const prompt = findSummaryImagePrompt(ctx.output);
-        if (!prompt) return fromLastRun(stepState, 'Prompt not generated yet.');
+        if (!prompt) return fromLastRun(stepState, 'Prompt not generated yet. Later steps do not depend on it.');
         const visualScript = path.join(ctx.folder, 'visual-script.json');
         if (exists(visualScript) && mtimeMs(visualScript) > mtimeMs(prompt)) {
-          return {status: 'stale', detail: 'visual-script.json changed after the image prompt was generated.'};
+          return {status: 'stale', detail: 'visual-script.json changed after the image prompt was generated; rebuild steps can still continue.'};
         }
         return {status: 'done', detail: path.basename(prompt)};
       }
@@ -608,7 +655,7 @@ export function getSteps(ctx, state = null, options = {}) {
       id: 'image-save',
       title: '5. Save the generated closing image (manual)',
       description:
-        'Run the summary image prompt manually in Codex/ChatGPT and save the result exactly as output/final_summary_generated.png. The build wires it into scene-11.',
+        'Optional/non-blocking. Save the manually generated image as output/final_summary_generated.png when it is ready. Builds continue without it and use the normal dark fallback.',
       kind: 'verify',
       actions: [
         {
@@ -619,11 +666,15 @@ export function getSteps(ctx, state = null, options = {}) {
               label: 'Closing image verification',
               fn: async (emit) => {
                 const image = path.join(ctx.output, 'final_summary_generated.png');
-                if (!exists(image)) throw new Error('output/final_summary_generated.png is missing.');
+                if (!exists(image)) {
+                  emit('output/final_summary_generated.png is not present yet.');
+                  emit('This is OK: later steps can continue, and builds will use the dark fallback until the image exists.');
+                  return;
+                }
                 emit(`Found: ${image}`);
                 const prompt = findSummaryImagePrompt(ctx.output);
                 if (prompt && mtimeMs(image) < mtimeMs(prompt)) {
-                  emit('WARNING: the image is older than the latest summary-image prompt. Regenerate it if the prompt changed.');
+                  emit('WARNING: the image is older than the latest summary-image prompt. Regenerate it if you want the latest prompt reflected.');
                 }
                 emit('Closing image is in place.');
               }
@@ -631,13 +682,13 @@ export function getSteps(ctx, state = null, options = {}) {
           ]
         }
       ],
-      artifacts: () => [{label: 'final_summary_generated.png', file: path.join(ctx.output, 'final_summary_generated.png')}],
+      artifacts: () => [{label: 'final_summary_generated.png (optional)', file: path.join(ctx.output, 'final_summary_generated.png'), optional: true}],
       status: () => {
         const image = path.join(ctx.output, 'final_summary_generated.png');
-        if (!exists(image)) return {status: 'pending', detail: 'Save the generated image into output/.'};
+        if (!exists(image)) return {status: 'done', detail: 'Optional image not saved yet; builds use the dark fallback.'};
         const prompt = findSummaryImagePrompt(ctx.output);
         if (prompt && mtimeMs(image) < mtimeMs(prompt)) {
-          return {status: 'stale', detail: 'Image is older than the latest summary-image prompt.'};
+          return {status: 'stale', detail: 'Optional image is older than the latest summary-image prompt; rebuilds can still continue.'};
         }
         return {status: 'done', detail: 'Closing image present.'};
       }
@@ -647,7 +698,7 @@ export function getSteps(ctx, state = null, options = {}) {
       id: 'first-build',
       title: '6. Build first draft outputs',
       description:
-        'Merges daily sources into output/ (briefing.json, timing-config.json, the four format HTMLs plus the captions/stamps hook variants) and moves stale closing audio aside if the scene-11 text changed.',
+        'Merges daily sources into output/ (briefing.json, timing-config.json, the four format HTMLs plus the captions/stamps hook variants) and moves stale closing audio aside if the closing-scene text changed. If the optional closing image is not saved yet, the closing scene uses the dark fallback.',
       kind: 'run',
       actions: [
         {
@@ -842,32 +893,19 @@ export function getSteps(ctx, state = null, options = {}) {
 
     {
       id: 'server-render',
-      title: '12. Render muted MP4 on server',
+      title: '12. Render muted MP4',
       description:
-        'Pulls the latest repo on the render server, then runs the muted Remotion render over ssh once per selected variant (normal, hook-captions, hook-stamps). Long-running (~minutes per variant); frames are ~99% of the time.',
+        'Renders the muted Remotion MP4 once per selected variant (normal, hook-captions, hook-stamps). Use the server when available; use local render when the server is inaccessible. Long-running (~minutes per variant); frames are ~99% of the time.',
       kind: 'run',
       actions: [
         {
           id: 'run',
           label: 'Render on server (muted)',
-          options: {
-            id: 'variants',
-            label: 'Variants to render',
-            type: 'multi',
-            choices: [
-              {value: 'default', label: 'Normal briefing'},
-              {value: 'captions', label: 'Hook: captions + focus boxes'},
-              {value: 'stamps', label: 'Hook: quote stamps + chips'}
-            ],
-            defaultSelected: ['default']
-          },
+          options: serverRenderVariantOptions,
           commands: (options) => {
-            const allowed = ['default', 'captions', 'stamps'];
-            const requested = Array.isArray(options?.variants) ? options.variants : [];
-            const variants = allowed.filter((variant) => requested.includes(variant));
-            if (!variants.length) variants.push('default');
+            const variants = selectedRenderVariants(options);
             return [
-              {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin main`)},
+              {cmd: 'ssh', args: sshArgs(quoteDuelServerGitUpdate())},
               ...variants.map((variant) => ({
                 cmd: 'ssh',
                 args: sshArgs(
@@ -878,11 +916,44 @@ export function getSteps(ctx, state = null, options = {}) {
               }))
             ];
           }
+        },
+        {
+          id: 'local',
+          label: 'Render locally (muted)',
+          options: localRenderVariantOptions,
+          commands: (options) =>
+            selectedRenderVariants(options).map((variant) =>
+              npmRun(
+                'briefing:render:mp4',
+                '--folder',
+                folder,
+                '--muted',
+                ...(variant === 'default' ? [] : ['--variant', variant]),
+                '--gl',
+                'off',
+                '--log',
+                'warn'
+              )
+            )
         }
       ],
-      artifacts: () => [],
+      artifacts: () => [
+        {label: 'radar-beirut-briefing.mp4 (local muted)', file: mutedMp4, optional: true},
+        {label: 'radar-beirut-briefing-hook-captions.mp4 (local muted)', file: mutedHookCaptionsMp4, optional: true},
+        {label: 'radar-beirut-briefing-hook-stamps.mp4 (local muted)', file: mutedHookStampsMp4, optional: true}
+      ],
       status: (stepState) => {
-        if (!stepState) return {status: 'pending', detail: 'Not rendered yet (or rendered outside the dashboard).'};
+        if (!stepState) {
+          const localMutedMtimes = [mutedMp4, mutedHookCaptionsMp4, mutedHookStampsMp4].map(mtimeMs).filter(Boolean);
+          if (localMutedMtimes.length > 0) {
+            return staleIfBriefingNewer(
+              ctx,
+              {status: 'done', detail: 'Local muted MP4 exists.'},
+              Math.max(...localMutedMtimes)
+            );
+          }
+          return {status: 'pending', detail: 'Not rendered yet (or rendered outside the dashboard).'};
+        }
         const base = fromLastRun(stepState);
         if (base.status !== 'done') return base;
         return staleIfBriefingNewer(ctx, base, finishedAtMsOf(stepState));
@@ -916,12 +987,37 @@ export function getSteps(ctx, state = null, options = {}) {
         {
           id: 'local',
           label: 'Mux locally (needs local muted MP4)',
-          commands: () => [npmRun('briefing:mux:audio', '--folder', folder)]
+          commands: () => {
+            const localMutedInputs = [
+              {file: mutedMp4, args: []},
+              {file: mutedHookCaptionsMp4, args: ['--input', path.posix.join(ctx.outputRel, 'radar-beirut-briefing-hook-captions.mp4')]},
+              {file: mutedHookStampsMp4, args: ['--input', path.posix.join(ctx.outputRel, 'radar-beirut-briefing-hook-stamps.mp4')]}
+            ].filter((item) => exists(item.file));
+
+            if (!localMutedInputs.length) {
+              return [
+                {
+                  label: 'Local muted MP4 check',
+                  fn: async () => {
+                    throw new Error('No local muted renders found. Run step 12 locally first.');
+                  }
+                }
+              ];
+            }
+
+            return localMutedInputs.map((item) => npmRun('briefing:mux:audio', '--folder', folder, ...item.args));
+          }
         }
       ],
-      artifacts: () => [{label: 'Local muted MP4 (only for local mux)', file: mutedMp4, optional: true}],
+      artifacts: () => [
+        {label: 'radar-beirut-briefing.mp4 (local muted)', file: mutedMp4, optional: true},
+        {label: 'radar-beirut-briefing-hook-captions.mp4 (local muted)', file: mutedHookCaptionsMp4, optional: true},
+        {label: 'radar-beirut-briefing-hook-stamps.mp4 (local muted)', file: mutedHookStampsMp4, optional: true}
+      ],
       status: (stepState) => {
-        if (exists(finalMp4)) return {status: 'done', detail: 'Final MP4 with audio exists locally.'};
+        if ([finalMp4, finalHookCaptionsMp4, finalHookStampsMp4].some(exists)) {
+          return {status: 'done', detail: 'Final MP4 with audio exists locally.'};
+        }
         return fromLastRun(stepState, 'Not muxed yet.');
       }
     },
@@ -1328,14 +1424,14 @@ export function getSteps(ctx, state = null, options = {}) {
 
     {
       id: 'duel-server-render',
-      title: '22. Quote Duel: sync + render on server (muted)',
+      title: '22. Quote Duel: sync + render full + clashes on server (muted)',
       description:
-        `Syncs only the selected Quote Duel render inputs for briefings/${ctx.date}/ to ${SSH_HOST}, then renders one muted Remotion MP4 per selected clash with --hook ${DUEL_HOOK}. Shared hook WAVs must be synced once via step 21.`,
+        `Syncs the Quote Duel render inputs for briefings/${ctx.date}/ to ${SSH_HOST}, then renders the full muted Quote Duel master (hook + all clashes + ending) plus one muted MP4 per selected clash with --hook ${DUEL_HOOK}. Shared hook WAVs must be synced once via step 21.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Sync selected duels + render on server (muted)',
+          label: 'Sync + render full and selected clashes (muted)',
           options:
             duelRenderChoices.length > 0
               ? {
@@ -1348,7 +1444,7 @@ export function getSteps(ctx, state = null, options = {}) {
               : undefined,
           commands: (options) => {
             const selected = safeDuelChoices(ctx, options?.duels);
-            const includeAudioFiles = selected.flatMap((choice) => ['--include', `/audio/${choice.audioFile}`]);
+            const includeAudioFiles = quoteDuelRenderChoices(ctx).flatMap((choice) => ['--include', `/audio/${choice.audioFile}`]);
             return [
               {cmd: 'ssh', args: sshArgs(`mkdir -p ${REMOTE_ROOT}/briefings/${ctx.date}`)},
               {
@@ -1367,8 +1463,14 @@ export function getSteps(ctx, state = null, options = {}) {
                   `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/`
                 ]
               },
-              {cmd: 'ssh', args: sshArgs(`cd ${REMOTE_ROOT} && git pull origin main`)},
+              {cmd: 'ssh', args: sshArgs(quoteDuelServerGitUpdate())},
               quoteDuelServerCodeSync(),
+              {
+                cmd: 'ssh',
+                args: sshArgs(
+                  `cd ${REMOTE_ROOT} && npm run briefing:duel:render -- --folder briefings/${ctx.date} --muted --hook ${DUEL_HOOK} --log warn`
+                )
+              },
               ...selected.map((choice) => ({
                 cmd: 'ssh',
                 args: sshArgs(
@@ -1377,9 +1479,45 @@ export function getSteps(ctx, state = null, options = {}) {
               }))
             ];
           }
+        },
+        {
+          id: 'local',
+          label: 'Render full and selected clashes locally (muted)',
+          options:
+            duelRenderChoices.length > 0
+              ? {
+                  id: 'duels',
+                  label: 'Duels to render',
+                  type: 'multi',
+                  choices: duelRenderChoices.map((choice) => ({value: choice.value, label: choice.label})),
+                  defaultSelected: duelRenderChoices.map((choice) => choice.value)
+                }
+              : undefined,
+          commands: (options) => {
+            const selected = safeDuelChoices(ctx, options?.duels);
+            return [
+              npmRun('briefing:duel:render', '--folder', folder, '--muted', '--hook', DUEL_HOOK, '--gl', 'off', '--log', 'warn'),
+              ...selected.map((choice) =>
+                npmRun(
+                  'briefing:duel:render',
+                  '--folder',
+                  folder,
+                  '--muted',
+                  '--hook',
+                  DUEL_HOOK,
+                  '--duel',
+                  choice.value,
+                  '--gl',
+                  'off',
+                  '--log',
+                  'warn'
+                )
+              )
+            ];
+          }
         }
       ],
-      artifacts: () => [],
+      artifacts: () => quoteDuelVideoArtifacts(ctx, DUEL_HOOK),
       status: (stepState) => {
         if (!stepState) return {status: 'pending', detail: 'Not rendered yet (or rendered outside the dashboard).'};
         const base = fromLastRun(stepState);
@@ -1390,19 +1528,23 @@ export function getSteps(ctx, state = null, options = {}) {
 
     {
       id: 'duel-server-mux',
-      title: '23. Quote Duel: mux audio on server',
+      title: '23. Quote Duel: mux full + clash audio on server',
       description:
-        `Attaches narration, the ${DUEL_HOOK} hook WAV, and the shared ending to every muted per-duel render found on the server → output/duel-videos-${DUEL_HOOK}/duel-NN.mp4.`,
+        `Attaches narration, the ${DUEL_HOOK} hook WAV, and the shared ending to the full muted master → output/radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4, then muxes every muted per-duel render found on the server → output/duel-videos-${DUEL_HOOK}/duel-NN.mp4.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
-          label: 'Mux rendered duel videos on server',
+          label: 'Mux full master and rendered clash videos on server',
           commands: () => {
+            const fullMuted = `briefings/${ctx.date}/output/radar-beirut-quote-duel-${DUEL_HOOK}.mp4`;
+            const fullFinal = `briefings/${ctx.date}/output/radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`;
             const mutedDir = `briefings/${ctx.date}/output/duel-videos-${DUEL_HOOK}/muted`;
             const finalDir = `briefings/${ctx.date}/output/duel-videos-${DUEL_HOOK}`;
             const script = [
               `cd ${REMOTE_ROOT}`,
+              `if [ ! -f ${shellQuote(fullMuted)} ]; then echo "No muted full Quote Duel render found on the server - run step 22 first."; exit 1; fi`,
+              `npm run briefing:duel:mux:audio -- --folder ${shellQuote(`briefings/${ctx.date}`)} --hook ${shellQuote(DUEL_HOOK)} --input ${shellQuote(fullMuted)} --output ${shellQuote(fullFinal)}`,
               `mkdir -p ${shellQuote(finalDir)}`,
               'found=0',
               `for f in ${shellQuote(mutedDir)}/duel-*.mp4; do`,
@@ -1420,9 +1562,71 @@ export function getSteps(ctx, state = null, options = {}) {
               {cmd: 'ssh', args: sshArgs(script)}
             ];
           }
+        },
+        {
+          id: 'local',
+          label: 'Mux local full master and clash videos',
+          commands: () => {
+            const fullMutedRel = path.posix.join(ctx.outputRel, `radar-beirut-quote-duel-${DUEL_HOOK}.mp4`);
+            const fullFinalRel = path.posix.join(ctx.outputRel, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
+            const mutedDir = path.join(ctx.output, `duel-videos-${DUEL_HOOK}`, 'muted');
+            const finalDirRel = path.posix.join(ctx.outputRel, `duel-videos-${DUEL_HOOK}`);
+            const mutedFiles = exists(mutedDir)
+              ? fs
+                  .readdirSync(mutedDir, {withFileTypes: true})
+                  .filter((entry) => entry.isFile() && /^duel-\d+\.mp4$/.test(entry.name))
+                  .map((entry) => entry.name)
+                  .sort()
+              : [];
+            const fullMutedPath = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}.mp4`);
+            if (!exists(fullMutedPath) && !mutedFiles.length) {
+              return [
+                {
+                  label: 'Local Quote Duel muted render check',
+                  fn: async () => {
+                    throw new Error('No local muted Quote Duel renders found. Run step 22 locally first.');
+                  }
+                }
+              ];
+            }
+            return [
+              ...(exists(fullMutedPath)
+                ? [
+                    npmRun(
+                      'briefing:duel:mux:audio',
+                      '--folder',
+                      folder,
+                      '--hook',
+                      DUEL_HOOK,
+                      '--input',
+                      fullMutedRel,
+                      '--output',
+                      fullFinalRel
+                    )
+                  ]
+                : []),
+              ...mutedFiles.map((fileName) => {
+                const match = fileName.match(/^duel-(\d+)\.mp4$/);
+                const duelId = match ? `duel-${parseInt(match[1], 10)}` : fileName.replace(/\.mp4$/, '');
+                return npmRun(
+                  'briefing:duel:mux:audio',
+                  '--folder',
+                  folder,
+                  '--hook',
+                  DUEL_HOOK,
+                  '--duel',
+                  duelId,
+                  '--input',
+                  path.posix.join(finalDirRel, 'muted', fileName),
+                  '--output',
+                  path.posix.join(finalDirRel, fileName)
+                );
+              })
+            ];
+          }
         }
       ],
-      artifacts: () => [],
+      artifacts: () => quoteDuelVideoArtifacts(ctx, DUEL_HOOK),
       status: (stepState) => {
         return fromLastRun(stepState, 'Not muxed yet.');
       }
@@ -1431,13 +1635,23 @@ export function getSteps(ctx, state = null, options = {}) {
     {
       id: 'duel-download',
       title: '24. Quote Duel: download videos from server',
-      description: `Downloads only the final server-rendered per-duel MP4s and manifest from ${SSH_HOST}: output/duel-videos-${DUEL_HOOK}/. Muted render intermediates are left on the server.`,
+      description: `Downloads the full muxed Quote Duel master plus final server-rendered per-duel MP4s and manifest from ${SSH_HOST}. Muted render intermediates are left on the server.`,
       kind: 'run',
       actions: [
         {
           id: 'run',
           label: 'Download rendered duel videos',
           commands: () => [
+            {
+              cmd: 'rsync',
+              args: [
+                '-av',
+                '-e',
+                `ssh -p ${SSH_PORT}`,
+                `${SSH_HOST}:${REMOTE_ROOT}/briefings/${ctx.date}/output/radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`,
+                `${out}/`
+              ]
+            },
             {
               cmd: 'rsync',
               args: [
@@ -1454,8 +1668,13 @@ export function getSteps(ctx, state = null, options = {}) {
       ],
       artifacts: () => quoteDuelVideoArtifacts(ctx, DUEL_HOOK),
       status: () => {
-        if (!exists(duelClipManifest)) return {status: 'pending', detail: 'Rendered duel videos not downloaded yet.'};
-        return {status: 'done', detail: 'Server-rendered per-duel videos are here.'};
+        const fullFinal = path.join(ctx.output, `radar-beirut-quote-duel-${DUEL_HOOK}-final.mp4`);
+        if (!exists(fullFinal) && !exists(duelClipManifest)) {
+          return {status: 'pending', detail: 'Rendered full/clash duel videos not downloaded yet.'};
+        }
+        if (!exists(fullFinal)) return {status: 'attention', detail: 'Per-clash videos are here, but the full all-duels master is missing.'};
+        if (!exists(duelClipManifest)) return {status: 'attention', detail: 'Full all-duels master is here, but per-clash videos are missing.'};
+        return {status: 'done', detail: 'Full all-duels master and per-clash videos are here.'};
       }
     },
 

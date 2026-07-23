@@ -302,6 +302,7 @@ If revisiting any of those, confirm with the user first.
   - the dashboard default Quote Duel hook is `hook-2`
   - the Quote Duel dashboard now has its own narration editor using `audio/quote-duel-text-overrides.json`; audio generation is gated by an explicit narration confirmation, and later edits re-gate it
   - dashboard step 16 is the shared social captions step for both main briefing and Quote Duel; it also generates and validates `output/quote-duel-social-captions.json`
+  - dashboard step 16 main briefing social captions also generate an X thread block in `output/social-captions.json` using `https://x.com/RadarBeirut`; the thread is 4–6 posts posted top-to-bottom as replies: `hook` (starts with `الصحافة اليوم`, native-video post, exactly 2 hashtags incl. `#لبنان`, no links/handles), 1–3 `faultline-N` posts (outlets grouped by the day's fault-line axis, each scene outlet @handle exactly once, inline mid-sentence, never at post start, no hashtags), `question` (outro open question + `poll` array of 2–4 stances ≤25 chars for an X poll), and `link` (last reply containing the `{YOUTUBE_LINK}` placeholder); every post ≤275 chars and no post carries the Radar Beirut handle; when `output/quote-duel.json` exists, the step-16 prompt feeds the duel texts (event, contrast, per-side stance + quote) to Codex and the faultline posts must reuse that duel wording so the X thread matches the published duel videos — outlets not in any duel fall back to their fault-line stance
   - Quote Duel social captions are validated by `npm run briefing:duel:social:validate -- --folder briefings/YYYY-MM-DD` against `audio/quote-duel-manifest.json`
   - Quote Duel distribution in `view=duel` should expose only the all-duels muxed master plus one video for each clash; no separate top-3 reel or extra shorts tier is needed
   - the main dashboard Post now panel should keep only the main YouTube full-video card, not the Quote Duel shorts distribution UI
@@ -970,12 +971,15 @@ Keyword Radar rule of thumb:
 - The validator must fail if generated placeholder JSON still has empty required fields.
 - Step 4 should generate the closing summary image prompt before HTML generation:
   - `npm run briefing:image:prompt -- --folder briefings/YYYY-MM-DD`
+- Step 4 is optional/non-blocking for the rest of the workflow; once the prompt is written, manual image generation can continue in parallel while builds, audio, and render prep proceed.
 - The summary image prompt should be written directly under:
   - `briefings/YYYY-MM-DD/output/`
 - Do not create an `image-prompts/` subfolder for the summary image prompt.
 - The generated closing image should be saved as:
   - `briefings/YYYY-MM-DD/output/final_summary_generated.png`
-- Step 5 should build all HTML outputs after the summary image exists:
+- Do not block Step 5 or later steps on `final_summary_generated.png`; if the image is missing, the build should continue and the closing scene should use the dark fallback.
+- Once `final_summary_generated.png` is saved, rerun the build/review path to include it.
+- Step 5 should build all HTML outputs whether or not the optional summary image exists:
   - `npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD`
 - Step 5 should generate full briefing audio, not outlet-only audio:
   - outlet scene WAVs
@@ -999,7 +1003,7 @@ Keyword Radar rule of thumb:
 - Once that MP4 exists, the guided workflow should automatically split it with:
   - `npm run briefing:split:mp4 -- --folder briefings/YYYY-MM-DD --input briefings/YYYY-MM-DD/output/radar-beirut-briefing-540x960.mp4 --output-dir briefings/YYYY-MM-DD/output/scene-videos-540x960`
 - The guided workflow should finish after the split scene videos are written.
-- The folder build auto-wires `output/final_summary_generated.png` into `output/briefing.json` before building the full-editorial HTML.
+- The folder build auto-wires `output/final_summary_generated.png` into `output/briefing.json` before building the full-editorial HTML when the image exists; otherwise it builds with the dark fallback.
 - Outlet screenshots remain in the date folder itself, not in `output/`.
 - Full-editorial HTML generated inside `output/` should reference outlet screenshots via relative parent paths such as `../aawsat_...png`.
 
@@ -1167,7 +1171,8 @@ full-editorial scene flow:
     - `npm run briefing:image:prompt -- --folder briefings/YYYY-MM-DD`
   - generate the image from that prompt in Codex/ChatGPT image generation
   - save it in the date folder's output folder as `output/final_summary_generated.png` unless the user explicitly wants another name
-  - `npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD` auto-wires that image into `output/briefing.json` before HTML generation
+  - do not wait on the generated image; continue the workflow while it is being created manually
+  - `npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD` auto-wires that image into `output/briefing.json` before HTML generation when it exists, and otherwise uses the dark fallback
   - do not include a prompt instruction to leave safe space in the upper third for title overlays
 - Keep treating `before_formatting_output/` as storage only for the retained older intro reference.
 - Keep treating `templates/` as the active shared non-intro template source for builders.
@@ -1220,3 +1225,86 @@ Rule of thumb:
       -> many possible briefing formats
       -> one HTML output per format
 ```
+
+## June 26 2026 Session Memory
+
+### What Was Built
+- Added Quote Duel dashboard step 25:
+  - `Quote Duel: social text + reel cover prompts`
+  - command: `npm run briefing:duel:social-prompts -- --folder briefings/YYYY-MM-DD`
+  - validation: `npm run briefing:duel:social-prompts:validate -- --folder briefings/YYYY-MM-DD`
+- Added source scripts:
+  - `scripts/build-duel-social-prompts-prompt.mjs`
+  - `scripts/validate-duel-social-prompts.mjs`
+- Added npm scripts:
+  - `briefing:duel:social-prompts`
+  - `briefing:duel:social-prompts:validate`
+- Added dashboard support for per-duel publishing text and per-duel 9:16 cover prompts:
+  - Duel page calls `/api/state?view=duel`
+  - Duel runs post `{ view: "duel" }`
+  - Step 25 displays one copyable social text block and one copyable image prompt per duel
+  - UI supports prompts being ready even if the per-duel MP4 has not been downloaded yet
+- Step 16 was split by view:
+  - main dashboard Step 16 now handles main briefing social captions and YouTube thumbnail prompt only
+  - Quote Duel view Step 16 handles `output/quote-duel-social-captions.json`
+  - per-duel cover prompts live in Quote Duel Step 25, not in the main dashboard Post now panel
+- Added tests:
+  - `tests/duel-social-prompts.test.mjs`
+  - `tests/dashboard-audio-text.test.mjs`
+  - extended `tests/audio-stale-reuse.test.mjs`
+- Added scene-11 Hamsa handoff suffix behavior:
+  - suffix: `... وهيك منوصل لسؤال اليوم`
+  - applied in both dashboard audio editing and `audio/generate-outlet-audio.mjs`
+  - saved scene-11 overrides are materialized with the suffix so the transition into the outro question remains natural
+- Updated Quote Duel server mux/download behavior:
+  - `scripts/mux-quote-duel-audio.mjs` can operate on a selected duel via `--duel`
+  - selected-duel mux updates a local `manifest.json` in the output directory
+  - dashboard download excludes server-side muted intermediates with `--exclude=muted/`
+- Dashboard frontend build now refreshes automatically when dashboard web source is newer than `dashboard/web/dist/index.html`.
+
+### Quote Duel Social Prompt Rules
+- `output/quote-duel-social-prompts.json` starts as a seeded draft with placeholder cover prompts.
+- A valid generated file must:
+  - set `"draft": false` or omit the draft flag
+  - include one entry per `quote-duel.json.scenes[]` duel id
+  - fill `title`, `description`, non-empty `hashtags`, and `reelCoverPrompt`
+  - ensure every `reelCoverPrompt` explicitly says `9:16`
+- The seeded placeholder text like:
+  - `Create a 9:16 social media reel/short cover for Radar Beirut and save it as ...`
+  is not acceptable final output.
+- Final cover prompts should be copy-ready image-generation prompts that include:
+  - exact cover output path
+  - Radar Beirut radar/editorial look
+  - dark Beirut map background
+  - orange radar sweep
+  - split quote-duel layout
+  - the specific duel argument, outlet names, stances, and short quotes
+  - safe margins for Reels, Shorts, TikTok, and similar vertical feeds
+  - no request for exact outlet logos unless source assets are provided
+
+### Generated Output Caveat
+- `briefings/` is ignored by Git.
+- Date-specific generated files such as:
+  - `briefings/2026-06-26/output/quote-duel-social-prompts.json`
+  - prompt markdown
+  - dashboard state
+  are local artifacts and are not committed unless Git ignore rules are intentionally changed.
+- In the June 26 session, the generated 2026-06-26 Quote Duel social prompts were filled and validated locally, but the commit only tracked source/dashboard/test changes because `briefings/` is ignored.
+
+### Errors And Lessons
+- Running `npm test` inside the managed sandbox can fail when tests spawn child Node processes through the NVM `process.execPath`.
+  - Symptom: child `spawnSync` returns `EPERM`
+  - Secondary symptom in tests: empty stdout causes `SyntaxError: Unexpected end of JSON input`
+  - Fix: rerun `npm test` with escalated permissions when child Node spawning is required
+  - Verified result after escalation: `77/77` tests passed
+- Git staging/commit can fail inside the sandbox because `.git/index.lock` is read-only.
+  - Symptom: `fatal: Unable to create ... .git/index.lock: Read-only file system`
+  - Fix: run `git add`, `git commit`, and `git push` with approved escalation
+- When the user asks to commit and push "all changes", still inspect `git status`, `git diff --stat`, and targeted diffs first.
+  - In the June 26 session, the visible source/test/dashboard changes were coherent and committed together.
+  - Ignored generated briefing output stayed local and was explicitly reported.
+- Commit pushed:
+  - branch: `main`
+  - remote: `origin/main`
+  - commit: `5a4ee07`
+  - message: `Add Quote Duel social prompt workflow`

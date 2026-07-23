@@ -83,6 +83,27 @@ export default function DuelApp() {
     }
   };
 
+  const cancelRun = async () => {
+    try {
+      await api('/api/cancel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date})
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const cancelAllRuns = async () => {
+    try {
+      await api('/api/cancel-all', {method: 'POST'});
+      await refresh(date);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const saveDuelText = async (duelId, text) => {
     try {
       await api('/api/duel/script', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({date, duelId, text})});
@@ -146,6 +167,12 @@ export default function DuelApp() {
           <a className="new-date-btn" href="/" target="_blank" rel="noreferrer">
             ↗ Main dashboard
           </a>
+          <a className="new-date-btn" href="/?view=metrics" target="_blank" rel="noreferrer">
+            ↗ Post tracker
+          </a>
+          <button className="new-date-btn stop-all-btn" onClick={cancelAllRuns}>
+            Stop all tasks
+          </button>
           <select value={date || ''} onChange={(event) => setDate(event.target.value)}>
             {dates.map((value) => (
               <option key={value} value={value}>
@@ -180,6 +207,7 @@ export default function DuelApp() {
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
                 onRun={(actionId, options) => runStep(step.id, actionId, options)}
+                onCancel={data.activeRun?.stepId === step.id ? cancelRun : null}
                 duelNarration={
                   step.id === 'duel-audio' && canReviewDuelNarration ? (
                     <DuelNarrationPanel

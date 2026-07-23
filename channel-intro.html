@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Beirut — Channel Intro (PoC)</title>
+<style>
+  @font-face {
+    font-family: "Dubai";
+    src: url("./fonts/Dubai-Regular.ttf") format("truetype");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Dubai";
+    src: url("./fonts/Dubai-Medium.ttf") format("truetype");
+    font-weight: 500; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Dubai";
+    src: url("./fonts/Dubai-Bold.ttf") format("truetype");
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
+  :root {
+    --bg: #050d14;
+    --bg-deep: #02080d;
+    --line: rgba(120, 172, 205, 0.14);
+    --text: #f4efe5;
+    --accent: #cd7f32;
+    --font-arabic: "Dubai", "Noto Naskh Arabic", Tahoma, "Segoe UI", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 14px;
+    background:
+      radial-gradient(circle at 20% 18%, rgba(205, 127, 50, 0.16), transparent 20%),
+      radial-gradient(circle at 78% 12%, rgba(60, 152, 196, 0.18), transparent 25%),
+      linear-gradient(180deg, #06131d, #03080d 72%);
+    color: var(--text);
+    overflow: hidden;
+    font-family: var(--font-arabic);
+  }
+
+  #stage {
+    position: relative;
+    width: min(100vw, 405px);
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 22% 14%, rgba(205, 127, 50, 0.22), transparent 30%),
+      radial-gradient(circle at 80% 22%, rgba(86, 170, 212, 0.20), transparent 34%),
+      radial-gradient(circle at 50% 115%, rgba(205, 127, 50, 0.16), transparent 40%),
+      linear-gradient(180deg, #071624, #04101a 55%, #030b12);
+    border: 1px solid rgba(205, 127, 50, 0.18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  }
+
+  #bg-photo {
+    position: absolute; inset: -6%;
+    background: url('./logos/video-front-page-3.png') center 24% / cover no-repeat;
+    filter: blur(6px) brightness(0.6) saturate(1.15);
+    opacity: 0.32;
+    animation: bgDrift 46s ease-in-out infinite alternate;
+  }
+  @keyframes bgDrift {
+    from { transform: scale(1.04) translateY(0); }
+    to   { transform: scale(1.12) translateY(-14px); }
+  }
+
+  #topo {
+    position: absolute; inset: -25%;
+    background:
+      repeating-radial-gradient(circle at 47% 40%,
+        rgba(205,127,50,0.055) 0 1px, transparent 1px 54px),
+      repeating-radial-gradient(circle at 47% 40%,
+        rgba(86,170,212,0.04) 0 1px, transparent 1px 130px);
+    opacity: 0.8;
+    animation: topoBreath 9s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes topoBreath {
+    from { transform: scale(1); opacity: 0.55; }
+    to   { transform: scale(1.05); opacity: 0.9; }
+  }
+
+  #grid {
+    position: absolute; inset: -18%;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: rotate(-8deg) scale(1.08);
+    opacity: 0.55;
+    animation: driftGrid 22s linear infinite;
+  }
+  @keyframes driftGrid {
+    from { transform: translateY(0) rotate(-8deg) scale(1.08); }
+    to { transform: translateY(52px) rotate(-8deg) scale(1.08); }
+  }
+
+  #scan-line {
+    position: absolute; inset: 0 auto 0 -70%;
+    width: 64%;
+    background: linear-gradient(90deg, transparent 0%,
+      rgba(205,127,50,0.05) 36%, rgba(205,127,50,0.20) 50%,
+      rgba(205,127,50,0.05) 64%, transparent 100%);
+    transform: skewX(-15deg);
+    pointer-events: none;
+    animation: scanSweepLoop 3600ms linear infinite;
+  }
+  @keyframes scanSweepLoop {
+    0%   { opacity: 0; transform: translateX(-140%) skewX(-15deg); }
+    8%   { opacity: 0.8; transform: translateX(-60%) skewX(-15deg); }
+    45%  { opacity: 0.9; transform: translateX(90%) skewX(-15deg); }
+    68%  { opacity: 0.15; transform: translateX(155%) skewX(-15deg); }
+    100% { opacity: 0; transform: translateX(155%) skewX(-15deg); }
+  }
+
+  #vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.62) 100%);
+    pointer-events: none; z-index: 5;
+  }
+
+  #main-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; }
+
+  /* ---- Beat 1+2: stamp ---- */
+  #stamp {
+    position: absolute; inset: 0 24px auto; top: 26%;
+    text-align: center; z-index: 6;
+  }
+  #stamp-line1 {
+    display: inline-block; position: relative;
+    font-size: 30px; font-weight: 700; line-height: 1.5;
+    color: var(--text);
+    text-shadow: 0 2px 18px rgba(0,0,0,0.6);
+    border: 1px solid rgba(205,127,50,0.4);
+    background: rgba(2,8,13,0.55);
+    padding: 12px 18px;
+    opacity: 0;
+  }
+  #stamp-line1 .strike {
+    position: absolute; right: 8%; left: 8%; top: 52%;
+    height: 3px; background: var(--accent);
+    box-shadow: 0 0 12px rgba(205,127,50,0.9);
+    transform: scaleX(0); transform-origin: right center;
+  }
+  #stamp-line2 {
+    margin-top: 22px;
+    font-size: 21px; font-weight: 500; line-height: 1.7;
+    color: var(--accent);
+    text-shadow: 0 2px 14px rgba(0,0,0,0.7);
+    opacity: 0; transform: translateY(14px);
+  }
+  #stamp-line3 {
+    margin-top: 14px;
+    font-size: 23px; font-weight: 700; line-height: 1.6;
+    color: var(--text);
+    text-shadow: 0 2px 14px rgba(0,0,0,0.7);
+    opacity: 0; transform: translateY(14px);
+  }
+  #stamp-line3 em { color: var(--accent); font-style: normal; }
+
+  #start-overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; cursor: pointer;
+    background: rgba(2, 8, 13, 0.72);
+    backdrop-filter: blur(3px);
+    transition: opacity 500ms ease;
+  }
+  #start-overlay.hidden { opacity: 0; pointer-events: none; }
+  #start-btn {
+    width: 76px; height: 76px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 26px; color: var(--text);
+    border: 2px solid var(--accent);
+    background: rgba(205,127,50,0.18);
+    box-shadow: 0 0 34px rgba(205,127,50,0.45);
+  }
+  #start-hint { font-size: 15px; color: rgba(244,239,229,0.85); }
+
+  /* ---- captions ---- */
+  #caption {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 18px 22px 26px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.88) 0%, transparent 100%);
+    text-align: center;
+    font-size: 17.5px; font-weight: 500; line-height: 1.75;
+    color: var(--text);
+    opacity: 0; transform: translateY(14px);
+    z-index: 7; min-height: 96px;
+  }
+  #caption em { color: var(--accent); font-style: normal; font-weight: 700; }
+
+  /* ---- Beat 5: quote face-off ---- */
+  .duel-card {
+    position: absolute; top: 30%;
+    width: 150px; padding: 10px 12px;
+    border: 1px solid rgba(205,127,50,0.45);
+    background: rgba(2,8,13,0.78);
+    font-size: 13.5px; line-height: 1.6; text-align: center;
+    z-index: 6; opacity: 0;
+  }
+  .duel-card .tag { color: var(--accent); font-size: 11px; font-weight: 700; display: block; margin-bottom: 3px; }
+  #duel-right { right: -170px; }
+  #duel-left  { left: -170px; border-color: rgba(86,170,212,0.5); }
+  #duel-left .tag { color: #56aad4; }
+  #duel-vs {
+    position: absolute; top: calc(30% + 18px); left: 50%;
+    transform: translateX(-50%) scale(0.4);
+    font-size: 21px; font-weight: 700; color: var(--accent);
+    text-shadow: 0 0 16px rgba(205,127,50,0.9);
+    z-index: 6; opacity: 0;
+  }
+
+  /* ---- Beat 6: iris + logo ---- */
+  #iris {
+    position: absolute; inset: 0; z-index: 8; pointer-events: none;
+    background: radial-gradient(circle at center,
+      transparent var(--iris-r, 150%), var(--bg-deep) calc(var(--iris-r, 150%) + 2%));
+    opacity: 0;
+  }
+  #logo-lockup {
+    position: absolute; inset: 0; z-index: 9;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; text-align: center;
+    opacity: 0;
+  }
+
+  /* render mode (?render=1): clean stage for frame capture */
+  body.render #stage { border: none; box-shadow: none; }
+  body.render #start-overlay, body.render #toolbar { display: none; }
+  #logo-lockup img {
+    width: 190px; height: auto;
+    filter: drop-shadow(0 0 26px rgba(205,127,50,0.35));
+    animation: logoBreath 4s ease-in-out infinite;
+  }
+  @keyframes logoBreath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+  #logo-title { font-size: 42px; font-weight: 700; line-height: 1.2; margin-top: 4px; }
+  #logo-tagline { font-size: 16.5px; font-weight: 500; color: var(--accent); }
+  #logo-ring {
+    position: absolute; width: 260px; height: 260px;
+    border-radius: 50%; border: 2px solid rgba(205,127,50,0.5);
+    animation: ringPulse 2.4s ease-out infinite;
+  }
+  @keyframes ringPulse {
+    0% { transform: scale(0.86); opacity: 0.6; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  /* ---- PoC review toolbar (outside the 9:16 stage — not part of the video) ---- */
+  #toolbar {
+    width: min(100vw, 405px);
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
+    font-size: 12px; color: rgba(244,239,229,0.75);
+  }
+  #toolbar button {
+    font-family: var(--font-arabic); font-size: 12px;
+    color: var(--text); background: rgba(205,127,50,0.14);
+    border: 1px solid rgba(205,127,50,0.4);
+    padding: 4px 10px; cursor: pointer;
+  }
+  #toolbar button:hover { background: rgba(205,127,50,0.3); }
+  #timecode { font-variant-numeric: tabular-nums; min-width: 72px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg-photo"></div>
+  <div id="topo"></div>
+  <div id="grid"></div>
+  <div id="scan-line"></div>
+  <canvas id="main-canvas" width="405" height="720"></canvas>
+  <div id="vignette"></div>
+
+  <div id="stamp">
+    <div id="stamp-line1"><span id="stamp-text"></span><span class="strike"></span></div>
+    <div id="stamp-line2">تعبير <em style="color:#f4efe5">سطحي</em> عن الواقع اللبناني..</div>
+    <div id="stamp-line3">ونحنا اللبنانية <em>منصدّقها</em></div>
+  </div>
+
+  <audio id="vo" src="./audio/intro_audio.wav" preload="auto"></audio>
+  <div id="start-overlay"><div id="start-btn">▶</div><div id="start-hint">اضغط للتشغيل مع الصوت</div></div>
+
+  <div class="duel-card" id="duel-right"><span class="tag">سردية أولى</span>«…»</div>
+  <div class="duel-card" id="duel-left"><span class="tag">سردية مقابلة</span>«…»</div>
+  <div id="duel-vs">بوجه بعض</div>
+
+  <div id="caption"></div>
+
+  <div id="iris"></div>
+  <div id="logo-lockup">
+    <div id="logo-ring"></div>
+    <img src="./logos/radar_beirut_logo_orange_full_2.png" alt="Radar Beirut">
+    <div id="logo-title">رادار بيروت</div>
+    <div id="logo-tagline">السرديات اللبنانية، وجهاً لوجه</div>
+  </div>
+</div>
+
+<div id="toolbar">
+  <button data-seek="0">١ البرغل</button>
+  <button data-seek="3.8">٢ النقض</button>
+  <button data-seek="9.9">٣ الارتباطات</button>
+  <button data-seek="18.2">٤ الشدّ</button>
+  <button data-seek="29.2">٥ الرادار يجمع</button>
+  <button data-seek="38.5">٦ اللوغو</button>
+  <button id="replay">↻ إعادة</button>
+  <span id="timecode">0.0s</span>
+</div>
+
+<script>
+  // ================= Timeline (synced to audio/intro_audio.wav, 44.09s) =================
+  // Phrase boundaries from silence detection on the narration WAV.
+  const T = {
+    b2:     3.77,   // «عبارة نقالت لتوصيف الوضع اللبناني.. ونحنا اللبنانية منصدقها»
+    strike: 6.60,   // «هي تعبير سطحي عن الواقع» → strike-through
+    b3:     9.90,   // «الشعوب اللبنانية منذ القدم عندها ارتباطات...» → map + ties
+    b4:    18.20,   // «المشكلة لما تتحول الاصطفافات لمهنة...» → strain
+    b5:    29.20,   // «رادار بيروت وسيلة إعلامية مستقلة...» → radar gathers
+    duel:  35.30,   // «...وتحطن بوجه بعض» → quote face-off
+    duelEnd: 38.20,
+    b6:    38.45,   // «على أمل تفرجي اللبناني العدسة...» → iris + logo
+    audio: 44.09
+  };
+  const TOTAL = 47.5; // logo holds ~3.4s after narration ends
+
+  // On-screen text = key fragments only; the narration carries the full script.
+  const CAPTIONS = [
+    { t: T.b3, end: T.b4, html: 'منذ القدم..<br><em>ارتباطات وتشابك مصالح</em> مع الخارج' },
+    { t: T.b4, end: T.b5, html: 'المشكلة؟<br>لما يتحوّل الاصطفاف <em>لمهنة</em>..<br>على حساب <em>وحدة مصير الناس</em>' },
+    { t: T.b5, end: T.b6, html: '<em>رادار بيروت</em><br>السرديّات اللبنانية بمكان واحد.. وبوجه بعض' },
+    { t: T.b6, end: TOTAL, html: '<em>العدسة</em> يلي كل واحد فينا<br>بيشوف فيها الأحداث' }
+  ];
+
+  const STAMP_TEXT = 'حتى البرغل بلبنان، طائفي!';
+
+  // Real Lebanon border — geoBoundaries LBN ADM0 (public domain), 197 pts,
+  // Douglas-Peucker simplified, equirectangular projection (cos-lat corrected),
+  // normalized to bounding box. Aspect h/w = 1.3026.
+  const LEBANON = [[0.8125,0],[0.7948,0.0056],[0.7862,0.0351],[0.772,0.0391],[0.7502,0.0339],[0.7375,0.0402],[0.7146,0.0333],[0.7027,0.0386],[0.6735,0.0305],[0.6496,0.0386],[0.632,0.0344],[0.6115,0.0395],[0.5949,0.0287],[0.5774,0.026],[0.5704,0.0363],[0.5784,0.0547],[0.5793,0.0924],[0.5721,0.1032],[0.5543,0.1082],[0.5159,0.1362],[0.4633,0.1411],[0.4578,0.1469],[0.4689,0.1646],[0.4664,0.1703],[0.4145,0.1905],[0.4059,0.2003],[0.4057,0.2172],[0.3969,0.2327],[0.3781,0.2298],[0.3567,0.2526],[0.3626,0.2727],[0.3445,0.2995],[0.3395,0.3354],[0.3515,0.3493],[0.3535,0.3679],[0.3357,0.4024],[0.3368,0.4124],[0.3508,0.4164],[0.3461,0.4259],[0.3253,0.4339],[0.3063,0.4734],[0.2682,0.4728],[0.2372,0.4791],[0.2356,0.4886],[0.2451,0.5075],[0.242,0.5472],[0.2225,0.5746],[0.2158,0.6002],[0.2031,0.6061],[0.2022,0.629],[0.1916,0.6332],[0.1839,0.6681],[0.1769,0.6812],[0.1715,0.6777],[0.1686,0.6833],[0.1627,0.7101],[0.1175,0.7463],[0.1017,0.7724],[0.0882,0.8244],[0.0642,0.8586],[0.0561,0.8579],[0.053,0.8638],[0.0683,0.8802],[0.0511,0.9239],[0.0394,0.926],[0.0281,0.947],[0.001,0.9613],[0,0.9718],[0.0365,0.9776],[0.0465,0.9733],[0.0562,0.9785],[0.0684,0.976],[0.0712,0.9685],[0.0871,0.9734],[0.1258,0.9637],[0.1296,0.968],[0.1407,0.9654],[0.1466,0.9819],[0.1697,0.9986],[0.1785,0.9956],[0.182,1],[0.1839,0.9924],[0.2164,0.9893],[0.2246,0.9746],[0.263,0.9749],[0.2625,0.9599],[0.2833,0.9498],[0.2788,0.9438],[0.2887,0.9106],[0.286,0.8886],[0.3036,0.8627],[0.3032,0.853],[0.3181,0.8586],[0.3158,0.8666],[0.3425,0.8826],[0.3412,0.8636],[0.3549,0.8587],[0.3655,0.8626],[0.3778,0.8503],[0.3996,0.8435],[0.4071,0.8288],[0.4179,0.8359],[0.4698,0.8149],[0.4757,0.7878],[0.523,0.7655],[0.5261,0.7584],[0.5472,0.7534],[0.5571,0.7433],[0.552,0.7216],[0.5457,0.7187],[0.5503,0.7128],[0.5647,0.7123],[0.5718,0.7017],[0.5757,0.7067],[0.5878,0.7017],[0.5995,0.7111],[0.6247,0.684],[0.6191,0.6688],[0.5922,0.6553],[0.5698,0.6503],[0.5573,0.6541],[0.5477,0.638],[0.5559,0.6196],[0.568,0.619],[0.5736,0.5855],[0.5832,0.5856],[0.5986,0.5651],[0.6032,0.5686],[0.6118,0.5638],[0.6311,0.5357],[0.6791,0.5208],[0.6859,0.5255],[0.7156,0.5164],[0.7418,0.5305],[0.7532,0.51],[0.7982,0.5242],[0.8449,0.5288],[0.8471,0.511],[0.8318,0.4972],[0.8114,0.4973],[0.7982,0.4855],[0.7736,0.4796],[0.7726,0.4709],[0.7878,0.4643],[0.7887,0.4563],[0.7996,0.4564],[0.8086,0.4393],[0.8214,0.4302],[0.8287,0.4316],[0.8404,0.4192],[0.8518,0.4179],[0.8454,0.405],[0.8572,0.4037],[0.8584,0.3937],[0.8695,0.3967],[0.8687,0.3885],[0.9052,0.3976],[0.9196,0.3916],[0.9286,0.3762],[0.9236,0.3645],[0.9372,0.3506],[0.9632,0.3402],[0.9797,0.3079],[0.9994,0.3027],[1,0.2968],[0.9728,0.2833],[0.9796,0.2552],[0.9733,0.2498],[0.9862,0.2439],[0.9833,0.2362],[0.9581,0.2289],[0.9601,0.2225],[0.9507,0.2184],[0.9376,0.1968],[0.9551,0.1836],[0.9566,0.171],[0.9379,0.1577],[0.935,0.1618],[0.9232,0.1479],[0.8948,0.1393],[0.892,0.1287],[0.885,0.1285],[0.8838,0.1133],[0.8444,0.1186],[0.8108,0.1155],[0.8106,0.1025],[0.861,0.0814],[0.8533,0.0728],[0.8583,0.0504],[0.8737,0.0604],[0.8882,0.062],[0.8942,0.0366],[0.8739,0.0427],[0.8545,0.0335],[0.8412,0.036],[0.8196,0.0183],[0.8239,0.006]];
+
+  // outward ties: anchor = normalized [x,y] on the border (nearest real point
+  // is resolved at runtime), dir = outward direction in degrees (0=E, 90=N)
+  const TIES = [
+    { at: [0.81, 0.00], dir: 70 },   // north border
+    { at: [0.98, 0.28], dir: 15 },   // north-east (Beqaa)
+    { at: [0.84, 0.52], dir: -20 },  // east
+    { at: [0.40, 0.84], dir: -45 },  // south-east
+    { at: [0.18, 1.00], dir: -95 },  // south
+    { at: [0.16, 0.72], dir: 195 },  // sea, south-west
+    { at: [0.51, 0.14], dir: 160 }   // sea, north-west
+  ];
+
+  // narrative blips for beat 5
+  const BLIPS = [
+    { color: '#cd7f32', a: 0.15 }, { color: '#56aad4', a: 1.10 },
+    { color: '#7bc47f', a: 2.20 }, { color: '#d46a6a', a: 3.30 },
+    { color: '#a98bd4', a: 4.35 }, { color: '#d4b356', a: 5.40 }
+  ];
+
+  // ================= elements =================
+  const canvas = document.getElementById('main-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const stampLine1 = document.getElementById('stamp-line1');
+  const stampText = document.getElementById('stamp-text');
+  const stampLine2 = document.getElementById('stamp-line2');
+  const stampLine3 = document.getElementById('stamp-line3');
+  const stampWrap = document.getElementById('stamp');
+  const caption = document.getElementById('caption');
+  const duelRight = document.getElementById('duel-right');
+  const duelLeft = document.getElementById('duel-left');
+  const duelVs = document.getElementById('duel-vs');
+  const iris = document.getElementById('iris');
+  const logoLockup = document.getElementById('logo-lockup');
+  const timecode = document.getElementById('timecode');
+
+  // outline geometry in canvas px (map box, aspect-correct: h = w * 1.3026)
+  const MAP = { x: 88, y: 150, w: 230, h: 230 * 1.3026 };
+  const pts = LEBANON.map(([nx, ny]) => [MAP.x + nx * MAP.w, MAP.y + ny * MAP.h]);
+  const CENTER = { x: MAP.x + MAP.w * 0.45, y: MAP.y + MAP.h * 0.5 };
+
+  function nearestIdx(nx, ny) {
+    let best = 0, bestD = Infinity;
+    LEBANON.forEach(([px, py], i) => {
+      const d = (px - nx) ** 2 + (py - ny) ** 2;
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  TIES.forEach(tie => { tie.anchor = nearestIdx(tie.at[0], tie.at[1]); });
+
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const easeOut = k => 1 - Math.pow(1 - k, 3);
+  const backOut = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+  // eased 0..1 progress of t through [start, start+dur]
+  const prog = (t, start, dur) => ease(clamp((t - start) / dur, 0, 1));
+  const reveal = (el, k) => { el.style.opacity = String(k); el.style.transform = `translateY(${14 * (1 - k)}px)`; };
+
+  const bgPhoto = document.getElementById('bg-photo');
+
+  // ambient dust particles
+  const DUST = Array.from({ length: 26 }, (_, i) => ({
+    x: (i * 137.5) % 405,
+    y: (i * 259.3) % 720,
+    r: 0.8 + (i % 3) * 0.5,
+    v: 6 + (i % 5) * 3,          // px per second upward
+    sway: 6 + (i % 4) * 4,
+    phase: i * 1.7,
+    warm: i % 3 !== 0             // 2/3 bronze, 1/3 teal
+  }));
+
+  function drawDust(t) {
+    DUST.forEach(p => {
+      const y = ((p.y - t * p.v) % 740 + 740) % 740 - 10;
+      const x = p.x + Math.sin(t * 0.5 + p.phase) * p.sway;
+      const tw = 0.35 + 0.3 * Math.sin(t * 1.3 + p.phase * 2);
+      ctx.fillStyle = p.warm
+        ? `rgba(205,155,80,${tw * 0.5})`
+        : `rgba(120,190,220,${tw * 0.4})`;
+      ctx.beginPath(); ctx.arc(x, y, p.r, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  function setBackdrop(t) {
+    // photo presence per beat: subtle under text, warmer at the finale (1.5s ramps)
+    let o = 0.18;
+    o += (0.24 - 0.18) * prog(t, T.b3, 1.5);
+    o += (0.30 - 0.24) * prog(t, T.b5, 1.5);
+    o += (0.48 - 0.30) * prog(t, T.b6, 1.5);
+    bgPhoto.style.opacity = o.toFixed(3);
+  }
+
+  // ================= canvas drawing =================
+  function drawOutline(alpha, jitter, tm) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(205,127,50,${0.85 * alpha})`;
+    ctx.shadowColor = 'rgba(205,127,50,0.7)';
+    ctx.shadowBlur = 10 * alpha;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => {
+      const jx = jitter ? (Math.sin(i * 0.45 + tm / 90) * jitter) : 0;
+      const jy = jitter ? (Math.cos(i * 0.32 + tm / 110) * jitter) : 0;
+      i === 0 ? ctx.moveTo(x + jx, y + jy) : ctx.lineTo(x + jx, y + jy);
+    });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTies(progress, strain, alpha, tm) {
+    // progress 0..1 grows lines outward; strain 0..1 turns them into pulls
+    TIES.forEach((tie, i) => {
+      const [ax, ay] = pts[tie.anchor];
+      const rad = tie.dir * Math.PI / 180;
+      const len = (120 + i * 18) * ease(clamp(progress - i * 0.08, 0, 1));
+      if (len <= 2) return;
+      const ex = ax + Math.cos(rad) * len;
+      const ey = ay - Math.sin(rad) * len;
+      const pulse = 0.5 + 0.5 * Math.sin(tm / 300 + i * 1.7);
+      const r = Math.round(205 + strain * 40);
+      const g = Math.round(127 - strain * 65);
+      const b = Math.round(50 - strain * 10);
+      ctx.save();
+      ctx.strokeStyle = `rgba(${r},${g},${b},${(0.4 + 0.35 * pulse) * alpha})`;
+      ctx.lineWidth = 1.4 + strain * 1.6;
+      if (strain > 0.05) {
+        // taut line vibration
+        const mx = (ax + ex) / 2 + Math.sin(tm / 55 + i) * 3.5 * strain;
+        const my = (ay + ey) / 2 + Math.cos(tm / 60 + i) * 3.5 * strain;
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();
+      } else {
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+      // endpoint node
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(${r},${g},${b},${(0.7 + 0.3 * pulse) * alpha})`;
+      ctx.beginPath(); ctx.arc(ex, ey, 3 + strain * 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  function drawRadar(t5, alpha) {
+    // t5: seconds since beat-5 start
+    const R = 150;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(103,191,216,0.25)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      ctx.beginPath(); ctx.arc(CENTER.x, CENTER.y, (R / 4) * i, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(CENTER.x - R, CENTER.y); ctx.lineTo(CENTER.x + R, CENTER.y);
+    ctx.moveTo(CENTER.x, CENTER.y - R); ctx.lineTo(CENTER.x, CENTER.y + R);
+    ctx.stroke();
+
+    const sweep = (t5 * 1.15) % (Math.PI * 2);
+    const grad = ctx.createRadialGradient(CENTER.x, CENTER.y, 0, CENTER.x, CENTER.y, R);
+    grad.addColorStop(0, 'rgba(205,127,50,0.28)');
+    grad.addColorStop(1, 'rgba(205,127,50,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(CENTER.x, CENTER.y);
+    ctx.arc(CENTER.x, CENTER.y, R, sweep - 0.4, sweep + 0.06);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return sweep;
+  }
+
+  function drawBlips(t5, sweep, alpha) {
+    BLIPS.forEach((blip, i) => {
+      // scattered start position → converge into orbit once "locked" by the sweep
+      const lockAt = 1.2 + i * 1.15; // seconds into beat 5
+      const locked = t5 > lockAt;
+      const k = locked ? ease(clamp((t5 - lockAt) / 1.6, 0, 1)) : 0;
+      const scatterR = 175 + (i % 3) * 28;
+      const orbitR = 58 + (i % 3) * 22;
+      const drift = Math.sin((t5 * 1000) / 900 + i * 2.1) * 10 * (1 - k);
+      const ang = blip.a + t5 * (locked ? 0.25 : 0.05);
+      const r = scatterR + drift + (orbitR - scatterR) * k;
+      const x = CENTER.x + Math.cos(ang) * r;
+      const y = CENTER.y + Math.sin(ang) * r * 0.92;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = blip.color;
+      ctx.shadowColor = blip.color;
+      ctx.shadowBlur = locked ? 14 : 7;
+      ctx.beginPath(); ctx.arc(x, y, locked ? 5 : 4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // lock flash: small brackets right after lock
+      if (locked && t5 - lockAt < 0.8) {
+        const fa = 1 - (t5 - lockAt) / 0.8;
+        ctx.strokeStyle = `rgba(244,239,229,${fa})`;
+        ctx.lineWidth = 1.5;
+        const s = 11;
+        [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx, sy]) => {
+          ctx.beginPath();
+          ctx.moveTo(x + sx * s, y + sy * s - sy * 5); ctx.lineTo(x + sx * s, y + sy * s);
+          ctx.lineTo(x + sx * s - sx * 5, y + sy * s);
+          ctx.stroke();
+        });
+      }
+      ctx.restore();
+    });
+  }
+
+  // ================= DOM beat states =================
+  const strikeEl = stampLine1.querySelector('.strike');
+  let typeCount = 0;
+  function setStamp(t) {
+    const wrapFade = t < T.b3 ? 1 : clamp(1 - (t - T.b3) / 0.9, 0, 1);
+    stampWrap.style.opacity = String(wrapFade);
+    stampLine1.style.opacity = String(prog(t, 0.35, 0.5));
+    // typing tracks the spoken hook (0.70s → 2.55s)
+    const chars = clamp(Math.floor((t - 0.55) / 0.075), 0, STAMP_TEXT.length);
+    if (chars !== typeCount) { typeCount = chars; stampText.textContent = STAMP_TEXT.slice(0, chars); }
+    // new script order: «تعبير سطحي» (strike) first, «منصدّقها» second
+    const strikeK = easeOut(clamp((t - (T.b2 + 0.2)) / 0.9, 0, 1));
+    strikeEl.style.transform = `scaleX(${strikeK})`;
+    stampLine1.style.color = `rgba(244,239,229,${1 - 0.58 * strikeK})`;
+    reveal(stampLine2, prog(t, T.b2 + 0.3, 0.8));
+    reveal(stampLine3, prog(t, T.strike, 0.7));
+  }
+
+  function setCaption(t) {
+    const active = CAPTIONS.find(c => t >= c.t && t < c.end);
+    if (!active) { caption.style.opacity = '0'; return; }
+    if (caption.dataset.key !== String(active.t)) {
+      caption.dataset.key = String(active.t);
+      caption.innerHTML = active.html;
+    }
+    reveal(caption, Math.min(prog(t, active.t, 0.6), 1 - prog(t, active.end - 0.5, 0.5)));
+  }
+
+  function setDuel(t) {
+    const kIn = prog(t, T.duel, 0.7);
+    const kOut = 1 - prog(t, T.duelEnd - 0.3, 0.3);
+    const k = Math.min(kIn, kOut);
+    duelRight.style.opacity = String(k);
+    duelRight.style.transform = `translateX(${-186 * kIn}px)`;
+    duelLeft.style.opacity = String(k);
+    duelLeft.style.transform = `translateX(${186 * kIn}px)`;
+    const kv = clamp((t - (T.duel + 0.5)) / 0.45, 0, 1);
+    duelVs.style.opacity = String(Math.min(kv, kOut));
+    duelVs.style.transform = `translateX(-50%) scale(${0.4 + 0.6 * backOut(kv)})`;
+  }
+
+  function setFinale(t) {
+    if (t < T.b6) { iris.style.opacity = '0'; logoLockup.style.opacity = '0'; return; }
+    // iris closes over 2s during «على أمل...», reopens behind the logo
+    const closeK = ease(clamp((t - T.b6) / 2.0, 0, 1));
+    const openK = ease(clamp((t - T.b6 - 2.0) / 1.5, 0, 1));
+    const r = 150 - closeK * 150 + openK * 150;
+    iris.style.opacity = '1';
+    iris.style.setProperty('--iris-r', r + '%');
+    logoLockup.style.opacity = String(prog(t, T.b6 + 1.8, 0.9));
+  }
+
+  // ================= main loop (audio-driven clock) =================
+  // While the WAV plays, t = vo.currentTime (zero drift). When it ends —
+  // or if the file is missing — a rAF clock continues from the same offset.
+  const vo = document.getElementById('vo');
+  const startOverlay = document.getElementById('start-overlay');
+  let started = false;
+  let tOffset = 0; // logical t minus performance.now()/1000, kept fresh while audio plays
+
+  // renderFrame(t): the entire visual state as a pure function of time
+  function renderFrame(t) {
+    t = clamp(t, 0, TOTAL);
+    const tm = t * 1000;
+    timecode.textContent = t.toFixed(1) + 's';
+
+    ctx.clearRect(0, 0, W, H);
+
+    drawDust(t);
+    setBackdrop(t);
+
+    // Beats 3+4: outline & ties (fade as the radar takes over)
+    if (t >= T.b3 - 0.7 && t < T.b5 + 4) {
+      const inK = ease(clamp((t - (T.b3 - 0.7)) / 1.4, 0, 1));
+      const outK = t > T.b5 + 1 ? clamp(1 - (t - (T.b5 + 1)) / 2.5, 0, 1) : 1;
+      const alpha = inK * outK;
+      const strain = ease(clamp((t - T.b4) / 3, 0, 1)) * (t < T.b5 ? 1 : clamp(1 - (t - T.b5) / 1.5, 0, 1));
+      drawOutline(alpha, strain * 2.6, tm);
+      drawTies(clamp((t - (T.b3 + 0.8)) / 4, 0, 1), strain, alpha, tm);
+    }
+
+    // Beat 5: radar gathers narratives
+    if (t >= T.b5 && t < T.b6 + 1.2) {
+      const t5 = t - T.b5;
+      const inK = ease(clamp(t5 / 1.2, 0, 1));
+      const outK = t > T.b6 - 0.4 ? clamp(1 - (t - (T.b6 - 0.4)) / 1.6, 0, 1) : 1;
+      const alpha = inK * outK;
+      drawOutline(alpha * 0.35, 0, tm);
+      const sweep = drawRadar(t5, alpha);
+      drawBlips(t5, sweep, alpha);
+    }
+
+    setStamp(t);
+    setCaption(t);
+    setDuel(t);
+    setFinale(t);
+  }
+
+  function frame(now) {
+    const nowS = now / 1000;
+    let t = 0;
+    if (started) {
+      if (!vo.ended && vo.readyState > 2 && !vo.paused) {
+        t = vo.currentTime;
+        tOffset = t - nowS;
+      } else {
+        t = nowS + tOffset;
+      }
+    }
+    renderFrame(t);
+    requestAnimationFrame(frame);
+  }
+
+  function start() {
+    started = true;
+    tOffset = -performance.now() / 1000; // clock fallback starts at 0
+    vo.play().catch(() => {});           // if the WAV is missing, clock drives alone
+    startOverlay.classList.add('hidden');
+  }
+  startOverlay.addEventListener('click', start);
+
+  function seekTo(sec) {
+    if (!started) start();
+    typeCount = -1;
+    caption.dataset.key = '';
+    tOffset = sec - performance.now() / 1000;
+    if (vo.readyState > 2 && sec < vo.duration) {
+      vo.currentTime = sec;
+      vo.play().catch(() => {});
+    } else {
+      vo.pause();
+    }
+  }
+
+  document.querySelectorAll('#toolbar button[data-seek]').forEach(btn => {
+    btn.addEventListener('click', () => seekTo(Number(btn.dataset.seek)));
+  });
+  document.getElementById('replay').addEventListener('click', () => seekTo(0));
+
+  // ---------- render mode (?render=1): deterministic frame stepping ----------
+  // CSS keyframe animations are frozen and scrubbed via negative animation-delay;
+  // everything else is already a pure function of t through renderFrame(t).
+  const RENDER = new URLSearchParams(location.search).has('render');
+  const CSS_ANIMS = [
+    bgPhoto,
+    document.getElementById('grid'),
+    document.getElementById('scan-line'),
+    document.getElementById('topo'),
+    document.getElementById('logo-ring'),
+    document.querySelector('#logo-lockup img')
+  ];
+  if (RENDER) {
+    document.body.classList.add('render');
+    CSS_ANIMS.forEach(el => { el.style.animationPlayState = 'paused'; });
+    window.__total = TOTAL;
+    window.__setT = (t) => {
+      CSS_ANIMS.forEach(el => { el.style.animationDelay = `-${t.toFixed(4)}s`; });
+      renderFrame(t);
+    };
+    window.__ready = () => Promise.all([
+      document.fonts.ready,
+      ...['./logos/video-front-page-3.png', './logos/radar_beirut_logo_orange_full_2.png']
+        .map(src => new Promise(res => { const im = new Image(); im.onload = im.onerror = res; im.src = src; }))
+    ]);
+  } else {
+    requestAnimationFrame(frame);
+  }
+</script>
+</body>
+</html>

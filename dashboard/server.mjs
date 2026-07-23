@@ -18,6 +18,7 @@ import {
 import {getSteps, getStep} from './steps.mjs';
 import {Runner} from './runner.mjs';
 import {loadState, saveState, recordRun} from './lib/state.mjs';
+import {metricsState, seedRecords, updateRecord, deleteRecord, PLATFORMS} from './lib/metrics.mjs';
 import {
   audioEntries,
   buildRegenerateCommands,
@@ -211,11 +212,38 @@ function socialPostingState(ctx, state = {}) {
   const joinHashtags = (tags) => (Array.isArray(tags) ? tags : []).join(' ');
   const clipCopy = (clip) => [clip?.caption || '', joinHashtags(clip?.hashtags)].filter(Boolean).join('\n\n');
   const youtube = captions?.youtube || null;
+  const x = captions?.x || null;
   const instagram = captions?.instagram || null;
   const coverImage = instagramCoverImageFiles(ctx)[0] || null;
+  const xPostHint = (id) => {
+    if (id === 'hook') return 'Post 1 — new post: attach the duel/scene MP4 as a native upload. No link.';
+    if (id === 'question') return 'Reply to the post directly above with the question text (X blocks polls in replies). Reuse the options below in a standalone evening poll post.';
+    if (id === 'link') return 'Reply to the poll post (directly above) — replace {YOUTUBE_LINK} with the uploaded YouTube URL.';
+    if (String(id || '').startsWith('faultline')) return 'Reply to the post directly above (NOT to post 1) — outlet handles stay mid-sentence.';
+    return '';
+  };
+  const xPosts = Array.isArray(x?.posts)
+    ? x.posts.map((post, index) => ({
+        id: post.id || `post-${index + 1}`,
+        label: post.label || `${index + 1}/${x.posts.length}`,
+        text: post.text || '',
+        copyText: post.text || '',
+        hint: xPostHint(post.id),
+        poll: Array.isArray(post.poll)
+          ? post.poll.map((option) => String(option || '').trim()).filter(Boolean)
+          : []
+      }))
+    : x?.postText
+      ? [{
+          id: 'legacy',
+          label: 'X post',
+          text: [x.postText || '', joinHashtags(x.hashtags)].filter(Boolean).join('\n\n'),
+          copyText: [x.postText || '', joinHashtags(x.hashtags)].filter(Boolean).join('\n\n')
+        }]
+      : [];
 
   return {
-    ready: Boolean(captions),
+    ready: Boolean(captions?.youtube && xPosts.length > 0),
     captionsPath: fs.existsSync(captionsPath) ? path.relative(REPO_ROOT, captionsPath).split(path.sep).join('/') : null,
     phone: phoneTransferState(ctx, state),
     youtube: youtube
@@ -225,6 +253,13 @@ function socialPostingState(ctx, state = {}) {
           thumbnailPrompt: youtube.thumbnailPrompt || '',
           hashtags: Array.isArray(youtube.hashtags) ? youtube.hashtags : [],
           copyText: [youtube.title || '', youtube.description || '', joinHashtags(youtube.hashtags)].filter(Boolean).join('\n\n')
+        }
+      : null,
+    x: x
+      ? {
+          accountUrl: x.accountUrl || 'https://x.com/RadarBeirut',
+          posts: xPosts,
+          copyText: xPosts.map((post) => post.copyText).filter(Boolean).join('\n\n---\n\n')
         }
       : null,
     instagram: instagram
@@ -390,6 +425,24 @@ function duelPostingState(ctx, state = {}) {
     })),
     phone: phoneTransferState(ctx, state, 'duel')
   };
+}
+
+// Map duelId -> "LeftOutlet vs RightOutlet" from the source quote-duel.json, so the
+// tracker's by-outlet aggregate reads "Al-Akhbar vs Nidaa" instead of "duel-1". The
+// social-captions clips don't carry the outlet pairing; the scene source does.
+function duelOutletLabels(ctx) {
+  const source =
+    readJsonSafe(path.join(ctx.folder, 'quote-duel.json')) || readJsonSafe(path.join(ctx.output, 'quote-duel.json'));
+  const labels = new Map();
+  for (const scene of source?.scenes ?? []) {
+    const id = String(scene?.id || '');
+    if (!id) continue;
+    const left = scene?.left?.outlet?.trim();
+    const right = scene?.right?.outlet?.trim();
+    const label = left && right ? `${left} vs ${right}` : left || right || scene?.eventLabel || '';
+    if (label) labels.set(id, label);
+  }
+  return labels;
 }
 
 function duelSocialPromptsState(ctx) {
@@ -691,6 +744,23 @@ app.post('/api/run', (req, res) => {
   }
 });
 
+app.post('/api/cancel', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const run = runner.cancel(date);
+  if (!run) return res.status(404).json({error: `No active run for ${date}.`});
+  res.json({ok: true, runId: run.id, stepId: run.stepId, actionId: run.actionId});
+});
+
+app.post('/api/cancel-all', (req, res) => {
+  const runs = runner.cancelAll();
+  res.json({
+    ok: true,
+    count: runs.length,
+    runs: runs.map((run) => ({date: run.date, runId: run.id, stepId: run.stepId, actionId: run.actionId}))
+  });
+});
+
 // Save edits to briefing_<date>_corrected.txt from the step 0 editor.
 app.post('/api/briefing/corrected', (req, res) => {
   const date = requireDate(req, res);
@@ -832,6 +902,70 @@ app.post('/api/duel/confirm', (req, res) => {
   saveState(ctx, state);
   broadcast(date, {type: 'state-changed'});
   res.json({ok: true, narrationConfirmedAt: state.duel.narrationConfirmedAt});
+});
+
+// --- Cross-date post-performance tracker ---
+
+// Whole-store read: every record + the by-hook / by-outlet aggregates that drive
+// the keep/kill decision. No date scope — the tracker spans all briefing dates.
+app.get('/api/metrics', (req, res) => {
+  res.json(metricsState());
+});
+
+// Seed pending rows for a day's duel clips. Pulls the clips (duelId + outlet) from
+// the duel posting state so you don't retype them; hook is the rendered DUEL_HOOK.
+// Re-seeding is safe: existing rows keep their numbers.
+app.post('/api/metrics/seed', (req, res) => {
+  const date = requireDate(req, res);
+  if (!date) return;
+  const requested = Array.isArray(req.body?.platforms) ? req.body.platforms : PLATFORMS;
+  const platforms = requested.filter((p) => PLATFORMS.includes(p));
+  if (!platforms.length) return res.status(400).json({error: 'No valid platforms selected.'});
+
+  const ctx = briefingContext(date);
+  const social = duelPostingState(ctx, loadState(ctx));
+  const outletLabels = duelOutletLabels(ctx);
+  let clips = (social.clashes || [])
+    .filter((clash) => clash.duelId)
+    .map((clash) => ({
+      duelId: clash.duelId,
+      outlet: outletLabels.get(clash.duelId) || clash.outlet || '',
+      hook: DUEL_HOOK
+    }));
+
+  const onlyDuelId = req.body?.duelId ? String(req.body.duelId) : null;
+  if (onlyDuelId) clips = clips.filter((clip) => clip.duelId === onlyDuelId);
+  if (!clips.length) {
+    return res.status(400).json({error: `No duel clips found for ${date} (generate the duel captions/videos first).`});
+  }
+
+  try {
+    const result = seedRecords({date, clips, platforms});
+    res.json({ok: true, ...result});
+  } catch (error) {
+    res.status(500).json({error: error.message});
+  }
+});
+
+app.post('/api/metrics/update', (req, res) => {
+  const id = String(req.body?.id || '');
+  if (!id) return res.status(400).json({error: 'Missing record id.'});
+  try {
+    const record = updateRecord(id, req.body || {});
+    res.json({ok: true, record});
+  } catch (error) {
+    res.status(400).json({error: error.message});
+  }
+});
+
+app.post('/api/metrics/delete', (req, res) => {
+  const id = String(req.body?.id || '');
+  if (!id) return res.status(400).json({error: 'Missing record id.'});
+  try {
+    res.json({ok: true, ...deleteRecord(id)});
+  } catch (error) {
+    res.status(400).json({error: error.message});
+  }
 });
 
 app.post('/api/phone/upload-scenes', async (req, res) => {

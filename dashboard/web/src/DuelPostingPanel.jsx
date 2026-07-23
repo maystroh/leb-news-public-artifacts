@@ -12,6 +12,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
   const [phonePassword, setPhonePassword] = useState('');
   const [phoneBusy, setPhoneBusy] = useState(null);
   const [phoneMessage, setPhoneMessage] = useState(null);
+  const [uploadedInPage, setUploadedInPage] = useState(false);
 
   const phone = social?.phone || {};
   const phoneCopied = phone.status === 'copied';
@@ -29,6 +30,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
         type: 'done',
         text: `Uploaded ${result.fileCount} file(s) to ${result.remoteFolder}: ${result.clipCount || 0} MP4, ${result.coverCount || 0} PNG.`
       });
+      setUploadedInPage(true);
     } catch (err) {
       setPhoneMessage({type: 'error', text: err.message});
     } finally {
@@ -43,6 +45,7 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
     try {
       const result = await onDeletePhoneFolder({password: phonePassword});
       setPhoneMessage({type: 'done', text: `Deleted ${result.remoteFolder} from the phone.`});
+      setUploadedInPage(false);
     } catch (err) {
       setPhoneMessage({type: 'error', text: err.message});
     } finally {
@@ -184,10 +187,10 @@ export default function DuelPostingPanel({social, onUploadPhoneScenes, onDeleteP
                 placeholder="Phone password"
                 autoComplete="current-password"
               />
-              <button className="btn primary" disabled={phoneBusy || phoneCopied || uploadableCount === 0} onClick={uploadToPhone}>
+              <button className="btn primary" disabled={phoneBusy || uploadableCount === 0} onClick={uploadToPhone}>
                 {phoneBusy === 'upload' ? 'Uploading…' : 'Upload folder'}
               </button>
-              <button className="btn ghost danger" disabled={phoneBusy || !phoneCopied} onClick={deleteFromPhone}>
+              <button className="btn ghost danger" disabled={phoneBusy || !uploadedInPage} onClick={deleteFromPhone}>
                 {phoneBusy === 'delete' ? 'Deleting…' : 'Delete phone folder'}
               </button>
             </div>

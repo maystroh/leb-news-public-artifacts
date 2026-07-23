@@ -3,12 +3,12 @@ import path from 'node:path';
 
 import {parseCliArgs, readJson, resolveBriefingFolder} from './lib/briefing-helpers.mjs';
 import {OUTLET_YOUTUBE_CHANNELS, findOutletYoutubeChannelForOutlet, formatYoutubeChannelList} from './lib/outlet-youtube-channels.mjs';
+import {OUTLET_X_ACCOUNTS, RADAR_BEIRUT_X_ACCOUNT, findOutletXAccount, findOutletXAccountForOutlet, formatXAccountList} from './lib/outlet-x-accounts.mjs';
 import {RADAR_BEIRUT_PUBLISHING_HASHTAGS} from './lib/social-publishing-hashtags.mjs';
 
 // Writes output/social-captions-prompt.md: a Codex prompt that turns the day's
 // briefing + keyword data into output/social-captions.json (per-clip Instagram
-// captions/hashtags + one YouTube description + YouTube thumbnail prompt). Step 16,
-// Action A.
+// captions/hashtags + YouTube publishing text + the daily X thread). Step 16, Action A.
 
 const cwd = process.cwd();
 const args = parseCliArgs(process.argv.slice(2));
@@ -131,6 +131,12 @@ const manifest = sceneManifestPath
 const keywordRadar = fs.existsSync(path.join(outputFolder, 'keyword-radar.json'))
   ? readJson(path.join(outputFolder, 'keyword-radar.json'))
   : {entries: []};
+const faultLineMap = fs.existsSync(path.join(outputFolder, 'fault-line-map.json'))
+  ? readJson(path.join(outputFolder, 'fault-line-map.json'))
+  : null;
+const quoteDuel = fs.existsSync(path.join(outputFolder, 'quote-duel.json'))
+  ? readJson(path.join(outputFolder, 'quote-duel.json'))
+  : null;
 const visualScript = fs.existsSync(path.join(briefingFolder, 'visual-script.json'))
   ? readJson(path.join(briefingFolder, 'visual-script.json'))
   : {};
@@ -150,11 +156,35 @@ for (const entry of keywordRadar.entries ?? []) {
   if (entry.sceneId) termsBySceneId.set(entry.sceneId, (entry.terms ?? []).map((term) => term.text).filter(Boolean));
 }
 
+// Fault-line stance per sceneId (from output/fault-line-map.json when present) —
+// this is what lets Codex group outlets into the faultline X thread posts.
+const stanceBySceneId = new Map();
+for (const entry of faultLineMap?.entries ?? []) {
+  if (entry.sceneId) stanceBySceneId.set(entry.sceneId, entry);
+}
+const faultLineAxis = faultLineMap?.axis || null;
+
+// Quote duel texts (output/quote-duel.json) are the wording published in the duel
+// videos — when present, the X faultline posts must reuse that framing.
+const duelBlocks = (quoteDuel?.scenes ?? []).map((duel) => {
+  const sideLine = (side) => {
+    const account = findOutletXAccount(side?.outlet);
+    return `  - ${normalize(side?.outlet)}${account ? ` (${account.handle})` : ''}: ${normalize(side?.stance)} — «${normalize(side?.quote)}»`;
+  };
+  return [
+    `- ${duel.id}: ${normalize(duel.eventLabel)} — ${normalize(duel.contrastLabel)}`,
+    `  summary: ${normalize(duel.summary)}`,
+    sideLine(duel.left),
+    sideLine(duel.right)
+  ].join('\n');
+});
+
 const isClosingScene = (scene, index) => index === scenes.length - 1 || !scene.outlet;
 
 const sceneBlocks = scenes.map((scene, index) => {
   const closing = isClosingScene(scene, index);
   const youtubeChannel = closing ? null : findOutletYoutubeChannelForOutlet(scene.outlet);
+  const xAccount = closing ? null : findOutletXAccountForOutlet(scene.outlet);
   const outletName = closing
     ? normalize(scene.title || scene.visual?.headline || 'خلاصة المشهد')
     : normalize(scene.outlet?.name || scene.title);
@@ -162,13 +192,18 @@ const sceneBlocks = scenes.map((scene, index) => {
   const summary = normalize(scene.visual?.summary || scene.body);
   const terms = termsBySceneId.get(scene.id) ?? [];
   const clip = clipBySceneId.get(scene.id) || '';
+  const stance = closing ? null : stanceBySceneId.get(scene.id);
+  const stanceLabel = stance ? normalize(stance.headline || stance.stanceLabel) : '';
+  const stancePosition = typeof stance?.position === 'number' ? ` (axis position ${stance.position}; 0 = left pole, 1 = right pole)` : '';
 
   const lines = [
     `- sceneId: ${scene.id}`,
     ...(clip ? [`  clip: ${clip}`] : []),
     closing ? `  closing recap: ${outletName}` : `  outlet: ${outletName}`,
     ...(youtubeChannel ? [`  outlet YouTube channel: ${youtubeChannel.url}`] : []),
+    ...(xAccount ? [`  outlet X account: ${xAccount.handle} ${xAccount.url}`] : []),
     `  tone: ${toneTag || '(none)'}`,
+    ...(stanceLabel ? [`  fault-line stance: ${stanceLabel}${stancePosition}`] : []),
     `  summary: ${summary || '(none)'}`,
     `  loaded terms: ${terms.length ? terms.join('، ') : '(none)'}`
   ];
@@ -196,6 +231,37 @@ const prompt = [
   '    "thumbnailPrompt": "string — prompt to give ChatGPT/image generation for a 16:9 YouTube thumbnail",',
   '    "hashtags": ["#لبنان", "#Lebanon", "..."]',
   '  },',
+  '  "x": {',
+  '    "accountUrl": "https://x.com/RadarBeirut",',
+  '    "posts": [',
+  '      {',
+  '        "id": "hook",',
+  '        "label": "1/5 hook (native video)",',
+  '        "text": "string — starts with الصحافة اليوم; the day’s sharpest tension in ONE line; ends with exactly 2 hashtags"',
+  '      },',
+  '      {',
+  '        "id": "faultline-1",',
+  '        "label": "2/5 fault line",',
+  '        "text": "string — one side of today’s split; outlet @handles inline mid-sentence"',
+  '      },',
+  '      {',
+  '        "id": "faultline-2",',
+  '        "label": "3/5 fault line",',
+  '        "text": "string — the opposing side; remaining outlet @handles inline mid-sentence"',
+  '      },',
+  '      {',
+  '        "id": "question",',
+  '        "label": "4/5 open question (poll)",',
+  '        "text": "string — today’s open question, inviting replies",',
+  '        "poll": ["stance ≤25 chars", "stance ≤25 chars"]',
+  '      },',
+  '      {',
+  '        "id": "link",',
+  '        "label": "5/5 YouTube link",',
+  '        "text": "النسخة الكاملة على يوتيوب 👇 {YOUTUBE_LINK}"',
+  '      }',
+  '    ]',
+  '  },',
   '  "clips": [',
   '    {',
   '      "sceneId": "scene-3",',
@@ -222,6 +288,25 @@ const prompt = [
   '- `youtube.thumbnailPrompt`: write a practical prompt the user can paste into ChatGPT to generate a YouTube video thumbnail.',
   '  It must request a 16:9 thumbnail, preserve the Radar Beirut editorial/radar look, use bold readable Arabic title text,',
   '  mention the key visual metaphor from the day, and avoid asking for exact outlet logos unless source assets are provided.',
+  '- `x.accountUrl` must be exactly the Radar Beirut X account URL listed below.',
+  '- `x.posts` is the copy-ready daily X thread, posted top-to-bottom (every post after the first is a reply to the previous one).',
+  '- Thread order and ids are fixed: `hook`, then 1–3 fault-line posts with ids `faultline-1`..`faultline-3`, then `question`, then `link` (4–6 posts total).',
+  '- Set every `label` to `<index>/<total> <role>` (e.g. `2/5 fault line`).',
+  '- EVERY post text MUST be 275 characters or fewer, including spaces and hashtags.',
+  '- `hook`: MUST start with `الصحافة اليوم`, state the day’s sharpest tension/clash in one tight line, and end with EXACTLY two hashtags:',
+  '  `#لبنان` plus ONE topic hashtag chosen from today’s loaded terms. No links, no @handles, no extra hashtags.',
+  '  This post carries the native video upload, so do not mention YouTube in it.',
+  '- `faultline-*` posts: group today’s outlets by the fault line described below — typically one post per side of the axis,',
+  '  naming each outlet’s stance in a few words. Mention each outlet X @handle from the scene blocks EXACTLY ONCE across all',
+  '  faultline posts, woven inline mid-sentence — NEVER as the first character of a post. No hashtags, no links in these posts.',
+  '- If quote duels are listed below, the faultline posts MUST reuse the duel wording: describe each duel outlet’s position',
+  '  using the SAME stance labels and quote framing as its duel entry, so the X thread matches the published duel videos',
+  '  word-for-word where possible. Outlets not covered by any duel fall back to their fault-line stance and summary.',
+  '- `question`: today’s open question (from the outro), phrased to invite replies. Also fill `poll` with 2–4 short opposing',
+  '  stance options, each 25 characters or fewer (X poll option limit). No hashtags, no links, no handles.',
+  '- `link`: one short closing line pointing to the full video. It MUST contain the placeholder `{YOUTUBE_LINK}` exactly as written',
+  '  (the user pastes the real URL after uploading). No handles, no hashtags.',
+  '- Do not include the Radar Beirut handle in any X post. Outlet handles appear only in the faultline posts.',
   '- Write ONLY the JSON file. Do not print commentary.',
   '',
   '## Required publishing hashtags for youtube.hashtags',
@@ -231,6 +316,30 @@ const prompt = [
   '## YouTube source channels to include in youtube.description',
   '',
   formatYoutubeChannelList(OUTLET_YOUTUBE_CHANNELS),
+  '',
+  '## Radar Beirut X account',
+  '',
+  `${RADAR_BEIRUT_X_ACCOUNT.handle}: ${RADAR_BEIRUT_X_ACCOUNT.url}`,
+  '',
+  '## Known outlet X accounts for the faultline posts',
+  '',
+  formatXAccountList(OUTLET_X_ACCOUNTS),
+  '',
+  '## Today’s fault line (for grouping the faultline posts)',
+  '',
+  faultLineAxis
+    ? [
+        `- headline: ${normalize(faultLineAxis.headline)}`,
+        `- left pole: ${normalize(faultLineAxis.leftPole)}`,
+        `- right pole: ${normalize(faultLineAxis.rightPole)}`
+      ].join('\n')
+    : '(no output/fault-line-map.json yet — infer the day’s main split from the scene tones and summaries)',
+  '',
+  '## Today’s quote duels (published as duel videos — reuse this wording in the faultline posts)',
+  '',
+  duelBlocks.length
+    ? duelBlocks.join('\n')
+    : '(no output/quote-duel.json yet — write the faultline posts from the fault line and scene summaries instead)',
   '',
   '## Scenes (one clip each)',
   '',

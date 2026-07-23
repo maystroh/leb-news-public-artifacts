@@ -201,7 +201,11 @@ export const resolveHamsaVoice = async ({apiKey, speaker, dialect, voicesEndpoin
 };
 
 export const getRealtimeTtsSpeaker = (voice, fallbackSpeaker) => {
-  if (voice.source === 'env' && voice.id) return voice.id;
+  // Prefer the resolved voice ID (catalog or env). The catalog lookup already
+  // filtered by dialect, so the ID pins the exact voice the Hamsa website uses;
+  // passing the bare name lets the realtime endpoint re-resolve it ambiguously
+  // (wrong accent). Fall back to the name only when no ID exists.
+  if (voice.id) return voice.id;
   return normalizeSpacing(voice.name || fallbackSpeaker);
 };
 

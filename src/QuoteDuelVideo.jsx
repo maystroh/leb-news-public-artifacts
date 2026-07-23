@@ -357,7 +357,7 @@ const DuelScene = ({scene, durationInFrames, dateLabel, backgroundSrc}) => {
 
 // Attention hook prepended to the master start. The audio still uses the
 // selected hook WAV, while the visual matches the Quote Duel HTML intro.
-const HookScene = ({hook, durationInFrames, dateLabel, backgroundSrc}) => {
+const HookScene = ({hook, intro, durationInFrames, dateLabel, backgroundSrc}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const fadeOut = interpolate(frame, [durationInFrames - 6, durationInFrames], [1, 0], {
@@ -392,7 +392,7 @@ const HookScene = ({hook, durationInFrames, dateLabel, backgroundSrc}) => {
           }}
         >
           <h1 style={{margin: 0, color: '#ffd39f', fontSize: 50, lineHeight: 1.24, fontWeight: 700, textShadow: '0 6px 22px rgba(0,0,0,0.88)'}}>
-            نفس الحدث غير رواية
+            {intro?.title || 'ثنائية الاقتباسات'}
           </h1>
           <div style={{color: 'rgba(205,127,50,0.84)', fontSize: 12, letterSpacing: '0.16em', fontWeight: 500, direction: 'ltr', textShadow: '0 5px 18px rgba(0,0,0,0.82)'}}>
             {dateLabel}
@@ -438,8 +438,23 @@ const OutroScene = ({outro, durationInFrames, backgroundSrc}) => {
               textShadow: '0 6px 22px rgba(0, 0, 0, 0.88)'
             }}
           >
-            الصحافة اليوم
+            {outro?.title || 'خلاصة الصدام'}
           </div>
+          {outro?.body ? (
+            <div
+              style={{
+                margin: '14px auto 0',
+                maxWidth: 330,
+                color: '#f1e2ca',
+                fontSize: 22,
+                lineHeight: 1.55,
+                fontWeight: 500,
+                textShadow: '0 5px 18px rgba(0, 0, 0, 0.82)'
+              }}
+            >
+              {outro.body}
+            </div>
+          ) : null}
         </div>
       </AbsoluteFill>
       {audioSrc ? <Audio src={audioSrc} /> : null}
@@ -474,7 +489,7 @@ export const QuoteDuelVideo = ({duel}) => {
         >
           {timeline.coldOpenFrames > 0 && data.hook?.text ? (
             <Sequence from={0} durationInFrames={timeline.coldOpenFrames} name="hook">
-              <HookScene hook={data.hook} durationInFrames={timeline.coldOpenFrames} dateLabel={dateLabel} backgroundSrc={backgroundSrc} />
+              <HookScene hook={data.hook} intro={data.intro} durationInFrames={timeline.coldOpenFrames} dateLabel={dateLabel} backgroundSrc={backgroundSrc} />
             </Sequence>
           ) : null}
           {(data.scenes ?? []).map((scene, index) => {

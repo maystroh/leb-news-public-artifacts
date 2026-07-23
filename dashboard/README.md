@@ -46,8 +46,11 @@ Other commands:
      HTMLs, images, MP4s, and prompts are clickable
    - a Run/Verify button and a collapsible live log showing only that step's output
 3. Manual steps:
-   - **Step 5 (closing image):** generate the image yourself from the prompt,
-     save it as `output/final_summary_generated.png`, press **Verify image**.
+   - **Steps 4–5 (closing image):** optional/non-blocking. Generate the prompt
+     and start the image yourself, then continue the rest of the workflow. If
+     `output/final_summary_generated.png` exists during a build it is wired into
+     the closing scene; otherwise the build uses the dark fallback. Press
+     **Verify image** only when you want to check whether the file is in place.
    - **Step 9 (HTML review):** open the four HTML links, then **Mark reviewed**.
      The flag goes stale automatically if outputs are rebuilt afterwards.
 4. Server steps (11–14) run rsync/ssh against the render server and stream
@@ -56,10 +59,11 @@ Other commands:
    one final MP4, both actions are available. Step 15 splits whichever final MP4
    variants you select. Step 16 can run before splitting; _Generate social
    captions (Codex)_ writes an editable `output/social-captions.json`
-   (per-clip Instagram captions/hashtags, one YouTube description, one YouTube
-   thumbnail-generation prompt), then extracts the thumbnail prompt to
+   (per-clip Instagram captions/hashtags, one YouTube description, a two-post X
+   thread where post 1 starts with `الصحافة اليوم` and stays under 275 characters,
+   one YouTube thumbnail-generation prompt), then extracts the thumbnail prompt to
    `output/youtube-thumbnail-prompt.md`. The **Post now** panel appears below the numbered steps and uses
-   the same JSON with the final MP4s and split clips.
+   the same JSON with the final MP4s, YouTube Studio, and the Radar Beirut X account.
 6. Only one run can be active per date at a time.
 
 ## Creating a date from the data server (remote-sync)

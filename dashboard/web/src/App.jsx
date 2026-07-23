@@ -97,6 +97,27 @@ export default function App() {
     }
   };
 
+  const cancelRun = async () => {
+    try {
+      await api('/api/cancel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date})
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const cancelAllRuns = async () => {
+    try {
+      await api('/api/cancel-all', {method: 'POST'});
+      await refresh(date);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const saveBriefing = async (content) => {
     try {
       await api('/api/briefing/corrected', {
@@ -197,6 +218,9 @@ export default function App() {
           <button className="new-date-btn" onClick={createToday}>
             + New date (today)
           </button>
+          <button className="new-date-btn stop-all-btn" onClick={cancelAllRuns}>
+            Stop all tasks
+          </button>
           <select value={date || ''} onChange={(event) => setDate(event.target.value)}>
             {dates.map((value) => (
               <option key={value} value={value}>
@@ -228,6 +252,7 @@ export default function App() {
                 busy={busy}
                 running={data.activeRun?.stepId === step.id}
                 onRun={(actionId, options) => runStep(step.id, actionId, options)}
+                onCancel={data.activeRun?.stepId === step.id ? cancelRun : null}
                 onReview={step.id === 'html-review' ? setReviewed : null}
                 onOpenDuel={step.id === 'html-review' ? openDuelPage : null}
                 briefing={step.id === 'remote-pull' ? data.correctedBriefing : null}

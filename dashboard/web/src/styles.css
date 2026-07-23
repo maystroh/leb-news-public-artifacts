@@ -81,6 +81,16 @@ body {
   background: #388bfd;
 }
 
+.stop-all-btn {
+  background: #351719;
+  border-color: #8b2c2c;
+  color: #ffb4b4;
+}
+
+.stop-all-btn:hover {
+  background: #4a2023;
+}
+
 select {
   background: var(--panel);
   color: var(--text);
@@ -130,6 +140,9 @@ select {
 }
 .card.status-running {
   border-left-color: var(--blue);
+}
+.card.status-cancelled {
+  border-left-color: var(--amber);
 }
 .card.status-stale,
 .card.status-attention {
@@ -187,6 +200,10 @@ select {
 }
 .badge-running {
   background: var(--blue);
+}
+.badge-cancelled {
+  background: var(--amber);
+  color: #1c1500;
 }
 .badge-stale,
 .badge-attention {
@@ -538,6 +555,22 @@ select {
   min-height: 160px;
   resize: vertical;
   line-height: 1.6;
+}
+
+.x-thread-post {
+  margin-bottom: 12px;
+}
+
+.x-thread-post textarea {
+  min-height: 110px;
+}
+
+.x-poll-options {
+  margin-top: 8px;
+}
+
+.x-poll-options .copy-row {
+  margin-bottom: 6px;
 }
 
 .file-path {
@@ -952,4 +985,208 @@ select {
   50% {
     opacity: 0.3;
   }
+}
+
+/* --- Post-performance tracker (?view=metrics) --- */
+.metrics-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.metrics-seed,
+.agg-card,
+.metric-row {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.seed-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.seed-controls select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.platform-checks {
+  display: flex;
+  gap: 8px;
+}
+
+.platform-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.platform-check.on {
+  border-color: var(--blue);
+  color: var(--text);
+}
+
+.scorecard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.score-tile {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.score-tile.win {
+  border-color: var(--green);
+}
+
+.score-num {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.score-label {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.aggregates {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agg-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.agg-table th,
+.agg-table td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.agg-table th:first-child,
+.agg-table td.agg-key {
+  text-align: left;
+}
+
+.agg-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.agg-table .agg-strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.agg-table tr.has-breakout td {
+  background: rgba(46, 160, 67, 0.08);
+}
+
+.metric-row {
+  margin-bottom: 12px;
+}
+
+.metric-row.pending {
+  border-left: 3px solid var(--amber);
+}
+
+.metric-row.filled {
+  border-left: 3px solid var(--green);
+}
+
+.metric-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.metric-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+.metric-tags .tag {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.metric-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.metric-field input,
+.metric-extra input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.metric-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.metric-extra .metric-url {
+  flex: 1 1 200px;
+}
+
+.metric-extra .metric-note {
+  flex: 2 1 280px;
+}
+
+.collapsible {
+  cursor: pointer;
+  user-select: none;
 }

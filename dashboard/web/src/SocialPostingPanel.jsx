@@ -18,6 +18,8 @@ export default function SocialPostingPanel({social}) {
   const variants = social?.variants || [];
   const active = variants[variantIndex] || variants[0] || null;
   const youtube = social?.youtube || {};
+  const x = social?.x || {};
+  const xPosts = x.posts || [];
 
   return (
     <section className="social-panel">
@@ -29,6 +31,9 @@ export default function SocialPostingPanel({social}) {
         <div className="platform-links">
           <a className="btn" href="https://studio.youtube.com" target="_blank" rel="noreferrer">
             YouTube Studio
+          </a>
+          <a className="btn" href={x.accountUrl || 'https://x.com/RadarBeirut'} target="_blank" rel="noreferrer">
+            Post now X
           </a>
         </div>
         {variants.length > 1 && (
@@ -78,6 +83,54 @@ export default function SocialPostingPanel({social}) {
             {copied === 'yt-all' ? 'Copied' : 'Copy YouTube text'}
           </button>
           {active?.fullVideo?.path && <p className="file-path">{active.fullVideo.path}</p>}
+        </div>
+
+        <div className="publish-card">
+          <div className="publish-card-head">
+            <h3>X thread</h3>
+            <div className="story-actions">
+              <a className="btn" href={x.accountUrl || 'https://x.com/RadarBeirut'} target="_blank" rel="noreferrer">
+                Open X
+              </a>
+            </div>
+          </div>
+          {xPosts.length > 0 && (
+            <p className="hint">
+              Chain, top to bottom: publish the hook, then each next box replies to the post directly above it (never to post 1) — that keeps it one “Show this thread” unit.
+            </p>
+          )}
+          {xPosts.map((post, index) => (
+            <div className="x-thread-post" key={post.id || index}>
+              <label>{post.label || `Post ${index + 1}`}</label>
+              {post.hint && <p className="hint">{post.hint}</p>}
+              <textarea readOnly value={post.text || ''} />
+              <button className="btn primary" onClick={() => copyText(post.copyText || post.text, setCopied, `x-${index}`)}>
+                {copied === `x-${index}` ? 'Copied' : `Copy ${post.label || `post ${index + 1}`}`}
+              </button>
+              {(post.poll || []).length > 0 && (
+                <div className="x-poll-options">
+                  <label>Poll options — X blocks polls in replies; post a standalone evening poll (question text + these options, 1 day)</label>
+                  {post.poll.map((option, optionIndex) => (
+                    <div className="copy-row" key={optionIndex}>
+                      <input readOnly value={option} />
+                      <button
+                        className="btn"
+                        onClick={() => copyText(option, setCopied, `x-${index}-poll-${optionIndex}`)}
+                      >
+                        {copied === `x-${index}-poll-${optionIndex}` ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {xPosts.length > 1 && (
+            <button className="btn" onClick={() => copyText(x.copyText, setCopied, 'x-all')}>
+              {copied === 'x-all' ? 'Copied' : 'Copy full X thread'}
+            </button>
+          )}
+          {!xPosts.length && <p className="hint warn">X thread is missing. Run step 16: Generate social captions.</p>}
         </div>
       </div>
     </section>

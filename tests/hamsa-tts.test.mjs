@@ -83,8 +83,11 @@ test('shouldTryNextVoice: retry transient/not-found, stop on auth/credits/rate',
   assert.equal(shouldTryNextVoice(new Error('totally unrelated')), false);
 });
 
-test('getRealtimeTtsSpeaker prefers env id, else normalized name', () => {
+test('getRealtimeTtsSpeaker prefers any resolved id, else normalized name', () => {
   assert.equal(getRealtimeTtsSpeaker({source: 'env', id: 'voice_123'}, 'Lamees'), 'voice_123');
+  // Catalog voices carry an id too — pin it so the realtime endpoint uses the
+  // exact dialect-filtered voice instead of re-resolving the ambiguous name.
+  assert.equal(getRealtimeTtsSpeaker({source: 'catalog', id: 'voice_abc', name: 'Marwan'}, 'Lamees'), 'voice_abc');
   assert.equal(getRealtimeTtsSpeaker({source: 'catalog', name: '  Nabil  '}, 'Lamees'), 'Nabil');
 });
 

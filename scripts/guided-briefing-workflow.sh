@@ -177,18 +177,35 @@ const manifestPath = path.join(folder, 'audio', 'manifest.json');
 if (!fs.existsSync(briefingPath) || !fs.existsSync(manifestPath)) process.exit(0);
 const briefing = JSON.parse(fs.readFileSync(briefingPath, 'utf8'));
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-const closingScene = (briefing.scenes || []).find((scene) => scene.id === 'scene-11');
-const closingEntry = (manifest.entries || []).find((entry) => entry.sceneId === 'scene-11');
+const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const suffix = '... وهيك منوصل لسؤال اليوم';
+const legacySuffix = '.. ... وهيك منوصل لسؤال اليوم';
+const withQuestionHandoffSuffix = (text) => {
+  let normalized = normalize(text);
+  if (!normalized) return normalized;
+  for (const item of [legacySuffix, suffix]) {
+    if (normalized.endsWith(item)) {
+      normalized = normalize(normalized.slice(0, -item.length));
+      break;
+    }
+  }
+  return normalize(normalized.replace(/(?:\s*[.…]{2,})+$/u, '')) + ' ' + suffix;
+};
+const scenes = briefing.scenes || [];
+const closingScene = briefing.outro && scenes.length ? scenes[scenes.length - 1] : null;
+const closingEntry = closingScene ? (manifest.entries || []).find((entry) => entry.sceneId === closingScene.id) : null;
 const overridesPath = path.join(folder, 'audio', 'text-overrides.json');
-const overrides = fs.existsSync(overridesPath) ? JSON.parse(fs.readFileSync(overridesPath, 'utf8')) : {};
-const overrideText = String(overrides['scene-11'] || '').replace(/\s+/g, ' ').trim();
-const expectedAudioText = overrideText || String(closingScene.audioText || closingScene.body || '').replace(/\s+/g, ' ').trim();
-const manifestText = String(closingEntry && closingEntry.text || '').replace(/\s+/g, ' ').trim();
+const rawOverrides = fs.existsSync(overridesPath) ? JSON.parse(fs.readFileSync(overridesPath, 'utf8')) : {};
+const overrides = rawOverrides && rawOverrides.overrides && typeof rawOverrides.overrides === 'object' ? rawOverrides.overrides : rawOverrides;
+const overrideEntry = closingScene ? overrides[closingScene.id] : null;
+const overrideText = normalize(typeof overrideEntry === 'string' ? overrideEntry : overrideEntry && overrideEntry.text);
+const expectedAudioText = withQuestionHandoffSuffix(overrideText || (closingScene && (closingScene.audioText || closingScene.body)));
+const manifestText = normalize(closingEntry && closingEntry.text);
 if (!closingScene || !closingEntry || expectedAudioText === manifestText || !closingEntry.audioPath) process.exit(0);
 const audioPath = path.resolve(process.cwd(), closingEntry.audioPath);
 if (!fs.existsSync(audioPath)) process.exit(0);
 const backupPath = path.join(path.dirname(audioPath), path.basename(audioPath, path.extname(audioPath)) + '.stale-before-regeneration' + path.extname(audioPath));
-console.log(audioPath + '\t' + backupPath);
+console.log(audioPath + '\t' + backupPath + '\t' + closingScene.id);
 " "$folder" "$output_folder"
   )"
 
@@ -198,10 +215,12 @@ console.log(audioPath + '\t' + backupPath);
 
   local audio_path backup_path
   audio_path="${stale_audio%%$'\t'*}"
-  backup_path="${stale_audio#*$'\t'}"
+  local remainder="${stale_audio#*$'\t'}"
+  backup_path="${remainder%%$'\t'*}"
+  local closing_scene_id="${remainder#*$'\t'}"
 
   printf '\nDetected stale closing-scene audio after the latest briefing build.\n'
-  printf 'Moving old WAV aside so Hamsa regenerates scene-11 from the summary-only audio text:\n'
+  printf 'Moving old WAV aside so Hamsa regenerates %s from the summary-only audio text:\n' "$closing_scene_id"
   printf '  %s\n  -> %s\n' "$audio_path" "$backup_path"
   mv "$audio_path" "$backup_path"
 }
@@ -739,7 +758,7 @@ EOF
 
   cat <<EOF
 
-Manual action required.
+Manual action can run in parallel.
 
 Open this prompt file:
   $summary_prompt_path
@@ -748,10 +767,10 @@ Run that prompt manually in Codex/ChatGPT image generation.
 Save the generated image exactly as:
   $output_folder/final_summary_generated.png
 
-The first HTML build will include this image in the closing summary scene.
+The workflow will continue immediately. If the image is not present during a
+build, the closing summary scene uses the dark fallback. After the image is
+saved, rerun the build/review steps to include it.
 EOF
-
-  wait_for_file "$output_folder/final_summary_generated.png" "Run the summary image prompt manually, then save the generated image as output/final_summary_generated.png."
 
   section "Step 5: Build First Draft HTML, Generate Briefing Audio, And Sync Timings"
   printf 'Running:\n  npm run briefing:build:folder -- --folder %s\n' "$folder"

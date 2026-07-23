@@ -8,7 +8,8 @@ import {loadState, saveState} from './lib/state.mjs';
 const normalize = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
 const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
-const SCENE_11_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
+const QUESTION_HANDOFF_AUDIO_SUFFIX = '... وهيك منوصل لسؤال اليوم';
+const LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
 
 const overridesPath = (ctx) => path.join(ctx.audioDir, 'text-overrides.json');
 
@@ -43,9 +44,9 @@ const removeScene2OutletHandoff = (text, outletName) => {
   if (!outletName) return cleaned;
   const outletPattern = escapeRegExp(outletName);
   const patterns = [
-    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
-    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
-    new RegExp(`^${outletPattern}\\s*[،,]\\s*`)
+    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[.،,]?\\s*`),
+    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[.،,]?\\s*`),
+    new RegExp(`^${outletPattern}\\s*[.،,]?\\s*`)
   ];
 
   for (const pattern of patterns) {
@@ -72,15 +73,26 @@ const ensureScene2AudioPrefix = (scene, text) => {
   return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
 };
 
-const ensureScene11QuestionHandoffSuffix = (scene, text) => {
-  const normalized = normalize(text);
-  if (scene.id !== 'scene-11' || !normalized || normalized.endsWith(SCENE_11_AUDIO_SUFFIX)) {
+const isQuestionHandoffScene = (scene) => scene?.questionHandoff === true || scene?.id === 'scene-11';
+
+const ensureQuestionHandoffSuffix = (scene, text) => {
+  let normalized = normalize(text);
+  if (!isQuestionHandoffScene(scene) || !normalized) {
     return normalized;
   }
-  return `${normalized} ${SCENE_11_AUDIO_SUFFIX}`;
+
+  for (const suffix of [LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX, QUESTION_HANDOFF_AUDIO_SUFFIX]) {
+    if (normalized.endsWith(suffix)) {
+      normalized = normalize(normalized.slice(0, -suffix.length));
+      break;
+    }
+  }
+
+  const withoutStackedPause = normalize(normalized.replace(/(?:\s*[.…]{2,})+$/u, ''));
+  return `${withoutStackedPause} ${QUESTION_HANDOFF_AUDIO_SUFFIX}`;
 };
 
-const materializeSceneAudioText = (scene, text) => ensureScene11QuestionHandoffSuffix(
+const materializeSceneAudioText = (scene, text) => ensureQuestionHandoffSuffix(
   scene,
   ensureScene2AudioPrefix(scene, text)
 );
@@ -190,8 +202,13 @@ export function saveDuelTextOverride(ctx, duelId, text) {
 function narrationScenes(ctx) {
   const briefing = readJsonSafe(path.join(ctx.output, 'briefing.json'));
   if (!briefing) return [];
+  const briefingScenes = briefing.scenes || [];
   const scenes = [
-    ...(briefing.scenes || []).map((scene) => ({...scene, segmentType: 'scene'})),
+    ...briefingScenes.map((scene, index) => ({
+      ...scene,
+      segmentType: 'scene',
+      questionHandoff: Boolean(briefing.outro && index === briefingScenes.length - 1)
+    })),
     briefing.outro
       ? {
           id: 'outro',

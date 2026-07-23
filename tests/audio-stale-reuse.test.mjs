@@ -53,7 +53,7 @@ const runAudio = (folder, args = ['--existing-only']) => {
 
 const runAudioExistingOnly = (folder) => runAudio(folder);
 
-const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
+const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3', outro = null}) => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'radar-audio-stale-'));
   const audioDir = path.join(folder, 'audio');
   const outputDir = path.join(folder, 'output');
@@ -77,7 +77,7 @@ const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
         }
       }
     ],
-    outro: null
+    outro
   }, null, 2));
   fs.writeFileSync(path.join(audioDir, 'manifest.json'), JSON.stringify({
     entries: [
@@ -237,7 +237,29 @@ const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
   const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'audio', 'manifest.json'), 'utf8'));
   assert.equal(
     manifest.entries[0].text,
-    'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط. .. ... وهيك منوصل لسؤال اليوم'
+    'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط. ... وهيك منوصل لسؤال اليوم'
+  );
+}
+
+{
+  const currentText = 'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط.';
+  const {folder} = createBriefingFolder({
+    oldText: currentText,
+    currentText,
+    sceneId: 'scene-10',
+    outro: {
+      title: 'السؤال المفتوح',
+      body: 'هل يستطيع لبنان تحويل الانسحاب إلى استعادة دولة؟',
+      durationSeconds: 6
+    }
+  });
+
+  runAudio(folder, ['--dry-run']);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'audio', 'manifest.json'), 'utf8'));
+  assert.equal(
+    manifest.entries[0].text,
+    'خلاصة المشهد تقول إن الانقسام لم يعد بين حرب وسلم فقط. ... وهيك منوصل لسؤال اليوم'
   );
 }
 
@@ -257,7 +279,7 @@ const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
     overrides: {
       'scene-11': {
         text: overrideText,
-        defaultTextHash: textFingerprint(`${currentText} .. ... وهيك منوصل لسؤال اليوم`)
+        defaultTextHash: textFingerprint(`${currentText} ... وهيك منوصل لسؤال اليوم`)
       }
     }
   }, null, 2));
@@ -265,6 +287,6 @@ const createBriefingFolder = ({oldText, currentText, sceneId = 'scene-3'}) => {
   runAudio(folder, ['--dry-run']);
 
   const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'audio', 'manifest.json'), 'utf8'));
-  assert.equal(manifest.entries[0].text, `${overrideText} .. ... وهيك منوصل لسؤال اليوم`);
+  assert.equal(manifest.entries[0].text, `${overrideText} ... وهيك منوصل لسؤال اليوم`);
   assert.equal(manifest.entries[0].textSource, 'override');
 }

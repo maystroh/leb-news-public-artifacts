@@ -174,7 +174,8 @@ const findLatestBriefingFolder = (cwd) => {
 const normalizeSpacing = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 const SCENE_2_GREETING_PREFIX = 'صباح الخير من رادار بيروت';
 const SCENE_2_AUDIO_PREFIX = 'صباح الخير من رادار بيروت؛ بملخص الصحافة اليوم منبلش من';
-const SCENE_11_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
+const QUESTION_HANDOFF_AUDIO_SUFFIX = '... وهيك منوصل لسؤال اليوم';
+const LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
 
 const parseList = (value) => String(value ?? '')
   .split(',')
@@ -246,9 +247,9 @@ const removeScene2OutletHandoff = (text, outletName) => {
   if (!outletName) return cleaned;
   const outletPattern = escapeRegExp(outletName);
   const patterns = [
-    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
-    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[،,]\\s*`),
-    new RegExp(`^${outletPattern}\\s*[،,]\\s*`)
+    new RegExp(`^نبدأ\\s+من\\s+${outletPattern}\\s*[.،,]?\\s*`),
+    new RegExp(`^منبلش\\s+من\\s+${outletPattern}\\s*[.،,]?\\s*`),
+    new RegExp(`^${outletPattern}\\s*[.،,]?\\s*`)
   ];
 
   for (const pattern of patterns) {
@@ -275,15 +276,26 @@ const ensureScene2AudioPrefix = (scene, text) => {
   return `${SCENE_2_AUDIO_PREFIX} ${outletName}${withoutHandoff ? `، ${withoutHandoff}` : ''}`;
 };
 
-const ensureScene11QuestionHandoffSuffix = (scene, text) => {
-  const normalized = normalizeSpacing(text);
-  if (scene.id !== 'scene-11' || !normalized || normalized.endsWith(SCENE_11_AUDIO_SUFFIX)) {
+const isQuestionHandoffScene = (scene) => scene?.questionHandoff === true || scene?.id === 'scene-11';
+
+const ensureQuestionHandoffSuffix = (scene, text) => {
+  let normalized = normalizeSpacing(text);
+  if (!isQuestionHandoffScene(scene) || !normalized) {
     return normalized;
   }
-  return `${normalized} ${SCENE_11_AUDIO_SUFFIX}`;
+
+  for (const suffix of [LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX, QUESTION_HANDOFF_AUDIO_SUFFIX]) {
+    if (normalized.endsWith(suffix)) {
+      normalized = normalizeSpacing(normalized.slice(0, -suffix.length));
+      break;
+    }
+  }
+
+  const withoutStackedPause = normalizeSpacing(normalized.replace(/(?:\s*[.…]{2,})+$/u, ''));
+  return `${withoutStackedPause} ${QUESTION_HANDOFF_AUDIO_SUFFIX}`;
 };
 
-const materializeSceneAudioText = (scene, text) => ensureScene11QuestionHandoffSuffix(
+const materializeSceneAudioText = (scene, text) => ensureQuestionHandoffSuffix(
   scene,
   ensureScene2AudioPrefix(scene, text)
 );
@@ -464,7 +476,11 @@ const resolveHamsaVoice = async ({apiKey, speaker, dialect}) => {
 };
 
 const getRealtimeTtsSpeaker = (voice, fallbackSpeaker) => {
-  if (voice.source === 'env' && voice.id) {
+  // Prefer the resolved voice ID (catalog or env). The catalog lookup already
+  // filtered by dialect, so the ID pins the exact voice the Hamsa website uses.
+  // Passing the bare name lets the realtime endpoint re-resolve "Marwan"
+  // ambiguously (wrong accent). Fall back to the name only when no ID exists.
+  if (voice.id) {
     return voice.id;
   }
 
@@ -497,10 +513,12 @@ if (!fs.existsSync(briefingPath)) {
 }
 
 const briefing = JSON.parse(fs.readFileSync(briefingPath, 'utf8'));
+const briefingScenes = briefing.scenes ?? [];
 const audioScenes = [
-  ...(briefing.scenes ?? []).map((scene) => ({
+  ...briefingScenes.map((scene, index) => ({
     ...scene,
-    segmentType: 'scene'
+    segmentType: 'scene',
+    questionHandoff: Boolean(briefing.outro && index === briefingScenes.length - 1)
   })),
   briefing.outro
     ? {

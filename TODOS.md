@@ -29,3 +29,25 @@ Deferred work captured during reviews. Each item has enough context to pick up c
   render/mux/split. Unlike the original A3 scope (full-reel only), the hook is prepended to EVERY
   output (full reel + each short) per product decision, and is A/B-testable across variants.
   See the "Quote Duel Video Pipeline" section in CLAUDE.md.
+
+## X (Twitter) daily thread — deferred automation
+
+### 4. Evening standalone poll post
+- **What:** Step 16 generates `x.posts[].poll` options (question post), but X blocks polls in
+  replies, so the poll must be a standalone post. Decision for now: post the thread once a day
+  (morning), skip the evening poll entirely.
+- **Pick up:** either post the poll manually as a standalone evening post (question text + the
+  generated options, 1-day duration), or fold it into item 5 (the API can create polls via
+  `poll.options` + `duration_minutes` on POST /2/tweets, and can be scheduled with cron).
+
+### 5. Post the X thread by code (official API, NOT session cookies)
+- **What:** `scripts/post-x-thread.mjs` — read the day's `output/social-captions.json`, upload
+  the duel/scene MP4 natively (v1.1 chunked media upload), post the hook, then chain each
+  faultline/question/link post as a reply to the previous post id; print the thread URL. Add a
+  dashboard button in the Post now panel.
+- **Prereq (user):** create a free developer app on the @RadarBeirut account at developer.x.com;
+  keys go in `.env` as `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_SECRET`.
+  Free tier (~500 posts/month) covers a 6-post daily thread.
+- **Decision context:** browser session-cookie replay was considered and rejected — suspension
+  risk on the primary distribution account, token rotation fragility, ToS violation. The API
+  provides the identical capability sanctioned (including polls, for item 4).

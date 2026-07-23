@@ -360,6 +360,79 @@ To rebuild HTML from an already-edited `output/briefing.json` without losing man
 ## Closing Image Workflow
 
 1. `npm run briefing:image:prompt -- --folder briefings/YYYY-MM-DD` → writes image prompt to `output/`
-2. Generate image in Codex/ChatGPT, save as `output/final_summary_generated.png`
-3. `npm run briefing:build:folder` auto-wires it into `scene-11` via `scene.media`
-4. Do not include "safe space in upper third" instruction in the image prompt
+2. Generate image in Codex/ChatGPT when convenient, save as `output/final_summary_generated.png`
+3. Do not block later workflow steps on image generation; builds continue with the dark fallback until the PNG exists
+4. `npm run briefing:build:folder` auto-wires it into `scene-11` via `scene.media` when present
+5. Do not include "safe space in upper third" instruction in the image prompt
+
+## June 26 2026 Session Memory
+
+### Built Together
+
+- Added Quote Duel step 25: `Quote Duel: social text + reel cover prompts`
+  - build prompt: `npm run briefing:duel:social-prompts -- --folder briefings/YYYY-MM-DD`
+  - validate: `npm run briefing:duel:social-prompts:validate -- --folder briefings/YYYY-MM-DD`
+- Added:
+  - `scripts/build-duel-social-prompts-prompt.mjs`
+  - `scripts/validate-duel-social-prompts.mjs`
+  - `tests/duel-social-prompts.test.mjs`
+- Duel dashboard now supports copy-ready per-duel publishing text and per-duel 9:16 vertical cover prompts.
+- Duel dashboard state uses `view=duel`; duel run requests also include `{ view: "duel" }`.
+- Step 16 is now view-specific:
+  - main dashboard: main briefing social captions + YouTube thumbnail prompt
+  - duel dashboard: Quote Duel social captions
+  - per-duel reel/short cover prompts are Step 25, not the main Post now panel
+- Main dashboard no longer treats Instagram/Reel cover prompt generation as part of the main briefing social package.
+- Added scene-11 audio handoff suffix:
+  - `... وهيك منوصل لسؤال اليوم`
+  - used by dashboard audio editing and `audio/generate-outlet-audio.mjs`
+  - saved scene-11 overrides are materialized with the suffix
+- Quote Duel mux/download improvements:
+  - `scripts/mux-quote-duel-audio.mjs` supports `--duel`
+  - selected duel mux writes/updates a local manifest
+  - dashboard download excludes server-side `muted/` intermediates
+- Dashboard server now rebuilds Vite output when dashboard web source is newer than `dashboard/web/dist/index.html`.
+
+### Quote Duel Social Prompt Rules
+
+- `output/quote-duel-social-prompts.json` is seeded as a draft; the placeholder prompt is intentionally incomplete.
+- Final generated JSON must have one entry per duel id and fill:
+  - `title`
+  - `description`
+  - non-empty `hashtags`
+  - `reelCoverPrompt`
+- `draft: true` means the file is not ready.
+- Every `reelCoverPrompt` must explicitly request `9:16`.
+- Do not leave prompts as only:
+  - `Create a 9:16 social media reel/short cover for Radar Beirut and save it as ...`
+- Final prompts should be copy-ready image prompts with:
+  - exact output path
+  - Radar Beirut dark Beirut map/radar look
+  - orange radar sweep
+  - split quote-duel layout
+  - specific duel argument, outlet names, stances, and short quotes
+  - safe margins for Reels, Shorts, TikTok
+  - no exact outlet logos unless source assets are provided
+
+### Generated Output Caveat
+
+- `briefings/` is ignored by Git.
+- Date-specific generated files under `briefings/YYYY-MM-DD/output/` are local artifacts by default.
+- The filled `briefings/2026-06-26/output/quote-duel-social-prompts.json` was validated locally, but was not committed because `briefings/` is ignored.
+- To preserve generated prompt content in Git, move the reusable logic into source scripts/tests/docs or intentionally change ignore rules.
+
+### Errors And Lessons
+
+- `npm test` can fail inside the managed sandbox when tests spawn child Node processes through NVM `process.execPath`.
+  - symptom: `spawnSync ... EPERM`
+  - test symptom: empty stdout then `SyntaxError: Unexpected end of JSON input`
+  - fix: rerun `npm test` with escalated permissions
+  - verified: `77/77` tests passed after escalation
+- Git staging can fail in the sandbox:
+  - symptom: `fatal: Unable to create ... .git/index.lock: Read-only file system`
+  - fix: run `git add`, `git commit`, and `git push` with approved escalation
+- Commit/push from the session:
+  - branch: `main`
+  - remote: `origin/main`
+  - commit: `5a4ee07`
+  - message: `Add Quote Duel social prompt workflow`

@@ -200,19 +200,51 @@ export function outputDurationSummaryLines(outputFolder) {
 }
 
 const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const QUESTION_HANDOFF_AUDIO_SUFFIX = '... وهيك منوصل لسؤال اليوم';
+const LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX = '.. ... وهيك منوصل لسؤال اليوم';
+
+const normalizeOverrideStore = (raw) => {
+  if (!raw || typeof raw !== 'object') return {};
+  return raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : raw;
+};
+
+const overrideTextForScene = (overrides, sceneId) => {
+  const entry = overrides?.[sceneId];
+  if (typeof entry === 'string') return normalize(entry);
+  if (!entry || typeof entry !== 'object') return '';
+  return normalize(entry.text);
+};
+
+const withQuestionHandoffSuffix = (text) => {
+  let normalized = normalize(text);
+  if (!normalized) return normalized;
+  for (const suffix of [LEGACY_QUESTION_HANDOFF_AUDIO_SUFFIX, QUESTION_HANDOFF_AUDIO_SUFFIX]) {
+    if (normalized.endsWith(suffix)) {
+      normalized = normalize(normalized.slice(0, -suffix.length));
+      break;
+    }
+  }
+  const withoutStackedPause = normalize(normalized.replace(/(?:\s*[.…]{2,})+$/u, ''));
+  return `${withoutStackedPause} ${QUESTION_HANDOFF_AUDIO_SUFFIX}`;
+};
 
 // Port of move_stale_closing_audio_if_needed from guided-briefing-workflow.sh:
-// if briefing.json's scene-11 audio text drifted from what the manifest WAV was
+// if briefing.json's closing-scene audio text drifted from what the manifest WAV was
 // generated with, move the old WAV aside so the next audio run regenerates it.
 export function moveStaleClosingAudioIfNeeded(ctx, emit) {
   const briefing = readJsonSafe(path.join(ctx.output, 'briefing.json'));
   const manifest = readJsonSafe(path.join(ctx.audioDir, 'manifest.json'));
   if (!briefing || !manifest) return false;
-  const closingScene = (briefing.scenes || []).find((scene) => scene.id === 'scene-11');
-  const closingEntry = (manifest.entries || []).find((entry) => entry.sceneId === 'scene-11');
+  const scenes = briefing.scenes || [];
+  const closingScene = briefing.outro && scenes.length ? scenes[scenes.length - 1] : null;
+  const closingEntry = closingScene
+    ? (manifest.entries || []).find((entry) => entry.sceneId === closingScene.id)
+    : null;
   if (!closingScene || !closingEntry || !closingEntry.audioPath) return false;
-  const overrides = readJsonSafe(path.join(ctx.audioDir, 'text-overrides.json')) || {};
-  const expected = normalize(overrides['scene-11']) || normalize(closingScene.audioText || closingScene.body);
+  const overrides = normalizeOverrideStore(readJsonSafe(path.join(ctx.audioDir, 'text-overrides.json')));
+  const expected = withQuestionHandoffSuffix(
+    overrideTextForScene(overrides, closingScene.id) || closingScene.audioText || closingScene.body
+  );
   const manifestText = normalize(closingEntry.text);
   if (expected === manifestText) return false;
   const audioPath = path.resolve(ctx.repoRoot, closingEntry.audioPath);
@@ -223,7 +255,7 @@ export function moveStaleClosingAudioIfNeeded(ctx, emit) {
     `${path.basename(audioPath, ext)}.stale-before-regeneration${ext}`
   );
   emit('Detected stale closing-scene audio after the latest briefing build.');
-  emit('Moving old WAV aside so Hamsa regenerates scene-11 from the summary-only audio text:');
+  emit(`Moving old WAV aside so Hamsa regenerates ${closingScene.id} from the summary-only audio text:`);
   emit(`  ${audioPath}`);
   emit(`  -> ${backupPath}`);
   fs.renameSync(audioPath, backupPath);

@@ -127,7 +127,7 @@ What it gives you:
 
 - A date dropdown listing every `briefings/YYYY-MM-DD` folder (newest first).
 - One card per workflow step (asset check → Codex handoff → Codex AFK →
-  closing image → builds → audio → timing sync → HTML review → server sync →
+  optional closing image → builds → audio → timing sync → HTML review → server sync →
   server render → mux → download → scene split), each with a Run button,
   its own live log, and the artifact files that matter for the next step.
 - Green/red/amber status per step, derived from the files on disk — reopening
@@ -329,6 +329,7 @@ output/final_summary_generated.png
 What happens:
 
 - the folder now contains a dedicated closing-scene poster image for the full editorial output
+- this is optional and does not block building, audio, analysis, or rendering
 
 ### Step 5: Rebuild The Folder Outputs
 
@@ -340,8 +341,8 @@ npm run briefing:build:folder -- --folder briefings/YYYY-MM-DD
 
 What happens:
 
-- `output/final_summary_generated.png` is auto-wired into `scene-11`
-- the closing scene can render the generated image even without outlet mapping
+- `output/final_summary_generated.png`, if present, is auto-wired into `scene-11`
+- if it is not present yet, the closing scene renders with the dark fallback
 - all four date-folder HTML outputs are rebuilt under `output/`
 
 ### Step 6: Generate Briefing Audio And Sync Timing
